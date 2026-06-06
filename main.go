@@ -78,9 +78,7 @@ func main() {
 	http.HandleFunc("/api/login", handleLogin)
 	http.HandleFunc("/api/search", handleSearch)
 	http.HandleFunc("/api/messages", handleGetMessages)
-
 	http.HandleFunc("/ws", handleConnections)
-
 	http.HandleFunc("/", serveHome)
 	http.HandleFunc("/chat", serveChat)
 
@@ -110,7 +108,6 @@ func createTables() {
 			chat_id INTEGER DEFAULT 1
 		)`,
 	}
-
 	for _, q := range queries {
 		_, err := db.Exec(q)
 		if err != nil {
@@ -136,49 +133,40 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
 	var req AuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Неверный формат данных"})
 		return
 	}
-
 	if req.Username == "" || req.Password == "" || req.Nickname == "" {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Все поля обязательны"})
 		return
 	}
-
 	if len(req.Username) < 3 {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Имя пользователя должно быть не менее 3 символов"})
 		return
 	}
-
 	if len(req.Password) < 6 {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Пароль должен быть не менее 6 символов"})
 		return
 	}
-
 	var existingID int
 	err := db.QueryRow("SELECT id FROM users WHERE username = ?", req.Username).Scan(&existingID)
 	if err == nil {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Пользователь уже существует"})
 		return
 	}
-
 	result, err := db.Exec("INSERT INTO users (username, nickname, password, email) VALUES (?, ?, ?, ?)",
 		req.Username, req.Nickname, req.Password, req.Email)
 	if err != nil {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Ошибка сохранения пользователя"})
 		return
 	}
-
 	userID, _ := result.LastInsertId()
 	token, _ := generateToken(req.Username, int(userID))
-
 	json.NewEncoder(w).Encode(AuthResponse{
-		Success: true,
-		Token:   token,
-		User:    &User{ID: int(userID), Nickname: req.Nickname, Username: req.Username, Email: req.Email},
+		Success: true, Token: token,
+		User: &User{ID: int(userID), Nickname: req.Nickname, Username: req.Username, Email: req.Email},
 	})
 }
 
@@ -187,13 +175,11 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
 	var req AuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Неверный формат данных"})
 		return
 	}
-
 	var user User
 	err := db.QueryRow("SELECT id, username, nickname, email FROM users WHERE username = ? AND password = ?",
 		req.Username, req.Password).Scan(&user.ID, &user.Username, &user.Nickname, &user.Email)
@@ -201,14 +187,8 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Неверный логин или пароль"})
 		return
 	}
-
 	token, _ := generateToken(user.Username, user.ID)
-
-	json.NewEncoder(w).Encode(AuthResponse{
-		Success: true,
-		Token:   token,
-		User:    &user,
-	})
+	json.NewEncoder(w).Encode(AuthResponse{Success: true, Token: token, User: &user})
 }
 
 func handleSearch(w http.ResponseWriter, r *http.Request) {
@@ -217,7 +197,6 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(SearchResponse{Success: false, Error: "Пустой запрос"})
 		return
 	}
-
 	rows, err := db.Query("SELECT id, username, nickname, email FROM users WHERE username LIKE ? OR nickname LIKE ? LIMIT 10",
 		"%"+query+"%", "%"+query+"%")
 	if err != nil {
@@ -225,18 +204,15 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
-
 	var users []User
 	for rows.Next() {
 		var u User
 		rows.Scan(&u.ID, &u.Username, &u.Nickname, &u.Email)
 		users = append(users, u)
 	}
-
 	if users == nil {
 		users = []User{}
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(SearchResponse{Success: true, Users: users})
 }
@@ -246,25 +222,21 @@ func handleGetMessages(w http.ResponseWriter, r *http.Request) {
 	if chatID == "" {
 		chatID = "1"
 	}
-
 	rows, err := db.Query("SELECT id, username, nickname, text, time FROM messages WHERE chat_id = ? ORDER BY id ASC LIMIT 100", chatID)
 	if err != nil {
 		http.Error(w, "Ошибка загрузки сообщений", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
-
 	var messages []Message
 	for rows.Next() {
 		var m Message
 		rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time)
 		messages = append(messages, m)
 	}
-
 	if messages == nil {
 		messages = []Message{}
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(messages)
 }
@@ -275,7 +247,6 @@ func generateToken(username string, userID int) (string, error) {
 		"user_id":  userID,
 		"exp":      time.Now().Add(720 * time.Hour).Unix(),
 	})
-
 	return token.SignedString(jwtSecret)
 }
 
@@ -285,22 +256,18 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return jwtSecret, nil
 	})
-
 	if err != nil || !token.Valid {
 		http.Error(w, "Invalid token", http.StatusUnauthorized)
 		return
 	}
-
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		http.Error(w, "Invalid claims", http.StatusUnauthorized)
 		return
 	}
-
 	username := claims["username"].(string)
 	nickname := getNickname(username)
 
@@ -316,7 +283,6 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	mu.Unlock()
 
 	log.Printf("%s подключился. Всего клиентов: %d", username, len(clients))
-
 	broadcastOnlineCount()
 
 	for {
@@ -330,17 +296,14 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			broadcastOnlineCount()
 			break
 		}
-
 		msg.Username = username
 		msg.Nickname = nickname
 		msg.Time = time.Now().Format("15:04")
 		if msg.ChatID == 0 {
 			msg.ChatID = 1
 		}
-
 		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id) VALUES (?, ?, ?, ?, ?)",
 			msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID)
-
 		broadcast <- msg
 	}
 }
@@ -350,7 +313,13 @@ func handleMessages() {
 		msg := <-broadcast
 		mu.Lock()
 		for client := range clients {
-			err := client.WriteJSON(msg)
+			err := client.WriteJSON(map[string]interface{}{
+				"username": msg.Username,
+				"nickname": msg.Nickname,
+				"text":     msg.Text,
+				"time":     msg.Time,
+				"chat_id":  msg.ChatID,
+			})
 			if err != nil {
 				log.Printf("Ошибка отправки: %v", err)
 				client.Close()
@@ -366,15 +335,13 @@ func broadcastOnlineCount() {
 	count := len(clients)
 	mu.Unlock()
 
-	msg := Message{
-		Username: "system",
-		Text:     fmt.Sprintf("%d", count),
-		Time:     "online",
-	}
-
 	mu.Lock()
 	for client := range clients {
-		client.WriteJSON(msg)
+		client.WriteJSON(map[string]interface{}{
+			"username": "system",
+			"text":     fmt.Sprintf("%d", count),
+			"time":     "online",
+		})
 	}
 	mu.Unlock()
 }
