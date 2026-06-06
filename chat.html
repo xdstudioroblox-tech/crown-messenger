@@ -116,7 +116,6 @@
             transition: all 0.3s;
         }
 
-        /* Выпадающее меню */
         .dropdown-menu {
             position: absolute;
             top: 100%;
@@ -174,7 +173,6 @@
             text-align: center;
         }
 
-        /* Переключатель темы */
         .theme-toggle {
             display: flex;
             align-items: center;
@@ -229,6 +227,7 @@
         .search-box {
             padding: 12px 16px;
             border-bottom: 1px solid var(--border);
+            position: relative;
         }
 
         .search-box input {
@@ -248,8 +247,37 @@
             box-shadow: 0 0 0 3px rgba(0, 153, 255, 0.06);
         }
 
-        .search-box input::placeholder {
-            color: var(--text-light);
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 16px;
+            right: 16px;
+            background: var(--main-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 50;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .search-results.show {
+            display: block;
+        }
+
+        .search-result-item {
+            padding: 10px 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: var(--text);
+        }
+
+        .search-result-item:hover {
+            background: var(--hover);
         }
 
         .chat-list {
@@ -463,25 +491,6 @@
         .send-btn:active {
             transform: scale(0.95);
         }
-
-        .empty-state {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-light);
-        }
-
-        .empty-state-icon {
-            font-size: 50px;
-            margin-bottom: 12px;
-        }
-
-        .empty-state-text {
-            font-size: 15px;
-            font-weight: 500;
-        }
     </style>
 </head>
 <body>
@@ -497,7 +506,6 @@
                     <span class="hamburger-line"></span>
                 </button>
                 
-                <!-- Выпадающее меню -->
                 <div class="dropdown-menu" id="dropdownMenu">
                     <button class="dropdown-item" onclick="showProfile()">
                         <span class="dropdown-icon">👤</span> Мой профиль
@@ -506,9 +514,7 @@
                         <span class="dropdown-icon">⚙️</span> Настройки
                     </button>
                     <div class="theme-toggle dropdown-item" onclick="event.stopPropagation()">
-                        <span>
-                            <span class="dropdown-icon">🌙</span> Ночная тема
-                        </span>
+                        <span><span class="dropdown-icon">🌙</span> Ночная тема</span>
                         <label class="switch">
                             <input type="checkbox" id="themeToggle" onchange="toggleTheme()">
                             <span class="slider"></span>
@@ -522,14 +528,16 @@
             </div>
             
             <div class="search-box">
-                <input type="text" placeholder="🔍 Поиск чатов...">
+                <input type="text" id="searchInput" placeholder="🔍 Поиск пользователей..." oninput="searchUsers()" onfocus="searchUsers()">
+                <div class="search-results" id="searchResults"></div>
             </div>
+
             <div class="chat-list">
                 <div class="chat-item active">
                     <div class="chat-avatar">💬</div>
                     <div class="chat-info">
                         <div class="chat-name">Общий чат</div>
-                        <div class="chat-last-message">Нажмите чтобы открыть</div>
+                        <div class="chat-last-message">Чат со всеми</div>
                     </div>
                 </div>
             </div>
@@ -541,13 +549,12 @@
                 <div class="chat-header-avatar">💬</div>
                 <div class="chat-header-info">
                     <h3>Общий чат</h3>
-                    <span id="onlineCount">0 участников онлайн</span>
+                    <span id="onlineCount">Загрузка...</span>
                 </div>
             </div>
             <div class="messages-area" id="messagesArea">
-                <div class="empty-state">
-                    <div class="empty-state-icon">👑</div>
-                    <div class="empty-state-text">Добро пожаловать в Crown Messenger!</div>
+                <div style="text-align: center; color: var(--text-light); padding: 20px;">
+                    Загрузка сообщений...
                 </div>
             </div>
             <div class="input-area">
@@ -562,8 +569,8 @@
         let nickname = "Пользователь";
         let ws;
         let onlineCount = 0;
+        let searchTimeout;
 
-        // Загружаем тему
         function loadTheme() {
             const savedTheme = localStorage.getItem('theme') || 'light';
             if (savedTheme === 'dark') {
@@ -574,33 +581,31 @@
 
         function toggleTheme() {
             const isDark = document.getElementById('themeToggle').checked;
-            if (isDark) {
-                document.body.classList.add('dark');
-                localStorage.setItem('theme', 'dark');
-            } else {
-                document.body.classList.remove('dark');
-                localStorage.setItem('theme', 'light');
-            }
+            document.body.classList.toggle('dark', isDark);
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
         }
 
-        // Меню
         function toggleMenu() {
-            const menu = document.getElementById('dropdownMenu');
-            menu.classList.toggle('show');
+            document.getElementById('dropdownMenu').classList.toggle('show');
         }
 
-        // Закрываем меню при клике вне
         document.addEventListener('click', function(e) {
             const menu = document.getElementById('dropdownMenu');
             const btn = document.getElementById('hamburgerBtn');
             if (!menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
                 menu.classList.remove('show');
             }
+            // Закрываем результаты поиска при клике вне
+            const searchRes = document.getElementById('searchResults');
+            const searchInp = document.getElementById('searchInput');
+            if (!searchRes.contains(e.target) && e.target !== searchInp) {
+                searchRes.classList.remove('show');
+            }
         });
 
         function showProfile() {
             document.getElementById('dropdownMenu').classList.remove('show');
-            alert(`👤 Профиль\n\nНикнейм: ${nickname}\nЛогин: ${username}\n\n(Полный профиль — в разработке)`);
+            alert(`👤 Профиль\n\nНикнейм: ${nickname}\nЛогин: ${username}`);
         }
 
         function showSettings() {
@@ -608,7 +613,68 @@
             alert('⚙️ Настройки — в разработке');
         }
 
-        // Загружаем данные пользователя
+        async function searchUsers() {
+            clearTimeout(searchTimeout);
+            const query = document.getElementById('searchInput').value.trim();
+            const resultsDiv = document.getElementById('searchResults');
+            
+            if (query.length < 2) {
+                resultsDiv.classList.remove('show');
+                return;
+            }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                    const data = await resp.json();
+                    
+                    resultsDiv.innerHTML = '';
+                    
+                    if (data.success && data.users.length > 0) {
+                        data.users.forEach(user => {
+                            const div = document.createElement('div');
+                            div.className = 'search-result-item';
+                            div.innerHTML = `<span style="font-size:18px;">👤</span> <span><b>${user.nickname}</b> <span style="color:var(--text-light);">@${user.username}</span></span>`;
+                            div.onclick = () => {
+                                alert(`Чат с ${user.nickname} — скоро будет доступен!`);
+                                document.getElementById('searchInput').value = '';
+                                resultsDiv.classList.remove('show');
+                            };
+                            resultsDiv.appendChild(div);
+                        });
+                        resultsDiv.classList.add('show');
+                    } else {
+                        resultsDiv.innerHTML = '<div class="search-result-item" style="color:var(--text-light);">Ничего не найдено</div>';
+                        resultsDiv.classList.add('show');
+                    }
+                } catch (err) {
+                    console.log('Ошибка поиска:', err);
+                }
+            }, 300);
+        }
+
+        async function loadMessages() {
+            try {
+                const resp = await fetch('/api/messages?chat_id=1');
+                const messages = await resp.json();
+                
+                const area = document.getElementById('messagesArea');
+                area.innerHTML = '';
+                
+                if (messages.length === 0) {
+                    area.innerHTML = '<div style="text-align:center; color:var(--text-light); padding:40px;">👑<br>Нет сообщений. Напишите первое!</div>';
+                } else {
+                    messages.forEach(msg => {
+                        addMessage(msg.username, msg.text, msg.time, false);
+                    });
+                    area.scrollTop = area.scrollHeight;
+                }
+            } catch (err) {
+                console.log('Ошибка загрузки:', err);
+                document.getElementById('messagesArea').innerHTML = '<div style="text-align:center; color:var(--text-light); padding:40px;">Ошибка загрузки сообщений</div>';
+            }
+        }
+
         function loadUser() {
             const token = localStorage.getItem('token');
             const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -621,6 +687,7 @@
             nickname = user.nickname || user.username || 'Пользователь';
             username = user.username || 'Пользователь';
             
+            loadMessages();
             connectWebSocket(token);
         }
 
@@ -632,16 +699,21 @@
 
             ws.onopen = function() {
                 console.log('Подключены к чату');
-                updateOnlineCount(1);
             };
 
             ws.onmessage = function(event) {
                 const msg = JSON.parse(event.data);
-                addMessage(msg.username, msg.text, msg.time);
+                
+                if (msg.Username === 'system' && msg.Time === 'online') {
+                    onlineCount = parseInt(msg.Text) || 0;
+                    document.getElementById('onlineCount').textContent = `${onlineCount} участников онлайн`;
+                    return;
+                }
+                
+                addMessage(msg.username, msg.text, msg.time, true);
             };
 
             ws.onclose = function() {
-                updateOnlineCount(-1);
                 setTimeout(() => connectWebSocket(token), 3000);
             };
 
@@ -650,15 +722,14 @@
             };
         }
 
-        function addMessage(sender, text, time) {
+        function addMessage(sender, text, time, animate) {
             const messagesArea = document.getElementById('messagesArea');
-            const emptyState = messagesArea.querySelector('.empty-state');
-            if (emptyState) emptyState.remove();
-
+            
             const msgDiv = document.createElement('div');
             const isMine = sender === username;
             
             msgDiv.className = isMine ? 'message mine' : 'message other';
+            if (!animate) msgDiv.style.animation = 'none';
             
             if (!isMine) {
                 msgDiv.innerHTML = `<div class="message-username">${sender}</div>${escapeHtml(text)}<div class="message-time">${time}</div>`;
@@ -676,9 +747,8 @@
             
             if (text && ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
-                    username: username,
                     text: text,
-                    time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+                    chat_id: 1
                 }));
                 input.value = '';
             }
@@ -686,11 +756,6 @@
 
         function handleKey(event) {
             if (event.key === 'Enter') sendMessage();
-        }
-
-        function updateOnlineCount(change) {
-            onlineCount = Math.max(0, onlineCount + change);
-            document.getElementById('onlineCount').textContent = `${onlineCount} участников онлайн`;
         }
 
         function logout() {
