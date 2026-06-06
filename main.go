@@ -65,7 +65,6 @@ type SearchResponse struct {
 }
 
 func main() {
-	// Инициализируем БД
 	var err error
 	db, err = sql.Open("sqlite3", "./crown.db")
 	if err != nil {
@@ -73,19 +72,15 @@ func main() {
 	}
 	defer db.Close()
 
-	// Создаём таблицы
 	createTables()
 
-	// API
 	http.HandleFunc("/api/register", handleRegister)
 	http.HandleFunc("/api/login", handleLogin)
 	http.HandleFunc("/api/search", handleSearch)
 	http.HandleFunc("/api/messages", handleGetMessages)
 
-	// WebSocket
 	http.HandleFunc("/ws", handleConnections)
 
-	// Статика
 	http.HandleFunc("/", serveHome)
 	http.HandleFunc("/chat", serveChat)
 
@@ -163,7 +158,6 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Проверяем, существует ли пользователь
 	var existingID int
 	err := db.QueryRow("SELECT id FROM users WHERE username = ?", req.Username).Scan(&existingID)
 	if err == nil {
@@ -171,7 +165,6 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Сохраняем в БД
 	result, err := db.Exec("INSERT INTO users (username, nickname, password, email) VALUES (?, ?, ?, ?)",
 		req.Username, req.Nickname, req.Password, req.Email)
 	if err != nil {
@@ -244,6 +237,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 		users = []User{}
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(SearchResponse{Success: true, Users: users})
 }
 
@@ -253,8 +247,7 @@ func handleGetMessages(w http.ResponseWriter, r *http.Request) {
 		chatID = "1"
 	}
 
-	rows, err := db.Query("SELECT id, username, nickname, text, time FROM messages WHERE chat_id = ? ORDER BY id ASC LIMIT 100",
-		chatID)
+	rows, err := db.Query("SELECT id, username, nickname, text, time FROM messages WHERE chat_id = ? ORDER BY id ASC LIMIT 100", chatID)
 	if err != nil {
 		http.Error(w, "Ошибка загрузки сообщений", http.StatusInternalServerError)
 		return
@@ -272,6 +265,7 @@ func handleGetMessages(w http.ResponseWriter, r *http.Request) {
 		messages = []Message{}
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(messages)
 }
 
@@ -323,7 +317,6 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("%s подключился. Всего клиентов: %d", username, len(clients))
 
-	// Отправляем статус онлайна всем
 	broadcastOnlineCount()
 
 	for {
@@ -345,7 +338,6 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			msg.ChatID = 1
 		}
 
-		// Сохраняем в БД
 		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id) VALUES (?, ?, ?, ?, ?)",
 			msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID)
 
