@@ -5,121 +5,55 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Crown Messenger</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            transition: background 0.3s, color 0.3s, border-color 0.3s;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; transition: background 0.3s, color 0.3s, border-color 0.3s; }
 
         :root {
-            --bg: #f0f4f8;
-            --sidebar-bg: #f8fafc;
-            --main-bg: white;
-            --messages-bg: #f5f7fa;
-            --border: #e8edf2;
-            --text: #2c3e50;
-            --text-light: #94a3b8;
-            --msg-other-bg: white;
-            --input-bg: #f8fafc;
-            --hover: #e8f4fd;
-            --active: #dceefb;
+            --bg: #f0f4f8; --sidebar-bg: #f8fafc; --main-bg: white; --messages-bg: #f5f7fa;
+            --border: #e8edf2; --text: #2c3e50; --text-light: #94a3b8; --msg-other-bg: white;
+            --input-bg: #f8fafc; --hover: #e8f4fd; --active: #dceefb;
         }
 
         body.dark {
-            --bg: #1a1d23;
-            --sidebar-bg: #21242b;
-            --main-bg: #282c34;
-            --messages-bg: #1e2127;
-            --border: #32363f;
-            --text: #e1e4e8;
-            --text-light: #8b949e;
-            --msg-other-bg: #2d3139;
-            --input-bg: #2d3139;
-            --hover: #2d3139;
-            --active: #32363f;
+            --bg: #1a1d23; --sidebar-bg: #21242b; --main-bg: #282c34; --messages-bg: #1e2127;
+            --border: #32363f; --text: #e1e4e8; --text-light: #8b949e; --msg-other-bg: #2d3139;
+            --input-bg: #2d3139; --hover: #2d3139; --active: #32363f;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--bg);
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-            -webkit-tap-highlight-color: transparent;
-            user-select: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg);
+            height: 100vh; display: flex; justify-content: center; align-items: center;
+            overflow: hidden; -webkit-tap-highlight-color: transparent; user-select: none;
         }
 
         .app-container {
-            width: 100%;
-            height: 100vh;
-            display: flex;
-            background: var(--main-bg);
-            box-shadow: 0 0 40px rgba(0, 0, 0, 0.1);
-            position: relative;
+            width: 100%; height: 100vh; display: flex; background: var(--main-bg);
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.1); position: relative;
         }
 
-        .back-btn {
-            display: none;
-            background: none;
-            border: none;
-            color: white;
-            font-size: 22px;
-            cursor: pointer;
-            padding: 4px 8px;
-            margin-right: 8px;
-        }
+        .back-btn { display: none; background: none; border: none; color: white; font-size: 22px; cursor: pointer; padding: 4px 8px; margin-right: 8px; }
 
         .sidebar {
-            width: 300px;
-            min-width: 300px;
-            background: var(--sidebar-bg);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            z-index: 20;
+            width: 300px; min-width: 300px; background: var(--sidebar-bg); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; height: 100vh; z-index: 20;
         }
 
         .sidebar-header {
-            padding: 14px 16px;
-            background: linear-gradient(135deg, #007acc 0%, #0099ff 100%);
-            color: white;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            position: relative;
-            flex-shrink: 0;
+            padding: 14px 16px; background: linear-gradient(135deg, #007acc 0%, #0099ff 100%);
+            color: white; display: flex; align-items: center; gap: 10px; position: relative; flex-shrink: 0;
         }
 
         .sidebar-logo { font-size: 20px; }
         .sidebar-title { font-size: 15px; font-weight: 700; letter-spacing: 0.3px; flex: 1; }
 
-        .hamburger-btn {
-            background: none; border: none; color: white; font-size: 20px;
-            cursor: pointer; padding: 6px; border-radius: 6px;
-            display: flex; flex-direction: column; gap: 3px;
-            transition: all 0.2s; z-index: 10;
-        }
+        .hamburger-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 6px; border-radius: 6px; display: flex; flex-direction: column; gap: 3px; transition: all 0.2s; z-index: 10; }
         .hamburger-btn:hover { background: rgba(255, 255, 255, 0.15); }
         .hamburger-line { width: 18px; height: 2px; background: white; border-radius: 2px; }
 
-        .dropdown-menu {
-            position: absolute; top: 100%; right: 8px; background: white;
-            border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-            min-width: 200px; z-index: 100; display: none;
-            flex-direction: column; padding: 8px 0; overflow: hidden;
-        }
+        .dropdown-menu { position: absolute; top: 100%; right: 8px; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); min-width: 200px; z-index: 100; display: none; flex-direction: column; padding: 8px 0; overflow: hidden; }
         body.dark .dropdown-menu { background: #2d3139; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); }
         .dropdown-menu.show { display: flex; }
 
-        .dropdown-item {
-            padding: 12px 20px; cursor: pointer; font-size: 14px; color: #2c3e50;
-            display: flex; align-items: center; gap: 12px; transition: all 0.2s;
-            border: none; background: none; width: 100%; text-align: left;
-        }
+        .dropdown-item { padding: 12px 20px; cursor: pointer; font-size: 14px; color: #2c3e50; display: flex; align-items: center; gap: 12px; transition: all 0.2s; border: none; background: none; width: 100%; text-align: left; }
         body.dark .dropdown-item { color: #e1e4e8; }
         .dropdown-item:hover { background: #e8f4fd; }
         body.dark .dropdown-item:hover { background: #32363f; }
@@ -298,7 +232,7 @@
                     const data = await resp.json();
                     rd.innerHTML = '';
                     if (data.success && data.users.length > 0) {
-                        data.users.forEach(user => {
+                        data.users.forEach(function(user) {
                             const div = document.createElement('div');
                             div.className = 'search-result-item';
                             div.innerHTML = '<span style="font-size:18px;">👤</span> <span><b>' + user.nickname + '</b> <span style="color:var(--text-light);">@' + user.username + '</span></span>';
@@ -330,7 +264,8 @@
                 }
                 messages.sort(function(a, b) { return a.id - b.id; });
                 for (let i = 0; i < messages.length; i++) {
-                    appendMessage(messages[i].username, messages[i].text, messages[i].time, false);
+                    let sender = messages[i].username || messages[i].Username || 'unknown';
+                    appendMessage(sender, messages[i].text, messages[i].time, false);
                 }
                 area.scrollTop = area.scrollHeight;
             } catch (err) {
@@ -360,7 +295,8 @@
                     document.getElementById('onlineCount').textContent = onlineCount + ' участников онлайн';
                     return;
                 }
-                appendMessage(msg.username, msg.text, msg.time, true);
+                let sender = msg.username || msg.Username || 'unknown';
+                appendMessage(sender, msg.text, msg.time, true);
             };
             ws.onclose = function() { setTimeout(function() { connectWebSocket(token); }, 3000); };
         }
