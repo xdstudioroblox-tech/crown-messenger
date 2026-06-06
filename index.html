@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мессенджер - Вход</title>
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #e8f4fd 0%, #c8e4f8 50%, #f0f7fc 100%);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Декоративные круги на фоне */
+    body::before {
+        content: '';
+        position: absolute;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(0, 136, 204, 0.08) 0%, transparent 70%);
+        top: -80px;
+        right: -80px;
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    body::after {
+        content: '';
+        position: absolute;
+        width: 200px;
+        height: 200px;
+        background: radial-gradient(circle, rgba(0, 136, 204, 0.06) 0%, transparent 70%);
+        bottom: -40px;
+        left: -40px;
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    .auth-container {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 15px 40px rgba(0, 102, 204, 0.12);
+        width: 100%;
+        max-width: 400px;
+        overflow: hidden;
+        position: relative;
+        z-index: 1;
+    }
+
+    .auth-header {
+        background: linear-gradient(135deg, #007acc 0%, #0099ff 100%);
+        color: white;
+        padding: 22px 20px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .auth-header::before {
+        content: '';
+        position: absolute;
+        width: 120px;
+        height: 120px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 50%;
+        top: -60px;
+        right: -30px;
+    }
+
+    .logo {
+        font-size: 28px;
+        margin-bottom: 4px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .auth-header h1 {
+        font-size: 20px;
+        margin-bottom: 2px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .auth-header p {
+        opacity: 0.9;
+        font-size: 12px;
+        position: relative;
+        z-index: 1;
+        font-weight: 300;
+    }
+
+    .auth-body {
+        padding: 20px;
+    }
+
+    .form-group {
+        margin-bottom: 12px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 4px;
+        color: #2c3e50;
+        font-weight: 500;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 10px 14px;
+        border: 2px solid #e8edf2;
+        border-radius: 10px;
+        font-size: 13px;
+        transition: all 0.3s ease;
+        outline: none;
+        background: #f8fafc;
+        color: #2c3e50;
+    }
+
+    .form-group input:focus {
+        border-color: #0099ff;
+        background: white;
+        box-shadow: 0 0 0 3px rgba(0, 153, 255, 0.06);
+    }
+
+    .form-group input::placeholder {
+        color: #b0bec5;
+        font-size: 12px;
+    }
+
+    .optional {
+        color: #90a4ae;
+        font-size: 10px;
+        font-weight: normal;
+        text-transform: none;
+        letter-spacing: 0;
+    }
+
+    .btn-submit {
+        width: 100%;
+        padding: 11px;
+        background: linear-gradient(135deg, #007acc 0%, #0099ff 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 6px;
+        letter-spacing: 0.3px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-submit::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .btn-submit:hover::before {
+        left: 100%;
+    }
+
+    .btn-submit:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(0, 153, 255, 0.25);
+    }
+
+    .btn-submit:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 8px rgba(0, 153, 255, 0.15);
+    }
+
+    .error-message {
+        background: #fff5f5;
+        color: #e53e3e;
+        padding: 8px 12px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        font-size: 12px;
+        display: none;
+        border-left: 3px solid #e53e3e;
+        animation: shake 0.5s ease;
+    }
+
+    .success-message {
+        background: #f0fff4;
+        color: #38a169;
+        padding: 8px 12px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        font-size: 12px;
+        display: none;
+        border-left: 3px solid #38a169;
+    }
+
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+    }
+
+    .switch-form {
+        text-align: center;
+        margin-top: 16px;
+        color: #718096;
+        font-size: 12px;
+    }
+
+    .switch-form a {
+        color: #0099ff;
+        text-decoration: none;
+        font-weight: 600;
+        cursor: pointer;
+        transition: color 0.2s;
+        margin-left: 3px;
+    }
+
+    .switch-form a:hover {
+        color: #007acc;
+        text-decoration: underline;
+    }
+
+    .hidden {
+        display: none;
+    }
+</style>
+</head>
+<body>
+    <div class="auth-container">
+ <div class="auth-header">
+    <div class="logo">👑</div>
+    <h1>Crown Messenger</h1>
+    <p id="formTitle">Создайте аккаунт</p>
+</div>
+        <div class="auth-body">
+            <div class="error-message" id="errorMessage"></div>
+            <div class="success-message" id="successMessage"></div>
+
+            <!-- Форма регистрации -->
+            <form id="registerForm">
+                <div class="form-group">
+                    <label for="regNickname">Никнейм *</label>
+                    <input type="text" id="regNickname" placeholder="Как вас будут видеть" required>
+                </div>
+                <div class="form-group">
+                    <label for="regUsername">Имя пользователя *</label>
+                    <input type="text" id="regUsername" placeholder="Логин для входа" required>
+                </div>
+                <div class="form-group">
+                    <label for="regPassword">Пароль *</label>
+                    <input type="password" id="regPassword" placeholder="Минимум 6 символов" required>
+                </div>
+                <div class="form-group">
+                    <label for="regConfirmPassword">Подтверждение пароля *</label>
+                    <input type="password" id="regConfirmPassword" placeholder="Повторите пароль" required>
+                </div>
+                <div class="form-group">
+                    <label for="regEmail">Email <span class="optional">(необязательно)</span></label>
+                    <input type="email" id="regEmail" placeholder="Для восстановления доступа">
+                </div>
+                <button type="submit" class="btn-submit">Зарегистрироваться</button>
+            </form>
+
+            <!-- Форма входа -->
+            <form id="loginForm" class="hidden">
+                <div class="form-group">
+                    <label for="loginUsername">Имя пользователя</label>
+                    <input type="text" id="loginUsername" placeholder="Введите логин" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Пароль</label>
+                    <input type="password" id="loginPassword" placeholder="Введите пароль" required>
+                </div>
+                <button type="submit" class="btn-submit">Войти</button>
+            </form>
+
+            <div class="switch-form">
+                <span id="switchText">Уже есть аккаунт?</span>
+                <a id="switchLink" onclick="toggleForm()">Войти</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isLogin = false;
+
+        function toggleForm() {
+            isLogin = !isLogin;
+            document.getElementById('registerForm').classList.toggle('hidden');
+            document.getElementById('loginForm').classList.toggle('hidden');
+            document.getElementById('formTitle').textContent = isLogin ? 'Войдите в аккаунт' : 'Создайте аккаунт';
+            document.getElementById('switchText').textContent = isLogin ? 'Нет аккаунта?' : 'Уже есть аккаунт?';
+            document.getElementById('switchLink').textContent = isLogin ? 'Зарегистрироваться' : 'Войти';
+            hideMessages();
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('errorMessage');
+            el.textContent = msg;
+            el.style.display = 'block';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        function showSuccess(msg) {
+            const el = document.getElementById('successMessage');
+            el.textContent = msg;
+            el.style.display = 'block';
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+
+        function hideMessages() {
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideMessages();
+
+            const nickname = document.getElementById('regNickname').value.trim();
+            const username = document.getElementById('regUsername').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const confirmPassword = document.getElementById('regConfirmPassword').value;
+            const email = document.getElementById('regEmail').value.trim();
+
+            if (password !== confirmPassword) {
+                showError('Пароли не совпадают');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nickname, username, password, email })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showSuccess('Регистрация успешна! Перенаправляем...');
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    setTimeout(() => {
+                        window.location.href = '/chat';
+                    }, 1000);
+                } else {
+                    showError(data.error || 'Ошибка регистрации');
+                }
+            } catch (err) {
+                showError('Ошибка соединения с сервером');
+            }
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideMessages();
+
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showSuccess('Вход выполнен! Перенаправляем...');
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    setTimeout(() => {
+                        window.location.href = '/chat';
+                    }, 1000);
+                } else {
+                    showError(data.error || 'Ошибка входа');
+                }
+            } catch (err) {
+                showError('Ошибка соединения с сервером');
+            }
+        });
+    </script>
+</body>
+</html>
