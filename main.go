@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/lib/pq"
 )
 
 var (
@@ -65,12 +66,24 @@ type SearchResponse struct {
 }
 
 func main() {
+	// Подключение к PostgreSQL
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		log.Fatal("DATABASE_URL не установлен")
+	}
+
 	var err error
-	db, err = sql.Open("sqlite3", "./crown.db")
+	db, err = sql.Open("postgres", databaseURL)
 	if err != nil {
-		log.Fatal("Ошибка открытия БД:", err)
+		log.Fatal("Ошибка подключения к БД:", err)
 	}
 	defer db.Close()
+
+	err = db.Ping()
+	if err != nil {
+		log.Fatal("Ошибка пинга БД:", err)
+	}
+	log.Println("Подключено к PostgreSQL")
 
 	createTables()
 
@@ -84,8 +97,13 @@ func main() {
 
 	go handleMessages()
 
-	fmt.Println("Сервер запущен на http://localhost:8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	fmt.Println("Сервер запущен на порту " + port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal("Ошибка запуска сервера:", err)
 	}
 }
@@ -93,14 +111,14 @@ func main() {
 func createTables() {
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS users (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			id SERIAL PRIMARY KEY,
 			username TEXT UNIQUE NOT NULL,
 			nickname TEXT NOT NULL,
 			password TEXT NOT NULL,
 			email TEXT DEFAULT ''
 		)`,
 		`CREATE TABLE IF NOT EXISTS messages (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			id SERIAL PRIMARY KEY,
 			username TEXT NOT NULL,
 			nickname TEXT NOT NULL,
 			text TEXT NOT NULL,
@@ -150,23 +168,26 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Пароль должен быть не менее 6 символов"})
 		return
 	}
+
 	var existingID int
-	err := db.QueryRow("SELECT id FROM users WHERE username = ?", req.Username).Scan(&existingID)
+	err := db.QueryRow("SELECT id FROM users WHERE username = $1", req.Username).Scan(&existingID)
 	if err == nil {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Пользователь уже существует"})
 		return
 	}
-	result, err := db.Exec("INSERT INTO users (username, nickname, password, email) VALUES (?, ?, ?, ?)",
-		req.Username, req.Nickname, req.Password, req.Email)
+
+	var userID int
+	err = db.QueryRow("INSERT INTO users (username, nickname, password, email) VALUES ($1, $2, $3, $4) RETURNING id",
+		req.Username, req.Nickname, req.Password, req.Email).Scan(&userID)
 	if err != nil {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Ошибка сохранения пользователя"})
 		return
 	}
-	userID, _ := result.LastInsertId()
-	token, _ := generateToken(req.Username, int(userID))
+
+	token, _ := generateToken(req.Username, userID)
 	json.NewEncoder(w).Encode(AuthResponse{
 		Success: true, Token: token,
-		User: &User{ID: int(userID), Nickname: req.Nickname, Username: req.Username, Email: req.Email},
+		User: &User{ID: userID, Nickname: req.Nickname, Username: req.Username, Email: req.Email},
 	})
 }
 
@@ -181,7 +202,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var user User
-	err := db.QueryRow("SELECT id, username, nickname, email FROM users WHERE username = ? AND password = ?",
+	err := db.QueryRow("SELECT id, username, nickname, email FROM users WHERE username = $1 AND password = $2",
 		req.Username, req.Password).Scan(&user.ID, &user.Username, &user.Nickname, &user.Email)
 	if err != nil {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Неверный логин или пароль"})
@@ -197,7 +218,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(SearchResponse{Success: false, Error: "Пустой запрос"})
 		return
 	}
-	rows, err := db.Query("SELECT id, username, nickname, email FROM users WHERE username LIKE ? OR nickname LIKE ? LIMIT 10",
+	rows, err := db.Query("SELECT id, username, nickname, email FROM users WHERE username LIKE $1 OR nickname LIKE $2 LIMIT 10",
 		"%"+query+"%", "%"+query+"%")
 	if err != nil {
 		json.NewEncoder(w).Encode(SearchResponse{Success: false, Error: "Ошибка поиска"})
@@ -222,7 +243,7 @@ func handleGetMessages(w http.ResponseWriter, r *http.Request) {
 	if chatID == "" {
 		chatID = "1"
 	}
-	rows, err := db.Query("SELECT id, username, nickname, text, time FROM messages WHERE chat_id = ? ORDER BY id ASC LIMIT 100", chatID)
+	rows, err := db.Query("SELECT id, username, nickname, text, time FROM messages WHERE chat_id = $1 ORDER BY id ASC LIMIT 100", chatID)
 	if err != nil {
 		http.Error(w, "Ошибка загрузки сообщений", http.StatusInternalServerError)
 		return
@@ -302,7 +323,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		if msg.ChatID == 0 {
 			msg.ChatID = 1
 		}
-		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id) VALUES (?, ?, ?, ?, ?)",
+		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id) VALUES ($1, $2, $3, $4, $5)",
 			msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID)
 		broadcast <- msg
 	}
@@ -348,7 +369,7 @@ func broadcastOnlineCount() {
 
 func getNickname(username string) string {
 	var nickname string
-	db.QueryRow("SELECT nickname FROM users WHERE username = ?", username).Scan(&nickname)
+	db.QueryRow("SELECT nickname FROM users WHERE username = $1", username).Scan(&nickname)
 	if nickname == "" {
 		return username
 	}
