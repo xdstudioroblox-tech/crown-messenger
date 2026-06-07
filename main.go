@@ -27,9 +27,12 @@ var (
 	db        *sql.DB
 	jwtSecret = []byte("super-secret-key-change-in-production")
 
+	// clients хранит: ws соединение -> username
 	clients   = make(map[*websocket.Conn]string)
-	broadcast = make(chan Message)
-	mu        sync.Mutex
+	// onlineUsers хранит: username -> true (для быстрой проверки онлайна)
+	onlineUsers = make(map[string]bool)
+	broadcast   = make(chan Message)
+	mu          sync.Mutex
 )
 
 type User struct {
@@ -50,6 +53,8 @@ type Message struct {
 	Time     string `json:"time"`
 	ChatID   int    `json:"chat_id"`
 	Avatar   string `json:"avatar,omitempty"`
+	Type     string `json:"type,omitempty"` // "chat_created" для уведомления о новом чате
+	Peer     string `json:"peer,omitempty"` // с кем чат
 }
 
 type AuthRequest struct {
@@ -106,6 +111,7 @@ func main() {
 	http.HandleFunc("/api/chat/list", handleChatList)
 	http.HandleFunc("/api/clearchats", handleClearChats)
 	http.HandleFunc("/api/dbtest", handleDBTest)
+	http.HandleFunc("/api/online", handleOnlineStatus)
 	http.HandleFunc("/ws", handleConnections)
 	http.HandleFunc("/uploads/", serveUploads)
 	http.HandleFunc("/", serveHome)
@@ -150,7 +156,6 @@ func createTables() {
 	for _, q := range queries {
 		db.Exec(q)
 	}
-	// Очищаем пустые чаты
 	db.Exec("DELETE FROM chats WHERE user1 = '' OR user2 = ''")
 	log.Println("Таблицы проверены")
 }
@@ -297,6 +302,8 @@ func handleCreateChat(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		log.Println("Чат уже существует:", chatID)
 		json.NewEncoder(w).Encode(map[string]int{"chat_id": chatID})
+		// Отправляем уведомление второму участнику
+		sendChatNotification(username, req.User2, chatID)
 		return
 	}
 
@@ -308,6 +315,24 @@ func handleCreateChat(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("Создан новый чат:", chatID)
 	json.NewEncoder(w).Encode(map[string]int{"chat_id": chatID})
+
+	// Отправляем уведомление второму участнику
+	sendChatNotification(username, req.User2, chatID)
+}
+
+func sendChatNotification(fromUser, toUser string, chatID int) {
+	mu.Lock()
+	defer mu.Unlock()
+	for ws, user := range clients {
+		if user == toUser {
+			ws.WriteJSON(map[string]interface{}{
+				"type":     "chat_created",
+				"chat_id":  chatID,
+				"peer":     fromUser,
+				"username": "system",
+			})
+		}
+	}
 }
 
 func handleChatList(w http.ResponseWriter, r *http.Request) {
@@ -337,6 +362,19 @@ func handleClearChats(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "message": "Все чаты удалены"})
 }
 
+func handleOnlineStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	username := r.URL.Query().Get("username")
+	if username == "" {
+		json.NewEncoder(w).Encode(map[string]interface{}{"online": false})
+		return
+	}
+	mu.Lock()
+	_, online := onlineUsers[username]
+	mu.Unlock()
+	json.NewEncoder(w).Encode(map[string]interface{}{"online": online})
+}
+
 func handleDBTest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var userCount int; db.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCount)
@@ -358,12 +396,25 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	avatar := getAvatar(username)
 	ws, _ := upgrader.Upgrade(w, r, nil)
 	defer ws.Close()
-	mu.Lock(); clients[ws] = username; mu.Unlock()
+
+	mu.Lock()
+	clients[ws] = username
+	onlineUsers[username] = true
+	mu.Unlock()
+
 	log.Printf("%s подключился. Всего: %d", username, len(clients))
 	broadcastOnlineCount()
+
 	for {
 		var msg Message
-		if err := ws.ReadJSON(&msg); err != nil { mu.Lock(); delete(clients, ws); mu.Unlock(); broadcastOnlineCount(); break }
+		if err := ws.ReadJSON(&msg); err != nil {
+			mu.Lock()
+			delete(clients, ws)
+			delete(onlineUsers, username)
+			mu.Unlock()
+			broadcastOnlineCount()
+			break
+		}
 		msg.Username = username; msg.Nickname = nickname; msg.Avatar = getAvatarURL(avatar); msg.Time = time.Now().Format("15:04")
 		if msg.ChatID == 0 { msg.ChatID = 1 }
 		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar) VALUES ($1, $2, $3, $4, $5, $6)", msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar)
@@ -372,12 +423,37 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleMessages() {
-	for { msg := <-broadcast; mu.Lock(); for c := range clients { c.WriteJSON(map[string]interface{}{"username": msg.Username, "nickname": msg.Nickname, "text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID, "avatar": msg.Avatar}) }; mu.Unlock() }
+	for {
+		msg := <-broadcast
+		mu.Lock()
+		for c := range clients {
+			c.WriteJSON(map[string]interface{}{
+				"username": msg.Username,
+				"nickname": msg.Nickname,
+				"text":     msg.Text,
+				"time":     msg.Time,
+				"chat_id":  msg.ChatID,
+				"avatar":   msg.Avatar,
+			})
+		}
+		mu.Unlock()
+	}
 }
 
 func broadcastOnlineCount() {
-	mu.Lock(); c := len(clients); mu.Unlock()
-	mu.Lock(); for cl := range clients { cl.WriteJSON(map[string]interface{}{"username": "system", "text": fmt.Sprintf("%d", c), "time": "online"}) }; mu.Unlock()
+	mu.Lock()
+	count := len(clients)
+	mu.Unlock()
+	mu.Lock()
+	for cl := range clients {
+		cl.WriteJSON(map[string]interface{}{
+			"username": "system",
+			"type":     "online_count",
+			"text":     fmt.Sprintf("%d", count),
+			"time":     "online",
+		})
+	}
+	mu.Unlock()
 }
 
 func getNickname(u string) string { var n string; db.QueryRow("SELECT nickname FROM users WHERE username = $1", u).Scan(&n); if n == "" { return u }; return n }
