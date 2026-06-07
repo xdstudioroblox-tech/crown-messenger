@@ -113,6 +113,9 @@ func main() {
 }
 
 func createTables() {
+	// Удаляем старую таблицу messages
+	db.Exec("DROP TABLE IF EXISTS messages")
+
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS users (
 			id SERIAL PRIMARY KEY,
@@ -123,7 +126,7 @@ func createTables() {
 			about TEXT DEFAULT '',
 			avatar TEXT DEFAULT ''
 		)`,
-		`CREATE TABLE IF NOT EXISTS messages (
+		`CREATE TABLE messages (
 			id SERIAL PRIMARY KEY,
 			username TEXT NOT NULL,
 			nickname TEXT NOT NULL,
@@ -137,10 +140,10 @@ func createTables() {
 	for _, q := range queries {
 		_, err := db.Exec(q)
 		if err != nil {
-			log.Fatal("Ошибка создания таблицы:", err)
+			log.Println("Ошибка создания таблицы:", err)
 		}
 	}
-	log.Println("Таблицы созданы/проверены")
+	log.Println("Таблицы обновлены")
 }
 
 func serveHome(w http.ResponseWriter, r *http.Request) {
@@ -256,6 +259,8 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGetMessages(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	chatID := r.URL.Query().Get("chat_id")
 	if chatID == "" {
 		chatID = "1"
@@ -263,8 +268,8 @@ func handleGetMessages(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := db.Query("SELECT id, username, nickname, text, time, COALESCE(avatar,'') FROM messages WHERE chat_id = $1 ORDER BY id ASC LIMIT 100", chatID)
 	if err != nil {
-		log.Println("Ошибка загрузки сообщений:", err)
-		http.Error(w, "Ошибка", http.StatusInternalServerError)
+		log.Println("Ошибка запроса сообщений:", err)
+		json.NewEncoder(w).Encode([]Message{})
 		return
 	}
 	defer rows.Close()
@@ -272,14 +277,17 @@ func handleGetMessages(w http.ResponseWriter, r *http.Request) {
 	var messages []Message
 	for rows.Next() {
 		var m Message
-		rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &m.Avatar)
+		if err := rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &m.Avatar); err != nil {
+			log.Println("Ошибка сканирования:", err)
+			continue
+		}
 		messages = append(messages, m)
 	}
+
 	if messages == nil {
 		messages = []Message{}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(messages)
 }
 
