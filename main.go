@@ -66,7 +66,6 @@ type SearchResponse struct {
 }
 
 func main() {
-	// Подключение к PostgreSQL
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		log.Fatal("DATABASE_URL не установлен")
