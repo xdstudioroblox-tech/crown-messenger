@@ -233,20 +233,18 @@
             document.querySelectorAll('.chat-item').forEach(function(el){el.classList.remove('active');});
             var item=document.querySelector('.chat-item[data-chat-id="'+id+'"]');
             if(item)item.classList.add('active');
-            document.getElementById('messagesArea').innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div>';
-            loadMessagesForChat(id);
-        }
-
-        async function loadMessagesForChat(chatId){
-            try{
-                var resp=await fetch('/api/messages?chat_id='+chatId);
-                var msgs=await resp.json();
-                var area=document.getElementById('messagesArea');area.innerHTML='';
-                if(msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';return;}
-                msgs.sort(function(a,b){return a.id-b.id;});
-                msgs.forEach(function(m){appendMessage(m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',false);});
-                area.scrollTop=area.scrollHeight;
-            }catch(e){document.getElementById('messagesArea').innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Ошибка загрузки</div>';}
+            var area=document.getElementById('messagesArea');
+            area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div>';
+            fetch('/api/messages?chat_id='+id)
+                .then(function(r){return r.json();})
+                .then(function(msgs){
+                    area.innerHTML='';
+                    if(!msgs||msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';return;}
+                    msgs.sort(function(a,b){return a.id-b.id;});
+                    msgs.forEach(function(m){appendMessage(m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',false);});
+                    area.scrollTop=area.scrollHeight;
+                })
+                .catch(function(){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Ошибка загрузки</div>';});
         }
 
         function loadUser(){
