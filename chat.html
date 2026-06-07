@@ -6,7 +6,7 @@
     <title>Crown Messenger</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root { --bg: #f0f4f8; --sidebar-bg: #f8fafc; --main-bg: white; --messages-bg: #f5f7fa; --border: #e8edf2; --text: #2c3e50; --text-light: #94a3b8; --msg-other-bg: white; --input-bg: #f8fafc; --hover: #e8f4fd; --active: #dceefb; --safe-bottom: 0px; }
+        :root { --bg: #f0f4f8; --sidebar-bg: #f8fafc; --main-bg: white; --messages-bg: #f5f7fa; --border: #e8edf2; --text: #2c3e50; --text-light: #94a3b8; --msg-other-bg: white; --input-bg: #f8fafc; --hover: #e8f4fd; --active: #dceefb; }
         body.dark { --bg: #1a1d23; --sidebar-bg: #21242b; --main-bg: #282c34; --messages-bg: #1e2127; --border: #32363f; --text: #e1e4e8; --text-light: #8b949e; --msg-other-bg: #2d3139; --input-bg: #2d3139; --hover: #2d3139; --active: #32363f; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; }
         .app-container { width: 100%; height: 100vh; display: flex; background: var(--main-bg); position: relative; }
@@ -126,7 +126,7 @@
     </div>
 
     <script>
-        var username="Пользователь",nickname="Пользователь",myAvatar="",ws,onlineCount=0,currentChatId=1,currentPeer="",viewingProfile="",searchTimeout,loadedMessages={};
+        var username="Пользователь",nickname="Пользователь",myAvatar="",ws,onlineCount=0,currentChatId=1,currentPeer="",viewingProfile="",searchTimeout;
 
         function getToken(){return localStorage.getItem('token');}
         function escapeHtml(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML;}
@@ -173,7 +173,6 @@
                 document.getElementById('profileAbout').value=user.about||'';
                 var img=document.getElementById('profileAvatarImg'),ph=document.getElementById('profileAvatarPlaceholder');
                 if(user.avatar){img.src=user.avatar;img.style.display='block';ph.style.display='none';}else{img.style.display='none';ph.style.display='flex';ph.textContent=(user.nickname||'?').charAt(0).toUpperCase();}
-                // Показываем кнопки в зависимости от того, мой это профиль или чужой
                 document.getElementById('profileSaveBtn').style.display=isMe?'block':'none';
                 document.getElementById('profileChatBtn').style.display=isMe?'none':'block';
                 document.getElementById('profileNickname').disabled=!isMe;
@@ -202,6 +201,25 @@
             document.getElementById('profileAvatarPlaceholder').style.display='none';
         }
 
+        function addChatToList(id,peer){
+            if(document.querySelector('.chat-item[data-chat-id="'+id+'"]'))return;
+            var list=document.getElementById('chatList'),div=document.createElement('div');
+            div.className='chat-item';div.setAttribute('data-chat-id',id);div.setAttribute('data-peer',peer);
+            div.innerHTML='<div class="chat-avatar-placeholder">'+peer.charAt(0).toUpperCase()+'</div><div class="chat-name">'+peer+'</div>';
+            div.addEventListener('click',function(){switchChat(id,peer);});
+            list.appendChild(div);
+        }
+
+        function switchChat(id,peer){
+            currentChatId=parseInt(id);currentPeer=peer||'';
+            var title=peer||'Общий чат';
+            document.getElementById('chatTitle').textContent=title;
+            document.querySelectorAll('.chat-item').forEach(function(el){el.classList.remove('active');});
+            var item=document.querySelector('.chat-item[data-chat-id="'+id+'"]');
+            if(item)item.classList.add('active');
+            loadMessages();
+        }
+
         async function startChat(){
             if(!viewingProfile||viewingProfile===username)return;
             try{
@@ -213,41 +231,17 @@
             }catch(e){alert('Ошибка создания чата');}
         }
 
-        function addChatToList(id,peer){
-            if(document.querySelector('.chat-item[data-chat-id="'+id+'"]'))return;
-            var list=document.getElementById('chatList'),div=document.createElement('div');
-            div.className='chat-item';div.setAttribute('data-chat-id',id);div.setAttribute('data-peer',peer);
-            div.innerHTML='<div class="chat-avatar-placeholder">'+peer.charAt(0).toUpperCase()+'</div><div class="chat-name">'+peer+'</div>';
-            div.addEventListener('click',function(){switchChat(id,peer);});
-            list.appendChild(div);
-        }
-
-        function switchChat(id,peer){
-            currentChatId=id;currentPeer=peer||'';
-            document.getElementById('chatTitle').textContent=peer||'Общий чат';
-            document.querySelectorAll('.chat-item').forEach(function(el){el.classList.remove('active');});
-            var item=document.querySelector('.chat-item[data-chat-id="'+id+'"]');
-            if(item)item.classList.add('active');
-            if(!loadedMessages[id]){loadMessages();}else{showCachedMessages(id);}
-        }
-
         async function loadMessages(){
             try{
                 var resp=await fetch('/api/messages?chat_id='+currentChatId);
                 if(!resp.ok)throw new Error('HTTP '+resp.status);
                 var msgs=await resp.json();
-                loadedMessages[currentChatId]=msgs;
-                showCachedMessages(currentChatId);
+                var area=document.getElementById('messagesArea');area.innerHTML='';
+                if(msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';return;}
+                msgs.sort(function(a,b){return a.id-b.id;});
+                msgs.forEach(function(m){appendMessage(m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',false);});
+                area.scrollTop=area.scrollHeight;
             }catch(e){document.getElementById('messagesArea').innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Ошибка загрузки</div>';}
-        }
-
-        function showCachedMessages(chatId){
-            var msgs=loadedMessages[chatId]||[];
-            var area=document.getElementById('messagesArea');area.innerHTML='';
-            if(msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';return;}
-            msgs.sort(function(a,b){return a.id-b.id;});
-            msgs.forEach(function(m){appendMessage(m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',false);});
-            area.scrollTop=area.scrollHeight;
         }
 
         function loadUser(){
@@ -271,8 +265,6 @@
                 var msg=JSON.parse(e.data);
                 if(msg.username==='system'){onlineCount=parseInt(msg.text)||0;document.getElementById('onlineCount').textContent=onlineCount+' участников онлайн';return;}
                 var targetChat=msg.chat_id||1;
-                if(!loadedMessages[targetChat])loadedMessages[targetChat]=[];
-                loadedMessages[targetChat].push(msg);
                 if(targetChat===currentChatId||(currentChatId===1&&targetChat===1)){
                     appendMessage(msg.username,msg.nickname||msg.username,msg.text,msg.time,msg.avatar||'',true);
                 }
@@ -291,7 +283,6 @@
         function sendMessage(){var input=document.getElementById('messageInput'),text=input.value.trim();if(text&&ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:text,chat_id:currentChatId}));input.value='';}}
         function logout(){localStorage.removeItem('token');localStorage.removeItem('user');window.location.href='/';}
 
-        // Клик по шапке чата
         document.getElementById('chatHeader').addEventListener('click',function(){if(currentPeer)openProfile(currentPeer);});
 
         loadTheme();loadUser();
