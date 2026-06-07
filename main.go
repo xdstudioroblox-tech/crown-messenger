@@ -102,6 +102,7 @@ func main() {
 	http.HandleFunc("/api/messages", handleGetMessages)
 	http.HandleFunc("/api/profile", handleProfile)
 	http.HandleFunc("/api/upload-avatar", handleUploadAvatar)
+	http.HandleFunc("/api/dbtest", handleDBTest)
 	http.HandleFunc("/ws", handleConnections)
 	http.HandleFunc("/uploads/", serveUploads)
 	http.HandleFunc("/", serveHome)
@@ -254,6 +255,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query("SELECT id, username, nickname, COALESCE(email,''), COALESCE(about,''), COALESCE(avatar,'') FROM users WHERE username LIKE $1 OR nickname LIKE $2 LIMIT 20",
 		"%"+query+"%", "%"+query+"%")
 	if err != nil {
+		log.Println("Ошибка поиска:", err)
 		json.NewEncoder(w).Encode(SearchResponse{Success: false, Error: "Ошибка поиска"})
 		return
 	}
@@ -302,7 +304,6 @@ func handleGetMessages(w http.ResponseWriter, r *http.Request) {
 func handleProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	// GET — открытый доступ
 	if r.Method == "GET" {
 		userParam := r.URL.Query().Get("username")
 		if userParam == "" {
@@ -322,7 +323,6 @@ func handleProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// PUT — нужна авторизация
 	if r.Method == "PUT" {
 		tokenString := r.Header.Get("Authorization")
 		if tokenString == "" || !strings.HasPrefix(tokenString, "Bearer ") {
@@ -390,6 +390,21 @@ func handleUploadAvatar(w http.ResponseWriter, r *http.Request) {
 
 	db.Exec("UPDATE users SET avatar = $1 WHERE username = $2", filename, username)
 	json.NewEncoder(w).Encode(map[string]string{"avatar": "/uploads/" + filename})
+}
+
+func handleDBTest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var userCount int
+	db.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCount)
+
+	var tableExists bool
+	db.QueryRow("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')").Scan(&tableExists)
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"users_table": tableExists,
+		"user_count":  userCount,
+	})
 }
 
 func generateToken(username string, userID int) (string, error) {
