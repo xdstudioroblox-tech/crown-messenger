@@ -283,13 +283,27 @@ func handleCreateChat(w http.ResponseWriter, r *http.Request) {
 	var req struct { User2 string `json:"user2"` }
 	json.NewDecoder(r.Body).Decode(&req)
 	if username == req.User2 { http.Error(w, "Нельзя создать чат с собой", http.StatusBadRequest); return }
+
 	u1, u2 := username, req.User2
 	if u1 > u2 { u1, u2 = u2, u1 }
+
+	log.Println("Создание чата между:", u1, "и", u2)
+
 	var chatID int
-	if db.QueryRow("SELECT id FROM chats WHERE user1 = $1 AND user2 = $2", u1, u2).Scan(&chatID) == nil {
-		json.NewEncoder(w).Encode(map[string]int{"chat_id": chatID}); return
+	err := db.QueryRow("SELECT id FROM chats WHERE user1 = $1 AND user2 = $2", u1, u2).Scan(&chatID)
+	if err == nil {
+		log.Println("Чат уже существует:", chatID)
+		json.NewEncoder(w).Encode(map[string]int{"chat_id": chatID})
+		return
 	}
-	db.QueryRow("INSERT INTO chats (user1, user2) VALUES ($1, $2) RETURNING id", u1, u2).Scan(&chatID)
+
+	err = db.QueryRow("INSERT INTO chats (user1, user2) VALUES ($1, $2) RETURNING id", u1, u2).Scan(&chatID)
+	if err != nil {
+		log.Println("Ошибка создания чата:", err)
+		http.Error(w, "Ошибка создания чата", http.StatusInternalServerError)
+		return
+	}
+	log.Println("Создан новый чат:", chatID)
 	json.NewEncoder(w).Encode(map[string]int{"chat_id": chatID})
 }
 
