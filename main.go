@@ -44,16 +44,17 @@ type User struct {
 }
 
 type Message struct {
-	ID       int    `json:"id"`
-	Username string `json:"username"`
-	Nickname string `json:"nickname"`
-	Text     string `json:"text"`
-	Time     string `json:"time"`
-	ChatID   int    `json:"chat_id"`
-	Avatar   string `json:"avatar,omitempty"`
-	Type     string `json:"type,omitempty"`
-	Peer     string `json:"peer,omitempty"`
-	Read     bool   `json:"read"`
+	ID        int    `json:"id"`
+	Username  string `json:"username"`
+	Nickname  string `json:"nickname"`
+	Text      string `json:"text"`
+	Time      string `json:"time"`
+	ChatID    int    `json:"chat_id"`
+	Avatar    string `json:"avatar,omitempty"`
+	Type      string `json:"type,omitempty"`
+	Peer      string `json:"peer,omitempty"`
+	Read      bool   `json:"read"`
+	Edited    bool   `json:"edited"`
 }
 
 type AuthRequest struct {
@@ -92,7 +93,7 @@ func main() {
 	http.HandleFunc("/api/register", handleRegister)
 	http.HandleFunc("/api/login", handleLogin)
 	http.HandleFunc("/api/search", handleSearch)
-	http.HandleFunc("/api/messages", handleGetMessages)
+	http.HandleFunc("/api/messages", handleMessagesAPI)
 	http.HandleFunc("/api/profile", handleProfile)
 	http.HandleFunc("/api/upload-avatar", handleUploadAvatar)
 	http.HandleFunc("/api/chat/create", handleCreateChat)
@@ -117,7 +118,7 @@ func createTables() {
 	db.Exec("DROP TABLE IF EXISTS messages")
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, nickname TEXT NOT NULL, password TEXT NOT NULL, email TEXT DEFAULT '', about TEXT DEFAULT '', avatar TEXT DEFAULT '')`,
-		`CREATE TABLE messages (id SERIAL PRIMARY KEY, username TEXT NOT NULL, nickname TEXT NOT NULL, text TEXT NOT NULL, time TEXT NOT NULL, chat_id INTEGER DEFAULT 1, avatar TEXT DEFAULT '', read BOOLEAN DEFAULT false)`,
+		`CREATE TABLE messages (id SERIAL PRIMARY KEY, username TEXT NOT NULL, nickname TEXT NOT NULL, text TEXT NOT NULL, time TEXT NOT NULL, chat_id INTEGER DEFAULT 1, avatar TEXT DEFAULT '', read BOOLEAN DEFAULT false, edited BOOLEAN DEFAULT false)`,
 		`CREATE TABLE IF NOT EXISTS chats (id SERIAL PRIMARY KEY, user1 TEXT NOT NULL, user2 TEXT NOT NULL, UNIQUE(user1, user2))`,
 	}
 	for _, q := range queries { db.Exec(q) }
@@ -180,21 +181,55 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(SearchResponse{Success: true, Users: users})
 }
 
-func handleGetMessages(w http.ResponseWriter, r *http.Request) {
+// Обработчик сообщений (GET, PUT, DELETE)
+func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	chatID := r.URL.Query().Get("chat_id")
-	if chatID == "" { chatID = "1" }
-	rows, _ := db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false) FROM messages WHERE chat_id = $1 ORDER BY id ASC LIMIT 100", chatID)
-	defer rows.Close()
-	var messages []Message
-	for rows.Next() {
-		var m Message; var avatar sql.NullString
-		rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &avatar, &m.Read)
-		m.Avatar = getAvatarURL(avatar.String)
-		messages = append(messages, m)
+	tokenString := r.Header.Get("Authorization")
+	if tokenString == "" || !strings.HasPrefix(tokenString, "Bearer ") { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
+	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) { return jwtSecret, nil })
+	if err != nil || !token.Valid { http.Error(w, "Invalid token", http.StatusUnauthorized); return }
+	claims := token.Claims.(jwt.MapClaims)
+	currentUser := claims["username"].(string)
+
+	if r.Method == "GET" {
+		chatID := r.URL.Query().Get("chat_id")
+		if chatID == "" { chatID = "1" }
+		rows, _ := db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false) FROM messages WHERE chat_id = $1 ORDER BY id ASC LIMIT 100", chatID)
+		defer rows.Close()
+		var messages []Message
+		for rows.Next() {
+			var m Message; var avatar sql.NullString
+			rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &avatar, &m.Read, &m.Edited)
+			m.Avatar = getAvatarURL(avatar.String)
+			messages = append(messages, m)
+		}
+		if messages == nil { messages = []Message{} }
+		json.NewEncoder(w).Encode(messages)
+		return
 	}
-	if messages == nil { messages = []Message{} }
-	json.NewEncoder(w).Encode(messages)
+
+	if r.Method == "PUT" {
+		var req struct { ID int `json:"id"`; Text string `json:"text"` }
+		json.NewDecoder(r.Body).Decode(&req)
+		var owner string
+		db.QueryRow("SELECT username FROM messages WHERE id = $1", req.ID).Scan(&owner)
+		if owner != currentUser { http.Error(w, "Forbidden", http.StatusForbidden); return }
+		db.Exec("UPDATE messages SET text = $1, edited = true WHERE id = $2", req.Text, req.ID)
+		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+		return
+	}
+
+	if r.Method == "DELETE" {
+		var req struct { ID int `json:"id"` }
+		json.NewDecoder(r.Body).Decode(&req)
+		var owner string
+		db.QueryRow("SELECT username FROM messages WHERE id = $1", req.ID).Scan(&owner)
+		if owner != currentUser { http.Error(w, "Forbidden", http.StatusForbidden); return }
+		db.Exec("DELETE FROM messages WHERE id = $1", req.ID)
+		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+		return
+	}
 }
 
 func handleProfile(w http.ResponseWriter, r *http.Request) {
@@ -285,7 +320,6 @@ func handleChatList(w http.ResponseWriter, r *http.Request) {
 	var chats []map[string]interface{}
 	for rows.Next() { var id int; var u1, u2 string; rows.Scan(&id, &u1, &u2); peer := u1; if peer == username { peer = u2 }; chats = append(chats, map[string]interface{}{"chat_id": id, "peer": peer}) }
 	if chats == nil { chats = []map[string]interface{}{} }
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(chats)
 }
 
@@ -345,13 +379,13 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		msg.Username = username; msg.Nickname = nickname; msg.Avatar = getAvatarURL(avatar)
 		msg.Time = time.Now().Format("15:04")
 		if msg.ChatID == 0 { msg.ChatID = 1 }
-		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar, read) VALUES ($1, $2, $3, $4, $5, $6, false)", msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar)
+		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar, read, edited) VALUES ($1, $2, $3, $4, $5, $6, false, false)", msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar)
 		broadcast <- msg
 	}
 }
 
 func handleMessages() {
-	for { msg := <-broadcast; mu.Lock(); for c := range clients { c.WriteJSON(map[string]interface{}{"username": msg.Username, "nickname": msg.Nickname, "text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID, "avatar": msg.Avatar, "read": msg.Read, "id": msg.ID}) }; mu.Unlock() }
+	for { msg := <-broadcast; mu.Lock(); for c := range clients { c.WriteJSON(map[string]interface{}{"id": msg.ID, "username": msg.Username, "nickname": msg.Nickname, "text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID, "avatar": msg.Avatar, "read": msg.Read, "edited": msg.Edited}) }; mu.Unlock() }
 }
 
 func broadcastOnlineCount() {
