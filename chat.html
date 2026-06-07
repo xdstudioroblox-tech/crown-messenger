@@ -52,7 +52,6 @@
         .send-btn { width: 40px; height: 40px; min-width: 40px; border-radius: 50%; background: linear-gradient(135deg, #007acc, #0099ff); color: white; border: none; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
         .overlay { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 15; }
         .overlay.show { display: block; } .back-btn { display: none; background: none; border: none; color: white; font-size: 22px; cursor: pointer; padding: 4px 8px; margin-right: 8px; }
-        /* Модальное окно */
         .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: center; padding: 20px; }
         .modal.show { display: flex; }
         .modal-content { background: var(--main-bg); border-radius: 16px; padding: 24px; max-width: 400px; width: 100%; max-height: 80vh; overflow-y: auto; position: relative; }
@@ -108,7 +107,6 @@
         </div>
     </div>
 
-    <!-- Модальное окно профиля -->
     <div class="modal" id="profileModal">
         <div class="modal-content">
             <button class="modal-close" onclick="closeProfile()">&times;</button>
@@ -131,18 +129,12 @@
         function getToken(){return localStorage.getItem('token');}
         function escapeHtml(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML;}
 
-        async function api(url,opts){
-            opts=opts||{};
-            opts.headers=opts.headers||{};
-            opts.headers['Authorization']='Bearer '+getToken();
-            return fetch(url,opts);
-        }
-
         function loadTheme(){if((localStorage.getItem('theme')||'light')==='dark'){document.body.classList.add('dark');document.getElementById('themeToggle').checked=true;}}
         function toggleTheme(){var d=document.getElementById('themeToggle').checked;document.body.classList.toggle('dark',d);localStorage.setItem('theme',d?'dark':'light');}
 
+        // Гамбургер
         document.getElementById('hamburgerBtn').addEventListener('click',function(e){e.stopPropagation();document.getElementById('dropdownMenu').classList.toggle('show');});
-        document.getElementById('menuProfile').addEventListener('click',function(){document.getElementById('dropdownMenu').classList.remove('show');openProfile(username);});
+        document.getElementById('menuProfile').addEventListener('click',function(){document.getElementById('dropdownMenu').classList.remove('show');setTimeout(function(){openProfile(username);},100);});
         document.getElementById('menuLogout').addEventListener('click',function(){document.getElementById('dropdownMenu').classList.remove('show');logout();});
         document.getElementById('themeToggle').addEventListener('change',toggleTheme);
         document.addEventListener('click',function(e){var m=document.getElementById('dropdownMenu'),b=document.getElementById('hamburgerBtn');if(!m.contains(e.target)&&e.target!==b&&!b.contains(e.target))m.classList.remove('show');var sr=document.getElementById('searchResults'),si=document.getElementById('searchInput');if(!sr.contains(e.target)&&e.target!==si)sr.classList.remove('show');});
@@ -174,8 +166,8 @@
         async function openProfile(u){
             viewingProfile=u;
             try{
-                var r=await api('/api/profile?username='+u);
-                if(!r.ok)return;
+                var r=await fetch('/api/profile?username='+u,{headers:{'Authorization':'Bearer '+getToken()}});
+                if(!r.ok){alert('Ошибка загрузки профиля');return;}
                 var user=await r.json();
                 document.getElementById('profileNickname').value=user.nickname||'';
                 document.getElementById('profileUsername').value=user.username||'';
@@ -186,14 +178,14 @@
                 document.getElementById('profileNickname').disabled=(u!==username);
                 document.getElementById('profileAbout').disabled=(u!==username);
                 document.getElementById('profileModal').classList.add('show');
-            }catch(e){}
+            }catch(e){alert('Ошибка: '+e);}
         }
         function closeProfile(){document.getElementById('profileModal').classList.remove('show');}
 
         async function saveProfile(){
             var nick=document.getElementById('profileNickname').value.trim();
             var about=document.getElementById('profileAbout').value.trim();
-            await api('/api/profile',{method:'PUT',body:JSON.stringify({nickname:nick,about:about})});
+            await fetch('/api/profile',{method:'PUT',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({nickname:nick,about:about})});
             nickname=nick||nickname;
             closeProfile();
         }
@@ -202,7 +194,7 @@
             var file=document.getElementById('avatarInput').files[0];
             if(!file)return;
             var fd=new FormData();fd.append('avatar',file);
-            var r=await api('/api/upload-avatar',{method:'POST',body:fd});
+            var r=await fetch('/api/upload-avatar',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});
             var data=await r.json();
             myAvatar=data.avatar;
             document.getElementById('profileAvatarImg').src=myAvatar;
