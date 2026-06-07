@@ -78,6 +78,7 @@
         .profile-field input, .profile-field textarea { width: 100%; padding: 11px 14px; border: 2px solid var(--border); border-radius: 10px; font-size: 14px; background: var(--input-bg); color: var(--text); outline: none; }
         .btn { padding: 11px 20px; border-radius: 10px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; width: 100%; }
         .btn-primary { background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; margin-top: 8px; }
+        .btn-sm { width: auto; padding: 8px 14px; font-size: 12px; }
         .switch { position: relative; width: 44px; height: 24px; display: inline-block; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; border-radius: 24px; transition: 0.3s; }
@@ -108,9 +109,11 @@
 <div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"><div class="menu-panel" onclick="event.stopPropagation()"><div class="menu-profile"><img class="menu-avatar" id="menuAvatarImg" style="display:none;"><div class="menu-avatar-placeholder" id="menuAvatarPlaceholder">👤</div><div class="menu-nickname" id="menuNickname">Пользователь</div><div class="menu-username" id="menuUsername">@user</div></div><div class="menu-items"><button class="menu-item" onclick="closeMenu();openProfile(username);"><span class="menu-icon">👤</span> Мой профиль</button><button class="menu-item" onclick="closeMenu();showCreateGroup();"><span class="menu-icon">👥</span> Создать группу</button><button class="menu-item" onclick="closeMenu();showJoinGroup();"><span class="menu-icon">🔗</span> Присоединиться</button></div><hr class="menu-divider"><div class="menu-footer"><span>🌙 Ночной режим</span><label class="switch"><input type="checkbox" id="menuThemeToggle" onchange="toggleTheme()"><span class="slider"></span></label></div><div class="menu-footer" style="justify-content:center;padding-top:0;"><span>Crown Messenger v0.2 (beta)</span></div></div></div>
 <div class="modal" id="profileModal"><div class="modal-content"><button class="modal-close" onclick="closeProfile()">✕</button><div style="text-align:center;"><img class="profile-avatar" id="profileAvatarImg" style="display:none;"><div class="profile-avatar-placeholder" id="profileAvatarPlaceholder">👤</div><input type="file" id="avatarInput" accept="image/*" style="display:none;"></div><div class="profile-field"><label>Никнейм</label><input type="text" id="profileNickname" disabled></div><div class="profile-field"><label>Юзернейм</label><input type="text" id="profileUsername" disabled></div><div class="profile-field"><label>О себе</label><textarea id="profileAbout" rows="3" disabled></textarea></div><button class="btn btn-primary" id="profileSaveBtn" style="display:none;">Сохранить</button><button class="btn btn-primary" id="profileChatBtn" style="display:none;">💬 Написать</button></div></div>
 <div class="modal" id="groupModal"><div class="modal-content"><button class="modal-close" onclick="closeGroupModal()">✕</button><div id="groupModalContent"></div></div></div>
+<div class="modal" id="inviteModal"><div class="modal-content"><button class="modal-close" onclick="closeInviteModal()">✕</button><div id="inviteModalContent"></div></div></div>
+<div class="modal" id="groupManageModal"><div class="modal-content"><button class="modal-close" onclick="closeGroupManageModal()">✕</button><div id="groupManageContent"></div></div></div>
 
 <script>
-var username="",nickname="",myAvatar="",ws,currentChatId=1,currentPeer="",currentIsGroup=false,viewingProfile="",searchTimeout,onlineCount=0,contextMsgId=null;
+var username="",nickname="",myAvatar="",ws,currentChatId=1,currentPeer="",currentIsGroup=false,viewingProfile="",searchTimeout,onlineCount=0,contextMsgId=null,currentGroupId=null;
 
 function getToken(){return localStorage.getItem('token');}
 function escapeHtml(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML;}
@@ -186,7 +189,7 @@ async function createGroup(){
     var name=document.getElementById('groupName').value.trim();if(!name)return;
     var r=await fetch('/api/group/create',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({name:name})});
     var d=await r.json();
-    if(d.group_id){closeGroupModal();addChatToList(d.group_id,d.name,true);switchToChat(d.group_id,d.name,true);alert('Группа создана! Код приглашения: '+d.invite_code);}
+    if(d.group_id){closeGroupModal();addChatToList(d.group_id,d.name,true);switchToChat(d.group_id,d.name,true);showInviteModal(d.group_id,d.name,d.invite_code);}
     else{alert('Ошибка: '+JSON.stringify(d));}
 }
 function showJoinGroup(){
@@ -203,9 +206,35 @@ async function joinGroup(){
 }
 function closeGroupModal(){document.getElementById('groupModal').classList.remove('show');}
 
+function showInviteModal(groupId, groupName, code){
+    currentGroupId = groupId;
+    var inviteLink = 'https://crown-messenger.onrender.com/chat?code=' + code;
+    var c = document.getElementById('inviteModalContent');
+    c.innerHTML = '<h3 style="margin-bottom:16px;">🔗 Пригласить в «' + groupName + '»</h3>' +
+        '<div class="profile-field"><label>Код приглашения</label><div style="display:flex;gap:8px;"><input type="text" id="inviteCodeText" value="' + code + '" readonly style="flex:1;"><button class="btn btn-primary btn-sm" style="margin-top:0;white-space:nowrap;" onclick="copyInviteCode()">📋 Копировать</button></div></div>' +
+        '<div class="profile-field"><label>Ссылка-приглашение</label><div style="display:flex;gap:8px;"><input type="text" id="inviteLinkText" value="' + inviteLink + '" readonly style="flex:1;"><button class="btn btn-primary btn-sm" style="margin-top:0;white-space:nowrap;" onclick="copyInviteLink()">📋 Копировать</button></div></div>' +
+        '<p style="font-size:12px;color:var(--text-light);margin-top:8px;">Отправьте код или ссылку другу.</p>';
+    document.getElementById('inviteModal').classList.add('show');
+}
+function closeInviteModal(){document.getElementById('inviteModal').classList.remove('show');}
+function copyInviteCode(){var inp=document.getElementById('inviteCodeText');inp.select();document.execCommand('copy');alert('Код скопирован!');}
+function copyInviteLink(){var inp=document.getElementById('inviteLinkText');inp.select();document.execCommand('copy');alert('Ссылка скопирована!');}
+
+function showGroupManage(groupId){
+    currentGroupId = groupId;
+    fetch('/api/group/info?id='+groupId,{headers:{'Authorization':'Bearer '+getToken()}})
+        .then(function(r){return r.json();})
+        .then(function(g){
+            fetch('/api/group/invites?id='+groupId,{headers:{'Authorization':'Bearer '+getToken()}})
+                .then(function(r){return r.json();})
+                .then(function(inv){showInviteModal(groupId,g.name,inv.invite_code);})
+                .catch(function(){alert('Только админ может смотреть код приглашения');});
+        });
+}
+function closeGroupManageModal(){document.getElementById('groupManageModal').classList.remove('show');}
+
 // ====== ЧАТЫ ======
 function addChatToList(id,peer,isGroup){
-    // Удаляем старый элемент с таким же ID (если есть)
     var old=document.querySelector('.chat-item[data-chat-id="'+id+'"]');if(old)old.remove();
     var list=document.getElementById('chatList'),div=document.createElement('div');div.className='chat-item';
     div.setAttribute('data-chat-id',id);div.setAttribute('data-peer',peer||'');div.setAttribute('data-is-group',isGroup?'true':'false');
@@ -264,21 +293,18 @@ document.getElementById('ctxDelete').onclick=function(){
     if(confirm('Удалить сообщение?')){fetch('/api/messages',{method:'DELETE',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({id:contextMsgId})}).then(function(){switchToChat(currentChatId,currentPeer,currentIsGroup);});}
 };
 function loadUser(){
+    var urlParams=new URLSearchParams(window.location.search);var inviteCode=urlParams.get('code');
+    if(inviteCode){fetch('/api/group/join',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({code:inviteCode})}).then(function(r){return r.json();}).then(function(d){if(d.group_id){alert('Вы присоединились к группе «'+d.name+'»!');window.history.replaceState({},'','/chat');}}).catch(function(){});}
     var token=getToken();if(!token){window.location.href='/';return;}
     var user=JSON.parse(localStorage.getItem('user')||'{}');username=user.username||'';nickname=user.nickname||'';myAvatar=user.avatar||'';
     if(!username){window.location.href='/';return;}
     loadChatList();switchToChat(1,'',false);connectWebSocket(token);
 }
 async function loadChatList(){
-    // Очищаем список перед загрузкой
-    document.getElementById('chatList').innerHTML='';
-    // Всегда добавляем общий чат первым
-    addChatToList(1,'',false);
+    document.getElementById('chatList').innerHTML='';addChatToList(1,'',false);
     try{var r=await fetch('/api/chat/list',{headers:{'Authorization':'Bearer '+getToken()}});var chats=await r.json();
         chats.forEach(function(c){if(c.chat_id!==1)addChatToList(c.chat_id,c.peer,c.is_group||false);});
     }catch(e){}
-    // Активируем общий чат
-    switchToChat(1,'',false);
 }
 function connectWebSocket(token){
     var p=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(p+'//'+location.host+'/ws?token='+token);
@@ -292,7 +318,7 @@ function connectWebSocket(token){
 }
 function sendMessage(){var input=document.getElementById('messageInput'),text=input.value.trim();if(text&&ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:text,chat_id:currentChatId}));input.value='';}}
 function logout(){localStorage.removeItem('token');localStorage.removeItem('user');window.location.href='/';}
-document.getElementById('chatHeader').onclick=function(){if(currentPeer&&!currentIsGroup)openProfile(currentPeer);};
+document.getElementById('chatHeader').onclick=function(){if(currentIsGroup){showGroupManage(currentChatId);}else if(currentPeer){openProfile(currentPeer);}};
 
 loadTheme();window.addEventListener('load',function(){setTimeout(function(){loadUser();},200);});
 </script>
