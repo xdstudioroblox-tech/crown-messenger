@@ -104,6 +104,7 @@ func main() {
 	http.HandleFunc("/api/upload-avatar", handleUploadAvatar)
 	http.HandleFunc("/api/chat/create", handleCreateChat)
 	http.HandleFunc("/api/chat/list", handleChatList)
+	http.HandleFunc("/api/clearchats", handleClearChats)
 	http.HandleFunc("/api/dbtest", handleDBTest)
 	http.HandleFunc("/ws", handleConnections)
 	http.HandleFunc("/uploads/", serveUploads)
@@ -328,6 +329,12 @@ func handleChatList(w http.ResponseWriter, r *http.Request) {
 	if chats == nil { chats = []map[string]interface{}{} }
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(chats)
+}
+
+func handleClearChats(w http.ResponseWriter, r *http.Request) {
+	db.Exec("DELETE FROM chats")
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "message": "Все чаты удалены"})
 }
 
 func handleDBTest(w http.ResponseWriter, r *http.Request) {
