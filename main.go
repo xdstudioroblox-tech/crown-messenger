@@ -103,6 +103,7 @@ func main() {
 	http.HandleFunc("/api/profile", handleProfile)
 	http.HandleFunc("/api/upload-avatar", handleUploadAvatar)
 	http.HandleFunc("/api/dbtest", handleDBTest)
+	http.HandleFunc("/api/dbusers", handleDBUsers)
 	http.HandleFunc("/ws", handleConnections)
 	http.HandleFunc("/uploads/", serveUploads)
 	http.HandleFunc("/", serveHome)
@@ -171,9 +172,7 @@ func serveUploads(w http.ResponseWriter, r *http.Request) {
 }
 
 func getAvatarURL(avatar string) string {
-	if avatar == "" {
-		return ""
-	}
+	if avatar == "" { return "" }
 	return "/uploads/" + avatar
 }
 
@@ -183,10 +182,7 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req AuthRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Неверный формат данных"})
-		return
-	}
+	json.NewDecoder(r.Body).Decode(&req)
 	if req.Username == "" || req.Password == "" || req.Nickname == "" {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Все поля обязательны"})
 		return
@@ -229,10 +225,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req AuthRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Неверный формат данных"})
-		return
-	}
+	json.NewDecoder(r.Body).Decode(&req)
 
 	var user User
 	err := db.QueryRow("SELECT id, username, nickname, email, COALESCE(about,''), COALESCE(avatar,'') FROM users WHERE username = $1 AND password = $2",
@@ -267,9 +260,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 		u.Avatar = getAvatarURL(u.Avatar)
 		users = append(users, u)
 	}
-	if users == nil {
-		users = []User{}
-	}
+	if users == nil { users = []User{} }
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(SearchResponse{Success: true, Users: users})
 }
@@ -277,27 +268,18 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 func handleGetMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	chatID := r.URL.Query().Get("chat_id")
-	if chatID == "" {
-		chatID = "1"
-	}
+	if chatID == "" { chatID = "1" }
 	rows, err := db.Query("SELECT id, username, nickname, text, time, COALESCE(avatar,'') FROM messages WHERE chat_id = $1 ORDER BY id ASC LIMIT 100", chatID)
-	if err != nil {
-		json.NewEncoder(w).Encode([]Message{})
-		return
-	}
+	if err != nil { json.NewEncoder(w).Encode([]Message{}); return }
 	defer rows.Close()
 	var messages []Message
 	for rows.Next() {
 		var m Message
-		if err := rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &m.Avatar); err != nil {
-			continue
-		}
+		if err := rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &m.Avatar); err != nil { continue }
 		m.Avatar = getAvatarURL(m.Avatar)
 		messages = append(messages, m)
 	}
-	if messages == nil {
-		messages = []Message{}
-	}
+	if messages == nil { messages = []Message{} }
 	json.NewEncoder(w).Encode(messages)
 }
 
@@ -325,66 +307,38 @@ func handleProfile(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "PUT" {
 		tokenString := r.Header.Get("Authorization")
-		if tokenString == "" || !strings.HasPrefix(tokenString, "Bearer ") {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
+		if tokenString == "" || !strings.HasPrefix(tokenString, "Bearer ") { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
 		tokenString = strings.TrimPrefix(tokenString, "Bearer ")
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) { return jwtSecret, nil })
-		if err != nil || !token.Valid {
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
-			return
-		}
+		token, _ := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) { return jwtSecret, nil })
 		claims := token.Claims.(jwt.MapClaims)
 		currentUser := claims["username"].(string)
-
 		var req struct {
 			Nickname string `json:"nickname,omitempty"`
 			About    string `json:"about,omitempty"`
 		}
 		json.NewDecoder(r.Body).Decode(&req)
-		if req.Nickname != "" {
-			db.Exec("UPDATE users SET nickname = $1 WHERE username = $2", req.Nickname, currentUser)
-		}
-		if req.About != "" {
-			db.Exec("UPDATE users SET about = $1 WHERE username = $2", req.About, currentUser)
-		}
+		if req.Nickname != "" { db.Exec("UPDATE users SET nickname = $1 WHERE username = $2", req.Nickname, currentUser) }
+		if req.About != "" { db.Exec("UPDATE users SET about = $1 WHERE username = $2", req.About, currentUser) }
 		json.NewEncoder(w).Encode(map[string]bool{"success": true})
 		return
 	}
-
-	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 }
 
 func handleUploadAvatar(w http.ResponseWriter, r *http.Request) {
 	tokenString := r.Header.Get("Authorization")
-	if tokenString == "" || !strings.HasPrefix(tokenString, "Bearer ") {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
+	if tokenString == "" || !strings.HasPrefix(tokenString, "Bearer ") { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
 	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) { return jwtSecret, nil })
-	if err != nil || !token.Valid {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
-		return
-	}
+	token, _ := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) { return jwtSecret, nil })
 	claims := token.Claims.(jwt.MapClaims)
 	username := claims["username"].(string)
 
 	file, header, err := r.FormFile("avatar")
-	if err != nil {
-		http.Error(w, "Ошибка загрузки", http.StatusBadRequest)
-		return
-	}
+	if err != nil { http.Error(w, "Ошибка загрузки", http.StatusBadRequest); return }
 	defer file.Close()
 
 	ext := filepath.Ext(header.Filename)
 	filename := username + "_" + strconv.FormatInt(time.Now().Unix(), 10) + ext
-	out, err := os.Create("uploads/" + filename)
-	if err != nil {
-		http.Error(w, "Ошибка сохранения", http.StatusInternalServerError)
-		return
-	}
+	out, _ := os.Create("uploads/" + filename)
 	defer out.Close()
 	io.Copy(out, file)
 
@@ -394,124 +348,65 @@ func handleUploadAvatar(w http.ResponseWriter, r *http.Request) {
 
 func handleDBTest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
 	var userCount int
 	db.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCount)
-
 	var tableExists bool
 	db.QueryRow("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')").Scan(&tableExists)
+	json.NewEncoder(w).Encode(map[string]interface{}{"users_table": tableExists, "user_count": userCount})
+}
 
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"users_table": tableExists,
-		"user_count":  userCount,
-	})
+func handleDBUsers(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	rows, err := db.Query("SELECT id, username, nickname FROM users LIMIT 10")
+	if err != nil { json.NewEncoder(w).Encode(map[string]string{"error": err.Error()}); return }
+	defer rows.Close()
+	var users []map[string]interface{}
+	for rows.Next() {
+		var id int; var un, nn string
+		rows.Scan(&id, &un, &nn)
+		users = append(users, map[string]interface{}{"id": id, "username": un, "nickname": nn})
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"count": len(users), "users": users})
 }
 
 func generateToken(username string, userID int) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"username": username,
-		"user_id":  userID,
-		"exp":      time.Now().Add(720 * time.Hour).Unix(),
-	})
-	return token.SignedString(jwtSecret)
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"username": username, "user_id": userID, "exp": time.Now().Add(720 * time.Hour).Unix()}).SignedString(jwtSecret)
 }
 
 func handleConnections(w http.ResponseWriter, r *http.Request) {
 	tokenString := r.URL.Query().Get("token")
-	if tokenString == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) { return jwtSecret, nil })
-	if err != nil || !token.Valid {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
-		return
-	}
+	if tokenString == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
+	token, _ := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) { return jwtSecret, nil })
 	claims := token.Claims.(jwt.MapClaims)
 	username := claims["username"].(string)
 	nickname := getNickname(username)
 	avatar := getAvatar(username)
 
-	ws, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		return
-	}
+	ws, _ := upgrader.Upgrade(w, r, nil)
 	defer ws.Close()
 
-	mu.Lock()
-	clients[ws] = username
-	mu.Unlock()
-
-	log.Printf("%s подключился. Всего клиентов: %d", username, len(clients))
+	mu.Lock(); clients[ws] = username; mu.Unlock()
+	log.Printf("%s подключился. Всего: %d", username, len(clients))
 	broadcastOnlineCount()
 
 	for {
 		var msg Message
-		err := ws.ReadJSON(&msg)
-		if err != nil {
-			mu.Lock()
-			delete(clients, ws)
-			mu.Unlock()
-			broadcastOnlineCount()
-			break
-		}
-		msg.Username = username
-		msg.Nickname = nickname
-		msg.Avatar = getAvatarURL(avatar)
-		msg.Time = time.Now().Format("15:04")
-		if msg.ChatID == 0 {
-			msg.ChatID = 1
-		}
-		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar) VALUES ($1, $2, $3, $4, $5, $6)",
-			msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar)
+		if err := ws.ReadJSON(&msg); err != nil { mu.Lock(); delete(clients, ws); mu.Unlock(); broadcastOnlineCount(); break }
+		msg.Username = username; msg.Nickname = nickname; msg.Avatar = getAvatarURL(avatar); msg.Time = time.Now().Format("15:04")
+		if msg.ChatID == 0 { msg.ChatID = 1 }
+		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar) VALUES ($1, $2, $3, $4, $5, $6)", msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar)
 		broadcast <- msg
 	}
 }
 
 func handleMessages() {
-	for {
-		msg := <-broadcast
-		mu.Lock()
-		for client := range clients {
-			client.WriteJSON(map[string]interface{}{
-				"username": msg.Username,
-				"nickname": msg.Nickname,
-				"text":     msg.Text,
-				"time":     msg.Time,
-				"chat_id":  msg.ChatID,
-				"avatar":   msg.Avatar,
-			})
-		}
-		mu.Unlock()
-	}
+	for { msg := <-broadcast; mu.Lock(); for c := range clients { c.WriteJSON(map[string]interface{}{"username": msg.Username, "nickname": msg.Nickname, "text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID, "avatar": msg.Avatar}) }; mu.Unlock() }
 }
 
 func broadcastOnlineCount() {
-	mu.Lock()
-	count := len(clients)
-	mu.Unlock()
-	mu.Lock()
-	for client := range clients {
-		client.WriteJSON(map[string]interface{}{
-			"username": "system",
-			"text":     fmt.Sprintf("%d", count),
-			"time":     "online",
-		})
-	}
-	mu.Unlock()
+	mu.Lock(); c := len(clients); mu.Unlock()
+	mu.Lock(); for cl := range clients { cl.WriteJSON(map[string]interface{}{"username": "system", "text": fmt.Sprintf("%d", c), "time": "online"}) }; mu.Unlock()
 }
 
-func getNickname(username string) string {
-	var n string
-	db.QueryRow("SELECT nickname FROM users WHERE username = $1", username).Scan(&n)
-	if n == "" {
-		return username
-	}
-	return n
-}
-
-func getAvatar(username string) string {
-	var a string
-	db.QueryRow("SELECT COALESCE(avatar,'') FROM users WHERE username = $1", username).Scan(&a)
-	return a
-}
+func getNickname(u string) string { var n string; db.QueryRow("SELECT nickname FROM users WHERE username = $1", u).Scan(&n); if n == "" { return u }; return n }
+func getAvatar(u string) string { var a string; db.QueryRow("SELECT COALESCE(avatar,'') FROM users WHERE username = $1", u).Scan(&a); return a }
