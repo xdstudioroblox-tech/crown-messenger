@@ -132,7 +132,6 @@
         function loadTheme(){if((localStorage.getItem('theme')||'light')==='dark'){document.body.classList.add('dark');document.getElementById('themeToggle').checked=true;}}
         function toggleTheme(){var d=document.getElementById('themeToggle').checked;document.body.classList.toggle('dark',d);localStorage.setItem('theme',d?'dark':'light');}
 
-        // Гамбургер
         document.getElementById('hamburgerBtn').addEventListener('click',function(e){e.stopPropagation();document.getElementById('dropdownMenu').classList.toggle('show');});
         document.getElementById('menuProfile').addEventListener('click',function(){document.getElementById('dropdownMenu').classList.remove('show');setTimeout(function(){openProfile(username);},100);});
         document.getElementById('menuLogout').addEventListener('click',function(){document.getElementById('dropdownMenu').classList.remove('show');logout();});
@@ -145,7 +144,6 @@
         document.addEventListener('touchstart',function(e){touchStartX=e.touches[0].clientX;});
         document.addEventListener('touchend',function(e){var d=e.changedTouches[0].clientX-touchStartX;if(d>80&&touchStartX<30)openSidebar();if(d<-80&&document.getElementById('sidebar').classList.contains('open'))closeSidebar();});
 
-        // Поиск
         document.getElementById('searchInput').addEventListener('input',function(){
             clearTimeout(searchTimeout);var q=this.value.trim(),rd=document.getElementById('searchResults');
             if(q.length<2){rd.classList.remove('show');return;}
@@ -162,11 +160,10 @@
             },300);
         });
 
-        // Профиль
         async function openProfile(u){
             viewingProfile=u;
             try{
-                var r=await fetch('/api/profile?username='+u,{headers:{'Authorization':'Bearer '+getToken()}});
+                var r=await fetch('/api/profile?username='+u);
                 if(!r.ok){alert('Ошибка загрузки профиля');return;}
                 var user=await r.json();
                 document.getElementById('profileNickname').value=user.nickname||'';
@@ -204,7 +201,6 @@
 
         function startChat(){closeProfile();alert('Чат с '+viewingProfile+' — скоро!');}
 
-        // Сообщения
         async function loadMessages(){
             try{
                 var resp=await fetch('/api/messages?chat_id='+currentChatId);

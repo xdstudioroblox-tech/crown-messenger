@@ -301,30 +301,20 @@ func handleGetMessages(w http.ResponseWriter, r *http.Request) {
 
 func handleProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	tokenString := r.Header.Get("Authorization")
-	if tokenString == "" || !strings.HasPrefix(tokenString, "Bearer ") {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) { return jwtSecret, nil })
-	if err != nil || !token.Valid {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
-		return
-	}
-	claims := token.Claims.(jwt.MapClaims)
-	currentUser := claims["username"].(string)
 
+	// GET — открытый доступ
 	if r.Method == "GET" {
 		userParam := r.URL.Query().Get("username")
 		if userParam == "" {
-			userParam = currentUser
+			json.NewEncoder(w).Encode(map[string]string{"error": "username required"})
+			return
 		}
 		var user User
 		err := db.QueryRow("SELECT id, username, nickname, COALESCE(email,''), COALESCE(about,''), COALESCE(avatar,'') FROM users WHERE username = $1", userParam).
 			Scan(&user.ID, &user.Username, &user.Nickname, &user.Email, &user.About, &user.Avatar)
 		if err != nil {
-			http.Error(w, "Not found", http.StatusNotFound)
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
 			return
 		}
 		user.Avatar = getAvatarURL(user.Avatar)
@@ -332,7 +322,22 @@ func handleProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// PUT — нужна авторизация
 	if r.Method == "PUT" {
+		tokenString := r.Header.Get("Authorization")
+		if tokenString == "" || !strings.HasPrefix(tokenString, "Bearer ") {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		tokenString = strings.TrimPrefix(tokenString, "Bearer ")
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) { return jwtSecret, nil })
+		if err != nil || !token.Valid {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+		claims := token.Claims.(jwt.MapClaims)
+		currentUser := claims["username"].(string)
+
 		var req struct {
 			Nickname string `json:"nickname,omitempty"`
 			About    string `json:"about,omitempty"`
@@ -343,12 +348,12 @@ func handleProfile(w http.ResponseWriter, r *http.Request) {
 		}
 		if req.About != "" {
 			db.Exec("UPDATE users SET about = $1 WHERE username = $2", req.About, currentUser)
-		} else if req.About == "" && r.URL.Query().Get("clear_about") == "true" {
-			db.Exec("UPDATE users SET about = '' WHERE username = $1", currentUser)
 		}
 		json.NewEncoder(w).Encode(map[string]bool{"success": true})
 		return
 	}
+
+	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 }
 
 func handleUploadAvatar(w http.ResponseWriter, r *http.Request) {
