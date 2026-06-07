@@ -179,17 +179,14 @@
     </div>
 
     <script>
-        // Глобальные переменные (без значений по умолчанию!)
         var username = "", nickname = "", myAvatar = "", ws, currentChatId = 1, currentPeer = "", viewingProfile = "", searchTimeout, onlineCount = 0;
 
         function getToken(){ return localStorage.getItem('token'); }
         function escapeHtml(t){ var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
-        // Тема
         function loadTheme(){
             if((localStorage.getItem('theme')||'light') === 'dark'){
                 document.body.classList.add('dark');
-                document.getElementById('themeToggle').checked = true;
                 document.getElementById('menuThemeToggle').checked = true;
             }
         }
@@ -197,10 +194,8 @@
             var d = document.getElementById('menuThemeToggle').checked;
             document.body.classList.toggle('dark', d);
             localStorage.setItem('theme', d ? 'dark' : 'light');
-            document.getElementById('themeToggle').checked = d;
         }
 
-        // Меню
         function openMenu(){
             document.getElementById('menuNickname').textContent = nickname || 'Пользователь';
             document.getElementById('menuUsername').textContent = '@' + (username || 'user');
@@ -215,7 +210,6 @@
 
         document.getElementById('hamburgerBtn').onclick = function(e){ e.stopPropagation(); openMenu(); };
         document.getElementById('menuThemeToggle').onchange = toggleTheme;
-        document.getElementById('themeToggle').onchange = function(){ document.getElementById('menuThemeToggle').checked = this.checked; toggleTheme(); };
         document.onclick = function(e){
             var sr = document.getElementById('searchResults'), si = document.getElementById('searchInput');
             if(!sr.contains(e.target) && e.target !== si) sr.classList.remove('show');
@@ -233,7 +227,6 @@
             if(d < -80 && document.getElementById('sidebar').classList.contains('open')) closeSidebar();
         });
 
-        // Поиск
         document.getElementById('searchInput').oninput = function(){
             clearTimeout(searchTimeout);
             var q = this.value.trim(), rd = document.getElementById('searchResults');
@@ -261,7 +254,6 @@
             }, 300);
         };
 
-        // Профиль
         async function openProfile(u){
             viewingProfile = u; var isMe = (u === username);
             try{
@@ -306,7 +298,6 @@
             document.getElementById('profileAvatarPlaceholder').style.display = 'none';
         };
 
-        // Кнопка "Написать"
         document.getElementById('profileChatBtn').onclick = async function(){
             if(!viewingProfile || viewingProfile === username){ alert('Нельзя написать себе'); return; }
             try{
@@ -317,7 +308,6 @@
             } catch(e) { alert('Ошибка: ' + e); }
         };
 
-        // Чаты
         function addChatToList(id, peer){
             if(document.querySelector('.chat-item[data-chat-id="' + id + '"]')) return;
             var list = document.getElementById('chatList'), div = document.createElement('div');
@@ -363,7 +353,6 @@
                 .catch(function(){ statusEl.textContent = ''; });
         }
 
-        // ====== ГЛАВНАЯ ФУНКЦИЯ ЗАГРУЗКИ (ИСПРАВЛЕНА) ======
         function loadUser(){
             var token = getToken();
             if(!token){ window.location.href = '/'; return; }
@@ -422,9 +411,10 @@
 
         document.getElementById('chatHeader').onclick = function(){ if(currentPeer) openProfile(currentPeer); };
 
-        // ====== ЗАПУСК ======
         loadTheme();
-        loadUser();
+        window.addEventListener('load', function(){ 
+            setTimeout(function(){ loadUser(); }, 200);
+        });
     </script>
 </body>
 </html>
