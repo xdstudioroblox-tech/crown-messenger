@@ -86,7 +86,9 @@
                 <div class="chat-header-avatar">💬</div>
                 <div class="chat-header-info"><h3>Общий чат</h3><span id="onlineCount">Загрузка...</span></div>
             </div>
-            <div class="messages-area" id="messagesArea"></div>
+            <div class="messages-area" id="messagesArea">
+                <div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div>
+            </div>
             <div class="input-area">
                 <input type="text" id="messageInput" placeholder="Напишите сообщение..." onkeypress="if(event.key==='Enter')sendMessage()">
                 <button class="send-btn" onclick="sendMessage()">➤</button>
@@ -126,17 +128,30 @@
         });
 
         async function loadMessages(){
-            try{var r=await fetch('/api/messages?chat_id='+currentChatId);var msgs=await r.json();var area=document.getElementById('messagesArea');area.innerHTML='';
-                if(!msgs||msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';return;}
+            try{
+                var resp=await fetch('/api/messages?chat_id='+currentChatId);
+                if(!resp.ok){throw new Error('HTTP '+resp.status);}
+                var msgs=await resp.json();
+                var area=document.getElementById('messagesArea');
+                area.innerHTML='';
+                if(!msgs||msgs.length===0){
+                    area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений. Напишите первое!</div>';
+                    return;
+                }
                 msgs.sort(function(a,b){return a.id-b.id;});
-                msgs.forEach(function(m){appendMessage(m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',false);});
+                msgs.forEach(function(m){
+                    appendMessage(m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',false);
+                });
                 area.scrollTop=area.scrollHeight;
-            }catch(e){document.getElementById('messagesArea').innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Ошибка загрузки</div>';}
+            }catch(e){
+                console.log('Ошибка загрузки:',e);
+                document.getElementById('messagesArea').innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div>';
+            }
         }
 
         function loadUser(){var token=getToken(),user=JSON.parse(localStorage.getItem('user')||'{}');if(!token){window.location.href='/';return;}nickname=user.nickname||'Пользователь';username=user.username||'Пользователь';myAvatar=user.avatar||'';loadMessages();connectWebSocket(token);}
         function connectWebSocket(token){var p=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(p+'//'+location.host+'/ws?token='+token);ws.onmessage=function(e){var msg=JSON.parse(e.data);if(msg.username==='system'){onlineCount=parseInt(msg.text)||0;document.getElementById('onlineCount').textContent=onlineCount+' участников онлайн';return;}if(msg.chat_id===currentChatId||(currentChatId===1&&(!msg.chat_id||msg.chat_id===1)))appendMessage(msg.username,msg.nickname||msg.username,msg.text,msg.time,msg.avatar||'',true);};ws.onclose=function(){setTimeout(function(){connectWebSocket(token);},3000);};}
-        function appendMessage(sender,senderNick,text,time,avatar,animate){var area=document.getElementById('messagesArea'),div=document.createElement('div'),isMine=sender===username;div.className='message '+(isMine?'mine':'other');if(!animate)div.style.animation='none';var avHtml='';if(!isMine){if(avatar){avHtml='<img class="message-avatar" src="'+avatar+'">';}else{avHtml='<div class="message-avatar-placeholder">'+senderNick.charAt(0).toUpperCase()+'</div>';}}div.innerHTML=avHtml+'<div class="message-bubble">'+(isMine?'':'<div class="message-username">'+escapeHtml(senderNick)+'</div>')+escapeHtml(text)+'<div class="message-time">'+time+'</div></div>';area.appendChild(div);area.scrollTop=area.scrollHeight;}
+        function appendMessage(sender,senderNick,text,time,avatar,animate){var area=document.getElementById('messagesArea'),div=document.createElement('div'),isMine=sender===username;div.className='message '+(isMine?'mine':'other');if(!animate)div.style.animation='none';var avHtml='';if(!isMine){if(avatar&&avatar!==''){avHtml='<img class="message-avatar" src="'+avatar+'">';}else{avHtml='<div class="message-avatar-placeholder">'+senderNick.charAt(0).toUpperCase()+'</div>';}}div.innerHTML=avHtml+'<div class="message-bubble">'+(isMine?'':'<div class="message-username">'+escapeHtml(senderNick)+'</div>')+escapeHtml(text)+'<div class="message-time">'+time+'</div></div>';area.appendChild(div);area.scrollTop=area.scrollHeight;}
         function sendMessage(){var input=document.getElementById('messageInput'),text=input.value.trim();if(text&&ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:text,chat_id:currentChatId}));input.value='';}}
         function logout(){localStorage.removeItem('token');localStorage.removeItem('user');window.location.href='/';}
         loadTheme();loadUser();
