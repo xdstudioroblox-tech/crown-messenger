@@ -219,8 +219,13 @@
 
         function switchToChat(id,peer){
             currentChatId=parseInt(id);currentPeer=peer||'';
-            document.getElementById('chatTitle').textContent=peer||'Общий чат';
-            document.getElementById('chatHeaderIcon').textContent=peer?peer.charAt(0).toUpperCase():'💬';
+            if(currentChatId===1){
+                document.getElementById('chatTitle').textContent='Общий чат';
+                document.getElementById('chatHeaderIcon').textContent='💬';
+            }else{
+                document.getElementById('chatTitle').textContent=peer;
+                document.getElementById('chatHeaderIcon').textContent=peer.charAt(0).toUpperCase();
+            }
             document.querySelectorAll('.chat-item').forEach(function(el){el.classList.remove('active');});
             var item=document.querySelector('.chat-item[data-chat-id="'+id+'"]');
             if(item)item.classList.add('active');
@@ -239,8 +244,7 @@
 
         function updateOnlineStatus(){
             var statusEl=document.getElementById('onlineStatus');
-            if(currentChatId===1){statusEl.textContent=onlineCount+' участников онлайн';return;}
-            if(!currentPeer){statusEl.textContent='';return;}
+            if(currentChatId===1||!currentPeer){statusEl.textContent=onlineCount+' участников онлайн';return;}
             fetch('/api/online?username='+currentPeer)
                 .then(function(r){return r.json();})
                 .then(function(d){statusEl.textContent=d.online?'🟢 Онлайн':'⚫ Офлайн';})
@@ -263,19 +267,10 @@
             ws=new WebSocket(p+'//'+location.host+'/ws?token='+token);
             ws.onmessage=function(e){
                 var msg=JSON.parse(e.data);
-                if(msg.type==='chat_created'){
-                    addChatToList(msg.chat_id,msg.peer);
-                    return;
-                }
-                if(msg.type==='online_count'){
-                    onlineCount=parseInt(msg.text)||0;
-                    updateOnlineStatus();
-                    return;
-                }
+                if(msg.type==='chat_created'){addChatToList(msg.chat_id,msg.peer);return;}
+                if(msg.type==='online_count'){onlineCount=parseInt(msg.text)||0;updateOnlineStatus();return;}
                 var targetChat=msg.chat_id||1;
-                if(targetChat===currentChatId){
-                    appendMessage(msg.username,msg.nickname||msg.username,msg.text,msg.time,msg.avatar||'',true);
-                }
+                if(targetChat===currentChatId){appendMessage(msg.username,msg.nickname||msg.username,msg.text,msg.time,msg.avatar||'',true);}
             };
             ws.onclose=function(){setTimeout(function(){connectWebSocket(token);},3000);};
         }
