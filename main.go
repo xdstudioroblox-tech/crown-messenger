@@ -44,17 +44,17 @@ type User struct {
 }
 
 type Message struct {
-	ID        int    `json:"id"`
-	Username  string `json:"username"`
-	Nickname  string `json:"nickname"`
-	Text      string `json:"text"`
-	Time      string `json:"time"`
-	ChatID    int    `json:"chat_id"`
-	Avatar    string `json:"avatar,omitempty"`
-	Type      string `json:"type,omitempty"`
-	Peer      string `json:"peer,omitempty"`
-	Read      bool   `json:"read"`
-	Edited    bool   `json:"edited"`
+	ID       int    `json:"id"`
+	Username string `json:"username"`
+	Nickname string `json:"nickname"`
+	Text     string `json:"text"`
+	Time     string `json:"time"`
+	ChatID   int    `json:"chat_id"`
+	Avatar   string `json:"avatar,omitempty"`
+	Type     string `json:"type,omitempty"`
+	Peer     string `json:"peer,omitempty"`
+	Read     bool   `json:"read"`
+	Edited   bool   `json:"edited"`
 }
 
 type AuthRequest struct {
@@ -115,14 +115,15 @@ func main() {
 }
 
 func createTables() {
-	db.Exec("DROP TABLE IF EXISTS messages")
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, nickname TEXT NOT NULL, password TEXT NOT NULL, email TEXT DEFAULT '', about TEXT DEFAULT '', avatar TEXT DEFAULT '')`,
-		`CREATE TABLE messages (id SERIAL PRIMARY KEY, username TEXT NOT NULL, nickname TEXT NOT NULL, text TEXT NOT NULL, time TEXT NOT NULL, chat_id INTEGER DEFAULT 1, avatar TEXT DEFAULT '', read BOOLEAN DEFAULT false, edited BOOLEAN DEFAULT false)`,
+		`CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, username TEXT NOT NULL, nickname TEXT NOT NULL, text TEXT NOT NULL, time TEXT NOT NULL, chat_id INTEGER DEFAULT 1, avatar TEXT DEFAULT '', read BOOLEAN DEFAULT false, edited BOOLEAN DEFAULT false)`,
 		`CREATE TABLE IF NOT EXISTS chats (id SERIAL PRIMARY KEY, user1 TEXT NOT NULL, user2 TEXT NOT NULL, UNIQUE(user1, user2))`,
 	}
 	for _, q := range queries { db.Exec(q) }
 	db.Exec("DELETE FROM chats WHERE user1 = '' OR user2 = ''")
+	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS read BOOLEAN DEFAULT false")
+	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited BOOLEAN DEFAULT false")
 	log.Println("Таблицы проверены")
 }
 
@@ -181,7 +182,6 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(SearchResponse{Success: true, Users: users})
 }
 
-// Обработчик сообщений (GET, PUT, DELETE)
 func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	tokenString := r.Header.Get("Authorization")
