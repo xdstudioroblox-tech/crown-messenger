@@ -149,6 +149,8 @@ func createTables() {
 	for _, q := range queries {
 		db.Exec(q)
 	}
+	// Очищаем пустые чаты
+	db.Exec("DELETE FROM chats WHERE user1 = '' OR user2 = ''")
 	log.Println("Таблицы проверены")
 }
 
