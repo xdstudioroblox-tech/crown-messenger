@@ -206,45 +206,57 @@
         });
 
         document.getElementById('profileChatBtn').addEventListener('click',async function(){
+            console.log('КНОПКА НАПИСАТЬ НАЖАТА');
             if(!viewingProfile||viewingProfile===username){alert('Нельзя написать себе');return;}
             try{
+                console.log('Создаём чат с:', viewingProfile);
                 var r=await api('/api/chat/create',{method:'POST',body:JSON.stringify({user2:viewingProfile})});
                 var data=await r.json();
+                console.log('Ответ создания чата:', data);
                 if(data.chat_id){
                     closeProfile();
                     addChatToList(data.chat_id,viewingProfile);
                     switchToChat(data.chat_id,viewingProfile);
                 }else{alert('Ошибка: '+JSON.stringify(data));}
-            }catch(e){alert('Ошибка создания чата: '+e);}
+            }catch(e){console.log('Ошибка:', e);alert('Ошибка создания чата: '+e);}
         });
 
         function addChatToList(id,peer){
-            if(document.querySelector('.chat-item[data-chat-id="'+id+'"]'))return;
+            console.log('ДОБАВЛЯЕМ ЧАТ В СПИСОК:', id, peer);
+            if(document.querySelector('.chat-item[data-chat-id="'+id+'"]')){
+                console.log('Чат уже есть в списке');
+                return;
+            }
             var list=document.getElementById('chatList'),div=document.createElement('div');
             div.className='chat-item';div.setAttribute('data-chat-id',id);div.setAttribute('data-peer',peer);
             div.innerHTML='<div class="chat-avatar-placeholder">'+peer.charAt(0).toUpperCase()+'</div><div class="chat-name">'+peer+'</div>';
             div.onclick=function(){switchToChat(id,peer);};
             list.appendChild(div);
+            console.log('Чат добавлен:', id);
         }
 
         function switchToChat(id,peer){
+            console.log('ПЕРЕКЛЮЧАЕМСЯ НА ЧАТ:', id, peer);
             currentChatId=parseInt(id);currentPeer=peer||'';
             document.getElementById('chatTitle').textContent=peer||'Общий чат';
             document.querySelectorAll('.chat-item').forEach(function(el){el.classList.remove('active');});
             var item=document.querySelector('.chat-item[data-chat-id="'+id+'"]');
+            console.log('Найден элемент чата:', item);
             if(item)item.classList.add('active');
             var area=document.getElementById('messagesArea');
-            area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div>';
+            area.innerHTML='';
+            console.log('Загружаем сообщения для чата:', id);
             fetch('/api/messages?chat_id='+id)
-                .then(function(r){return r.json();})
+                .then(function(r){console.log('Ответ API:', r.status);return r.json();})
                 .then(function(msgs){
+                    console.log('Сообщения получены:', msgs.length);
                     area.innerHTML='';
                     if(!msgs||msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';return;}
                     msgs.sort(function(a,b){return a.id-b.id;});
                     msgs.forEach(function(m){appendMessage(m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',false);});
                     area.scrollTop=area.scrollHeight;
                 })
-                .catch(function(){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Ошибка загрузки</div>';});
+                .catch(function(e){console.log('Ошибка загрузки:',e);area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Ошибка загрузки</div>';});
         }
 
         function loadUser(){
@@ -255,7 +267,7 @@
         }
 
         async function loadChatList(){
-            try{var r=await api('/api/chat/list');var chats=await r.json();chats.forEach(function(c){addChatToList(c.chat_id,c.peer);});}catch(e){}
+            try{var r=await api('/api/chat/list');var chats=await r.json();console.log('Список чатов:',chats);chats.forEach(function(c){addChatToList(c.chat_id,c.peer);});}catch(e){console.log('Ошибка загрузки списка чатов:',e);}
         }
 
         function connectWebSocket(token){
