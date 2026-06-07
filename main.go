@@ -124,9 +124,10 @@ func main() {
 
 func createTables() {
 	db.Exec("DROP TABLE IF EXISTS messages")
+	db.Exec("DROP TABLE IF EXISTS users")
 
 	queries := []string{
-		`CREATE TABLE IF NOT EXISTS users (
+		`CREATE TABLE users (
 			id SERIAL PRIMARY KEY,
 			username TEXT UNIQUE NOT NULL,
 			nickname TEXT NOT NULL,
@@ -152,14 +153,11 @@ func createTables() {
 			log.Println("Ошибка создания таблицы:", err)
 		}
 	}
-	log.Println("Таблицы обновлены")
+	log.Println("Таблицы пересозданы")
 }
 
 func serveHome(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
+	if r.URL.Path != "/" { http.NotFound(w, r); return }
 	http.ServeFile(w, r, "index.html")
 }
 
@@ -177,22 +175,11 @@ func getAvatarURL(avatar string) string {
 }
 
 func handleRegister(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+	if r.Method != "POST" { http.Error(w, "Method not allowed", http.StatusMethodNotAllowed); return }
 	var req AuthRequest
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.Username == "" || req.Password == "" || req.Nickname == "" {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Все поля обязательны"})
-		return
-	}
-	if len(req.Username) < 3 {
-		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Имя пользователя должно быть не менее 3 символов"})
-		return
-	}
-	if len(req.Password) < 6 {
-		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Пароль должен быть не менее 6 символов"})
 		return
 	}
 
@@ -213,55 +200,53 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token, _ := generateToken(req.Username, userID)
-	json.NewEncoder(w).Encode(AuthResponse{
-		Success: true, Token: token,
-		User: &User{ID: userID, Nickname: req.Nickname, Username: req.Username, Email: req.Email},
-	})
+	json.NewEncoder(w).Encode(AuthResponse{Success: true, Token: token, User: &User{ID: userID, Nickname: req.Nickname, Username: req.Username, Email: req.Email}})
 }
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+	if r.Method != "POST" { http.Error(w, "Method not allowed", http.StatusMethodNotAllowed); return }
 	var req AuthRequest
 	json.NewDecoder(r.Body).Decode(&req)
 
 	var user User
-	err := db.QueryRow("SELECT id, username, nickname, email, COALESCE(about,''), COALESCE(avatar,'') FROM users WHERE username = $1 AND password = $2",
-		req.Username, req.Password).Scan(&user.ID, &user.Username, &user.Nickname, &user.Email, &user.About, &user.Avatar)
+	var email, about, avatar sql.NullString
+	err := db.QueryRow("SELECT id, username, nickname, email, about, avatar FROM users WHERE username = $1 AND password = $2",
+		req.Username, req.Password).Scan(&user.ID, &user.Username, &user.Nickname, &email, &about, &avatar)
 	if err != nil {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Неверный логин или пароль"})
 		return
 	}
-	user.Avatar = getAvatarURL(user.Avatar)
+	user.Email = email.String
+	user.About = about.String
+	user.Avatar = getAvatarURL(avatar.String)
 	token, _ := generateToken(user.Username, user.ID)
 	json.NewEncoder(w).Encode(AuthResponse{Success: true, Token: token, User: &user})
 }
 
 func handleSearch(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	query := r.URL.Query().Get("q")
 	if query == "" {
 		json.NewEncoder(w).Encode(SearchResponse{Success: false, Error: "Пустой запрос"})
 		return
 	}
-	rows, err := db.Query("SELECT id, username, nickname, COALESCE(email,''), COALESCE(about,''), COALESCE(avatar,'') FROM users WHERE username LIKE $1 OR nickname LIKE $2 LIMIT 20",
+	rows, err := db.Query("SELECT id, username, nickname, email, about, avatar FROM users WHERE username ILIKE $1 OR nickname ILIKE $2 LIMIT 20",
 		"%"+query+"%", "%"+query+"%")
 	if err != nil {
 		log.Println("Ошибка поиска:", err)
-		json.NewEncoder(w).Encode(SearchResponse{Success: false, Error: "Ошибка поиска"})
+		json.NewEncoder(w).Encode(SearchResponse{Success: false, Error: err.Error()})
 		return
 	}
 	defer rows.Close()
 	var users []User
 	for rows.Next() {
 		var u User
-		rows.Scan(&u.ID, &u.Username, &u.Nickname, &u.Email, &u.About, &u.Avatar)
-		u.Avatar = getAvatarURL(u.Avatar)
+		var email, about, avatar sql.NullString
+		rows.Scan(&u.ID, &u.Username, &u.Nickname, &email, &about, &avatar)
+		u.Email = email.String; u.About = about.String; u.Avatar = getAvatarURL(avatar.String)
 		users = append(users, u)
 	}
 	if users == nil { users = []User{} }
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(SearchResponse{Success: true, Users: users})
 }
 
@@ -269,14 +254,15 @@ func handleGetMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	chatID := r.URL.Query().Get("chat_id")
 	if chatID == "" { chatID = "1" }
-	rows, err := db.Query("SELECT id, username, nickname, text, time, COALESCE(avatar,'') FROM messages WHERE chat_id = $1 ORDER BY id ASC LIMIT 100", chatID)
+	rows, err := db.Query("SELECT id, username, nickname, text, time, avatar FROM messages WHERE chat_id = $1 ORDER BY id ASC LIMIT 100", chatID)
 	if err != nil { json.NewEncoder(w).Encode([]Message{}); return }
 	defer rows.Close()
 	var messages []Message
 	for rows.Next() {
 		var m Message
-		if err := rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &m.Avatar); err != nil { continue }
-		m.Avatar = getAvatarURL(m.Avatar)
+		var avatar sql.NullString
+		if err := rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &avatar); err != nil { continue }
+		m.Avatar = getAvatarURL(avatar.String)
 		messages = append(messages, m)
 	}
 	if messages == nil { messages = []Message{} }
@@ -293,14 +279,15 @@ func handleProfile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var user User
-		err := db.QueryRow("SELECT id, username, nickname, COALESCE(email,''), COALESCE(about,''), COALESCE(avatar,'') FROM users WHERE username = $1", userParam).
-			Scan(&user.ID, &user.Username, &user.Nickname, &user.Email, &user.About, &user.Avatar)
+		var email, about, avatar sql.NullString
+		err := db.QueryRow("SELECT id, username, nickname, email, about, avatar FROM users WHERE username = $1", userParam).
+			Scan(&user.ID, &user.Username, &user.Nickname, &email, &about, &avatar)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
 			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
 			return
 		}
-		user.Avatar = getAvatarURL(user.Avatar)
+		user.Email = email.String; user.About = about.String; user.Avatar = getAvatarURL(avatar.String)
 		json.NewEncoder(w).Encode(user)
 		return
 	}
@@ -370,7 +357,10 @@ func handleDBUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func generateToken(username string, userID int) (string, error) {
-	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"username": username, "user_id": userID, "exp": time.Now().Add(720 * time.Hour).Unix()}).SignedString(jwtSecret)
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username": username, "user_id": userID,
+		"exp": time.Now().Add(720 * time.Hour).Unix(),
+	}).SignedString(jwtSecret)
 }
 
 func handleConnections(w http.ResponseWriter, r *http.Request) {
@@ -400,13 +390,34 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleMessages() {
-	for { msg := <-broadcast; mu.Lock(); for c := range clients { c.WriteJSON(map[string]interface{}{"username": msg.Username, "nickname": msg.Nickname, "text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID, "avatar": msg.Avatar}) }; mu.Unlock() }
+	for {
+		msg := <-broadcast
+		mu.Lock()
+		for c := range clients {
+			c.WriteJSON(map[string]interface{}{"username": msg.Username, "nickname": msg.Nickname, "text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID, "avatar": msg.Avatar})
+		}
+		mu.Unlock()
+	}
 }
 
 func broadcastOnlineCount() {
 	mu.Lock(); c := len(clients); mu.Unlock()
-	mu.Lock(); for cl := range clients { cl.WriteJSON(map[string]interface{}{"username": "system", "text": fmt.Sprintf("%d", c), "time": "online"}) }; mu.Unlock()
+	mu.Lock()
+	for cl := range clients {
+		cl.WriteJSON(map[string]interface{}{"username": "system", "text": fmt.Sprintf("%d", c), "time": "online"})
+	}
+	mu.Unlock()
 }
 
-func getNickname(u string) string { var n string; db.QueryRow("SELECT nickname FROM users WHERE username = $1", u).Scan(&n); if n == "" { return u }; return n }
-func getAvatar(u string) string { var a string; db.QueryRow("SELECT COALESCE(avatar,'') FROM users WHERE username = $1", u).Scan(&a); return a }
+func getNickname(u string) string {
+	var n string
+	db.QueryRow("SELECT nickname FROM users WHERE username = $1", u).Scan(&n)
+	if n == "" { return u }
+	return n
+}
+
+func getAvatar(u string) string {
+	var a sql.NullString
+	db.QueryRow("SELECT avatar FROM users WHERE username = $1", u).Scan(&a)
+	return a.String
+}
