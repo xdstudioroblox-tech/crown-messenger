@@ -27,9 +27,7 @@ var (
 	db        *sql.DB
 	jwtSecret = []byte("super-secret-key-change-in-production")
 
-	// clients хранит: ws соединение -> username
-	clients   = make(map[*websocket.Conn]string)
-	// onlineUsers хранит: username -> true (для быстрой проверки онлайна)
+	clients     = make(map[*websocket.Conn]string)
 	onlineUsers = make(map[string]bool)
 	broadcast   = make(chan Message)
 	mu          sync.Mutex
@@ -46,15 +44,16 @@ type User struct {
 }
 
 type Message struct {
-	ID       int    `json:"id"`
-	Username string `json:"username"`
-	Nickname string `json:"nickname"`
-	Text     string `json:"text"`
-	Time     string `json:"time"`
-	ChatID   int    `json:"chat_id"`
-	Avatar   string `json:"avatar,omitempty"`
-	Type     string `json:"type,omitempty"` // "chat_created" для уведомления о новом чате
-	Peer     string `json:"peer,omitempty"` // с кем чат
+	ID        int    `json:"id"`
+	Username  string `json:"username"`
+	Nickname  string `json:"nickname"`
+	Text      string `json:"text"`
+	Time      string `json:"time"`
+	ChatID    int    `json:"chat_id"`
+	Avatar    string `json:"avatar,omitempty"`
+	Type      string `json:"type,omitempty"`
+	Peer      string `json:"peer,omitempty"`
+	Read      bool   `json:"read"`
 }
 
 type AuthRequest struct {
@@ -82,22 +81,13 @@ func main() {
 	if databaseURL == "" {
 		log.Fatal("DATABASE_URL не установлен")
 	}
-
 	log.Println("Подключаюсь к PostgreSQL...")
-
 	var err error
 	db, err = sql.Open("postgres", databaseURL)
-	if err != nil {
-		log.Fatal("Ошибка sql.Open:", err)
-	}
+	if err != nil { log.Fatal(err) }
 	defer db.Close()
-
-	err = db.Ping()
-	if err != nil {
-		log.Fatal("Ошибка db.Ping:", err)
-	}
+	db.Ping()
 	log.Println("Подключено к PostgreSQL успешно!")
-
 	os.MkdirAll("uploads", 0755)
 	createTables()
 
@@ -112,50 +102,26 @@ func main() {
 	http.HandleFunc("/api/clearchats", handleClearChats)
 	http.HandleFunc("/api/dbtest", handleDBTest)
 	http.HandleFunc("/api/online", handleOnlineStatus)
+	http.HandleFunc("/api/read", handleMarkRead)
 	http.HandleFunc("/ws", handleConnections)
 	http.HandleFunc("/uploads/", serveUploads)
 	http.HandleFunc("/", serveHome)
 	http.HandleFunc("/chat", serveChat)
 
 	go handleMessages()
-
 	port := os.Getenv("PORT")
 	if port == "" { port = "8080" }
-
 	log.Println("Сервер запущен на порту " + port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
 func createTables() {
 	queries := []string{
-		`CREATE TABLE IF NOT EXISTS users (
-			id SERIAL PRIMARY KEY,
-			username TEXT UNIQUE NOT NULL,
-			nickname TEXT NOT NULL,
-			password TEXT NOT NULL,
-			email TEXT DEFAULT '',
-			about TEXT DEFAULT '',
-			avatar TEXT DEFAULT ''
-		)`,
-		`CREATE TABLE IF NOT EXISTS messages (
-			id SERIAL PRIMARY KEY,
-			username TEXT NOT NULL,
-			nickname TEXT NOT NULL,
-			text TEXT NOT NULL,
-			time TEXT NOT NULL,
-			chat_id INTEGER DEFAULT 1,
-			avatar TEXT DEFAULT ''
-		)`,
-		`CREATE TABLE IF NOT EXISTS chats (
-			id SERIAL PRIMARY KEY,
-			user1 TEXT NOT NULL,
-			user2 TEXT NOT NULL,
-			UNIQUE(user1, user2)
-		)`,
+		`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, nickname TEXT NOT NULL, password TEXT NOT NULL, email TEXT DEFAULT '', about TEXT DEFAULT '', avatar TEXT DEFAULT '')`,
+		`CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, username TEXT NOT NULL, nickname TEXT NOT NULL, text TEXT NOT NULL, time TEXT NOT NULL, chat_id INTEGER DEFAULT 1, avatar TEXT DEFAULT '', read BOOLEAN DEFAULT false)`,
+		`CREATE TABLE IF NOT EXISTS chats (id SERIAL PRIMARY KEY, user1 TEXT NOT NULL, user2 TEXT NOT NULL, UNIQUE(user1, user2))`,
 	}
-	for _, q := range queries {
-		db.Exec(q)
-	}
+	for _, q := range queries { db.Exec(q) }
 	db.Exec("DELETE FROM chats WHERE user1 = '' OR user2 = ''")
 	log.Println("Таблицы проверены")
 }
@@ -181,8 +147,7 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Пользователь уже существует"}); return
 	}
 	var userID int
-	db.QueryRow("INSERT INTO users (username, nickname, password, email) VALUES ($1, $2, $3, $4) RETURNING id",
-		req.Username, req.Nickname, req.Password, req.Email).Scan(&userID)
+	db.QueryRow("INSERT INTO users (username, nickname, password, email) VALUES ($1, $2, $3, $4) RETURNING id", req.Username, req.Nickname, req.Password, req.Email).Scan(&userID)
 	token, _ := generateToken(req.Username, userID)
 	json.NewEncoder(w).Encode(AuthResponse{Success: true, Token: token, User: &User{ID: userID, Nickname: req.Nickname, Username: req.Username, Email: req.Email}})
 }
@@ -191,8 +156,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" { http.Error(w, "Method not allowed", http.StatusMethodNotAllowed); return }
 	var req AuthRequest; json.NewDecoder(r.Body).Decode(&req)
 	var user User; var email, about, avatar sql.NullString
-	if db.QueryRow("SELECT id, username, nickname, email, about, avatar FROM users WHERE username = $1 AND password = $2",
-		req.Username, req.Password).Scan(&user.ID, &user.Username, &user.Nickname, &email, &about, &avatar) != nil {
+	if db.QueryRow("SELECT id, username, nickname, email, about, avatar FROM users WHERE username = $1 AND password = $2", req.Username, req.Password).Scan(&user.ID, &user.Username, &user.Nickname, &email, &about, &avatar) != nil {
 		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Неверный логин или пароль"}); return
 	}
 	user.Email = email.String; user.About = about.String; user.Avatar = getAvatarURL(avatar.String)
@@ -221,12 +185,12 @@ func handleGetMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	chatID := r.URL.Query().Get("chat_id")
 	if chatID == "" { chatID = "1" }
-	rows, _ := db.Query("SELECT id, username, nickname, text, time, avatar FROM messages WHERE chat_id = $1 ORDER BY id ASC LIMIT 100", chatID)
+	rows, _ := db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false) FROM messages WHERE chat_id = $1 ORDER BY id ASC LIMIT 100", chatID)
 	defer rows.Close()
 	var messages []Message
 	for rows.Next() {
 		var m Message; var avatar sql.NullString
-		rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &avatar)
+		rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &avatar, &m.Read)
 		m.Avatar = getAvatarURL(avatar.String)
 		messages = append(messages, m)
 	}
@@ -290,47 +254,22 @@ func handleCreateChat(w http.ResponseWriter, r *http.Request) {
 	username := claims["username"].(string)
 	var req struct { User2 string `json:"user2"` }
 	json.NewDecoder(r.Body).Decode(&req)
-	if username == req.User2 { http.Error(w, "Нельзя создать чат с собой", http.StatusBadRequest); return }
-
+	if username == req.User2 { http.Error(w, "Нельзя", http.StatusBadRequest); return }
 	u1, u2 := username, req.User2
 	if u1 > u2 { u1, u2 = u2, u1 }
-
-	log.Println("Создание чата между:", u1, "и", u2)
-
 	var chatID int
 	err := db.QueryRow("SELECT id FROM chats WHERE user1 = $1 AND user2 = $2", u1, u2).Scan(&chatID)
-	if err == nil {
-		log.Println("Чат уже существует:", chatID)
-		json.NewEncoder(w).Encode(map[string]int{"chat_id": chatID})
-		// Отправляем уведомление второму участнику
-		sendChatNotification(username, req.User2, chatID)
-		return
-	}
-
-	err = db.QueryRow("INSERT INTO chats (user1, user2) VALUES ($1, $2) RETURNING id", u1, u2).Scan(&chatID)
-	if err != nil {
-		log.Println("Ошибка создания чата:", err)
-		http.Error(w, "Ошибка создания чата", http.StatusInternalServerError)
-		return
-	}
-	log.Println("Создан новый чат:", chatID)
+	if err == nil { json.NewEncoder(w).Encode(map[string]int{"chat_id": chatID}); sendChatNotification(username, req.User2, chatID); return }
+	db.QueryRow("INSERT INTO chats (user1, user2) VALUES ($1, $2) RETURNING id", u1, u2).Scan(&chatID)
 	json.NewEncoder(w).Encode(map[string]int{"chat_id": chatID})
-
-	// Отправляем уведомление второму участнику
 	sendChatNotification(username, req.User2, chatID)
 }
 
 func sendChatNotification(fromUser, toUser string, chatID int) {
-	mu.Lock()
-	defer mu.Unlock()
+	mu.Lock(); defer mu.Unlock()
 	for ws, user := range clients {
 		if user == toUser {
-			ws.WriteJSON(map[string]interface{}{
-				"type":     "chat_created",
-				"chat_id":  chatID,
-				"peer":     fromUser,
-				"username": "system",
-			})
+			ws.WriteJSON(map[string]interface{}{"type": "chat_created", "chat_id": chatID, "peer": fromUser, "username": "system"})
 		}
 	}
 }
@@ -345,12 +284,7 @@ func handleChatList(w http.ResponseWriter, r *http.Request) {
 	rows, _ := db.Query("SELECT id, user1, user2 FROM chats WHERE user1 = $1 OR user2 = $2", username, username)
 	defer rows.Close()
 	var chats []map[string]interface{}
-	for rows.Next() {
-		var id int; var u1, u2 string
-		rows.Scan(&id, &u1, &u2)
-		peer := u1; if peer == username { peer = u2 }
-		chats = append(chats, map[string]interface{}{"chat_id": id, "peer": peer})
-	}
+	for rows.Next() { var id int; var u1, u2 string; rows.Scan(&id, &u1, &u2); peer := u1; if peer == username { peer = u2 }; chats = append(chats, map[string]interface{}{"chat_id": id, "peer": peer}) }
 	if chats == nil { chats = []map[string]interface{}{} }
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(chats)
@@ -358,21 +292,28 @@ func handleChatList(w http.ResponseWriter, r *http.Request) {
 
 func handleClearChats(w http.ResponseWriter, r *http.Request) {
 	db.Exec("DELETE FROM chats")
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "message": "Все чаты удалены"})
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 func handleOnlineStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	username := r.URL.Query().Get("username")
-	if username == "" {
-		json.NewEncoder(w).Encode(map[string]interface{}{"online": false})
-		return
-	}
-	mu.Lock()
-	_, online := onlineUsers[username]
-	mu.Unlock()
-	json.NewEncoder(w).Encode(map[string]interface{}{"online": online})
+	un := r.URL.Query().Get("username")
+	if un == "" { json.NewEncoder(w).Encode(map[string]bool{"online": false}); return }
+	mu.Lock(); _, online := onlineUsers[un]; mu.Unlock()
+	json.NewEncoder(w).Encode(map[string]bool{"online": online})
+}
+
+func handleMarkRead(w http.ResponseWriter, r *http.Request) {
+	tokenString := r.Header.Get("Authorization")
+	if tokenString == "" || !strings.HasPrefix(tokenString, "Bearer ") { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
+	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
+	token, _ := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) { return jwtSecret, nil })
+	claims := token.Claims.(jwt.MapClaims)
+	username := claims["username"].(string)
+	var req struct { ChatID int `json:"chat_id"` }
+	json.NewDecoder(r.Body).Decode(&req)
+	db.Exec("UPDATE messages SET read = true WHERE chat_id = $1 AND username != $2 AND read = false", req.ChatID, username)
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
 func handleDBTest(w http.ResponseWriter, r *http.Request) {
@@ -396,64 +337,27 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	avatar := getAvatar(username)
 	ws, _ := upgrader.Upgrade(w, r, nil)
 	defer ws.Close()
-
-	mu.Lock()
-	clients[ws] = username
-	onlineUsers[username] = true
-	mu.Unlock()
-
+	mu.Lock(); clients[ws] = username; onlineUsers[username] = true; mu.Unlock()
 	log.Printf("%s подключился. Всего: %d", username, len(clients))
 	broadcastOnlineCount()
-
 	for {
 		var msg Message
-		if err := ws.ReadJSON(&msg); err != nil {
-			mu.Lock()
-			delete(clients, ws)
-			delete(onlineUsers, username)
-			mu.Unlock()
-			broadcastOnlineCount()
-			break
-		}
-		msg.Username = username; msg.Nickname = nickname; msg.Avatar = getAvatarURL(avatar); msg.Time = time.Now().Format("15:04")
+		if err := ws.ReadJSON(&msg); err != nil { mu.Lock(); delete(clients, ws); delete(onlineUsers, username); mu.Unlock(); broadcastOnlineCount(); break }
+		msg.Username = username; msg.Nickname = nickname; msg.Avatar = getAvatarURL(avatar)
+		msg.Time = time.Now().Format("15:04")
 		if msg.ChatID == 0 { msg.ChatID = 1 }
-		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar) VALUES ($1, $2, $3, $4, $5, $6)", msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar)
+		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar, read) VALUES ($1, $2, $3, $4, $5, $6, false)", msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar)
 		broadcast <- msg
 	}
 }
 
 func handleMessages() {
-	for {
-		msg := <-broadcast
-		mu.Lock()
-		for c := range clients {
-			c.WriteJSON(map[string]interface{}{
-				"username": msg.Username,
-				"nickname": msg.Nickname,
-				"text":     msg.Text,
-				"time":     msg.Time,
-				"chat_id":  msg.ChatID,
-				"avatar":   msg.Avatar,
-			})
-		}
-		mu.Unlock()
-	}
+	for { msg := <-broadcast; mu.Lock(); for c := range clients { c.WriteJSON(map[string]interface{}{"username": msg.Username, "nickname": msg.Nickname, "text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID, "avatar": msg.Avatar, "read": msg.Read, "id": msg.ID}) }; mu.Unlock() }
 }
 
 func broadcastOnlineCount() {
-	mu.Lock()
-	count := len(clients)
-	mu.Unlock()
-	mu.Lock()
-	for cl := range clients {
-		cl.WriteJSON(map[string]interface{}{
-			"username": "system",
-			"type":     "online_count",
-			"text":     fmt.Sprintf("%d", count),
-			"time":     "online",
-		})
-	}
-	mu.Unlock()
+	mu.Lock(); c := len(clients); mu.Unlock()
+	mu.Lock(); for cl := range clients { cl.WriteJSON(map[string]interface{}{"username": "system", "type": "online_count", "text": fmt.Sprintf("%d", c), "time": "online"}) }; mu.Unlock()
 }
 
 func getNickname(u string) string { var n string; db.QueryRow("SELECT nickname FROM users WHERE username = $1", u).Scan(&n); if n == "" { return u }; return n }
