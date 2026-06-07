@@ -6,7 +6,7 @@
     <title>Crown Messenger</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root { --bg: #f0f4f8; --sidebar-bg: #f8fafc; --main-bg: white; --messages-bg: #f5f7fa; --border: #e8edf2; --text: #2c3e50; --text-light: #94a3b8; --msg-other-bg: white; --input-bg: #f8fafc; --hover: #e8f4fd; --active: #dceefb; }
+        :root { --bg: #f0f4f8; --sidebar-bg: #f8fafc; --main-bg: white; --messages-bg: #f5f7fa; --border: #e8edf2; --text: #2c3e50; --text-light: #94a3b8; --msg-other-bg: white; --input-bg: #f8fafc; --hover: #e8f4fd; --active: #dceefb; --safe-bottom: 0px; }
         body.dark { --bg: #1a1d23; --sidebar-bg: #21242b; --main-bg: #282c34; --messages-bg: #1e2127; --border: #32363f; --text: #e1e4e8; --text-light: #8b949e; --msg-other-bg: #2d3139; --input-bg: #2d3139; --hover: #2d3139; --active: #32363f; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; }
         .app-container { width: 100%; height: 100vh; display: flex; background: var(--main-bg); position: relative; }
@@ -32,7 +32,7 @@
         .chat-avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #007acc, #0099ff); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
         .chat-name { font-weight: 600; font-size: 13px; color: var(--text); }
         .main-area { flex: 1; display: flex; flex-direction: column; height: 100vh; background: var(--main-bg); min-width: 0; }
-        .chat-header { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .chat-header { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; cursor: pointer; }
         .chat-header-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
         .chat-header-avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #007acc, #0099ff); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
         .chat-header-info h3 { font-size: 14px; font-weight: 600; color: var(--text); } .chat-header-info span { font-size: 11px; color: var(--text-light); }
@@ -47,7 +47,7 @@
         .message.mine .message-bubble { background: linear-gradient(135deg, #007acc, #0099ff); color: white; border-bottom-right-radius: 4px; }
         .message-username { font-weight: 600; font-size: 11px; margin-bottom: 2px; opacity: 0.8; cursor: pointer; }
         .message-time { font-size: 10px; opacity: 0.6; margin-top: 3px; }
-        .input-area { padding: 10px 14px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--main-bg); border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+        .input-area { padding: 10px 14px; padding-bottom: calc(14px + env(safe-area-inset-bottom, 10px)); background: var(--main-bg); border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
         .input-area input { flex: 1; padding: 10px 14px; border: 2px solid var(--border); border-radius: 24px; font-size: 14px; outline: none; background: var(--input-bg); color: var(--text); }
         .send-btn { width: 40px; height: 40px; min-width: 40px; border-radius: 50%; background: linear-gradient(135deg, #007acc, #0099ff); color: white; border: none; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
         .overlay { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 15; }
@@ -66,7 +66,9 @@
         @media (max-width: 768px) {
             .sidebar { position: absolute; left: -100%; top: 0; bottom: 0; width: 280px; min-width: 280px; transition: left 0.3s; box-shadow: 4px 0 20px rgba(0,0,0,0.2); }
             .sidebar.open { left: 0; } .back-btn { display: block; } .main-area { width: 100%; }
-            .messages-area { padding: 10px; } .message { max-width: 90%; } .input-area { padding: 8px 10px; padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+            .messages-area { padding: 10px; } .message { max-width: 90%; }
+            .input-area { padding: 8px 10px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 10px)); }
+            .input-area input { font-size: 16px; }
         }
         .switch { position: relative; width: 40px; height: 22px; display: inline-block; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -90,14 +92,14 @@
             </div>
             <div class="search-box"><input type="text" id="searchInput" placeholder="🔍 Поиск пользователей..."><div class="search-results" id="searchResults"></div></div>
             <div class="chat-list" id="chatList">
-                <div class="chat-item active" data-chat-id="1"><div class="chat-avatar-placeholder">💬</div><div class="chat-name">Общий чат</div></div>
+                <div class="chat-item active" data-chat-id="1" data-peer=""><div class="chat-avatar-placeholder">💬</div><div class="chat-name">Общий чат</div></div>
             </div>
         </div>
         <div class="main-area">
-            <div class="chat-header">
+            <div class="chat-header" id="chatHeader">
                 <button class="back-btn" onclick="openSidebar()">☰</button>
                 <div class="chat-header-avatar-placeholder">💬</div>
-                <div class="chat-header-info"><h3>Общий чат</h3><span id="onlineCount">Загрузка...</span></div>
+                <div class="chat-header-info"><h3 id="chatTitle">Общий чат</h3><span id="onlineCount">Загрузка...</span></div>
             </div>
             <div class="messages-area" id="messagesArea"><div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div></div>
             <div class="input-area">
@@ -115,19 +117,20 @@
                 <div class="profile-avatar-placeholder" id="profileAvatarPlaceholder" onclick="document.getElementById('avatarInput').click()">👤</div>
                 <input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="uploadAvatar()">
             </div>
-            <div class="profile-field"><label>Никнейм</label><input type="text" id="profileNickname"></div>
+            <div class="profile-field"><label>Никнейм</label><input type="text" id="profileNickname" disabled></div>
             <div class="profile-field"><label>Юзернейм</label><input type="text" id="profileUsername" disabled></div>
-            <div class="profile-field"><label>О себе</label><textarea id="profileAbout" rows="3" placeholder="Расскажите о себе..."></textarea></div>
-            <button class="btn btn-primary" onclick="saveProfile()">Сохранить</button>
-            <button class="btn btn-primary" id="startChatBtn" onclick="startChat()" style="display:none;">💬 Написать</button>
+            <div class="profile-field"><label>О себе</label><textarea id="profileAbout" rows="3" disabled></textarea></div>
+            <button class="btn btn-primary" id="profileSaveBtn" onclick="saveProfile()" style="display:none;">Сохранить</button>
+            <button class="btn btn-primary" id="profileChatBtn" onclick="startChat()" style="display:none;">💬 Написать</button>
         </div>
     </div>
 
     <script>
-        var username="Пользователь",nickname="Пользователь",myAvatar="",ws,onlineCount=0,currentChatId=1,viewingProfile="",searchTimeout;
+        var username="Пользователь",nickname="Пользователь",myAvatar="",ws,onlineCount=0,currentChatId=1,currentPeer="",viewingProfile="",searchTimeout,loadedMessages={};
 
         function getToken(){return localStorage.getItem('token');}
         function escapeHtml(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+        async function api(url,opts){opts=opts||{};opts.headers=opts.headers||{};opts.headers['Authorization']='Bearer '+getToken();return fetch(url,opts);}
 
         function loadTheme(){if((localStorage.getItem('theme')||'light')==='dark'){document.body.classList.add('dark');document.getElementById('themeToggle').checked=true;}}
         function toggleTheme(){var d=document.getElementById('themeToggle').checked;document.body.classList.toggle('dark',d);localStorage.setItem('theme',d?'dark':'light');}
@@ -154,14 +157,13 @@
                         div.innerHTML+='<span><b>'+u.nickname+'</b> <span style="color:var(--text-light);">@'+u.username+'</span></span>';
                         div.onclick=function(){rd.classList.remove('show');document.getElementById('searchInput').value='';openProfile(u.username);};
                         rd.appendChild(div);
-                    });rd.classList.add('show');
-                    }else{rd.innerHTML='<div class="search-result-item" style="color:var(--text-light);">Ничего не найдено</div>';rd.classList.add('show');}
+                    });rd.classList.add('show');}else{rd.innerHTML='<div class="search-result-item" style="color:var(--text-light);">Ничего не найдено</div>';rd.classList.add('show');}
                 }catch(e){}
             },300);
         });
 
         async function openProfile(u){
-            viewingProfile=u;
+            viewingProfile=u;var isMe=(u===username);
             try{
                 var r=await fetch('/api/profile?username='+u);
                 if(!r.ok){alert('Ошибка загрузки профиля');return;}
@@ -171,9 +173,12 @@
                 document.getElementById('profileAbout').value=user.about||'';
                 var img=document.getElementById('profileAvatarImg'),ph=document.getElementById('profileAvatarPlaceholder');
                 if(user.avatar){img.src=user.avatar;img.style.display='block';ph.style.display='none';}else{img.style.display='none';ph.style.display='flex';ph.textContent=(user.nickname||'?').charAt(0).toUpperCase();}
-                document.getElementById('startChatBtn').style.display=(u===username)?'none':'block';
-                document.getElementById('profileNickname').disabled=(u!==username);
-                document.getElementById('profileAbout').disabled=(u!==username);
+                // Показываем кнопки в зависимости от того, мой это профиль или чужой
+                document.getElementById('profileSaveBtn').style.display=isMe?'block':'none';
+                document.getElementById('profileChatBtn').style.display=isMe?'none':'block';
+                document.getElementById('profileNickname').disabled=!isMe;
+                document.getElementById('profileAbout').disabled=!isMe;
+                if(isMe){document.getElementById('avatarInput').style.display='';}else{document.getElementById('avatarInput').style.display='none';}
                 document.getElementById('profileModal').classList.add('show');
             }catch(e){alert('Ошибка: '+e);}
         }
@@ -182,43 +187,112 @@
         async function saveProfile(){
             var nick=document.getElementById('profileNickname').value.trim();
             var about=document.getElementById('profileAbout').value.trim();
-            await fetch('/api/profile',{method:'PUT',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({nickname:nick,about:about})});
+            await api('/api/profile',{method:'PUT',body:JSON.stringify({nickname:nick,about:about})});
             nickname=nick||nickname;
             closeProfile();
         }
 
         async function uploadAvatar(){
-            var file=document.getElementById('avatarInput').files[0];
-            if(!file)return;
+            var file=document.getElementById('avatarInput').files[0];if(!file)return;
             var fd=new FormData();fd.append('avatar',file);
-            var r=await fetch('/api/upload-avatar',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});
-            var data=await r.json();
-            myAvatar=data.avatar;
+            var r=await api('/api/upload-avatar',{method:'POST',body:fd});
+            var data=await r.json();myAvatar=data.avatar;
             document.getElementById('profileAvatarImg').src=myAvatar;
             document.getElementById('profileAvatarImg').style.display='block';
             document.getElementById('profileAvatarPlaceholder').style.display='none';
         }
 
-        function startChat(){closeProfile();alert('Чат с '+viewingProfile+' — скоро!');}
+        async function startChat(){
+            if(!viewingProfile||viewingProfile===username)return;
+            try{
+                var r=await api('/api/chat/create',{method:'POST',body:JSON.stringify({user2:viewingProfile})});
+                var data=await r.json();
+                closeProfile();
+                addChatToList(data.chat_id,viewingProfile);
+                switchChat(data.chat_id,viewingProfile);
+            }catch(e){alert('Ошибка создания чата');}
+        }
+
+        function addChatToList(id,peer){
+            if(document.querySelector('.chat-item[data-chat-id="'+id+'"]'))return;
+            var list=document.getElementById('chatList'),div=document.createElement('div');
+            div.className='chat-item';div.setAttribute('data-chat-id',id);div.setAttribute('data-peer',peer);
+            div.innerHTML='<div class="chat-avatar-placeholder">'+peer.charAt(0).toUpperCase()+'</div><div class="chat-name">'+peer+'</div>';
+            div.addEventListener('click',function(){switchChat(id,peer);});
+            list.appendChild(div);
+        }
+
+        function switchChat(id,peer){
+            currentChatId=id;currentPeer=peer||'';
+            document.getElementById('chatTitle').textContent=peer||'Общий чат';
+            document.querySelectorAll('.chat-item').forEach(function(el){el.classList.remove('active');});
+            var item=document.querySelector('.chat-item[data-chat-id="'+id+'"]');
+            if(item)item.classList.add('active');
+            if(!loadedMessages[id]){loadMessages();}else{showCachedMessages(id);}
+        }
 
         async function loadMessages(){
             try{
                 var resp=await fetch('/api/messages?chat_id='+currentChatId);
-                if(!resp.ok){throw new Error('HTTP '+resp.status);}
+                if(!resp.ok)throw new Error('HTTP '+resp.status);
                 var msgs=await resp.json();
-                var area=document.getElementById('messagesArea');area.innerHTML='';
-                if(!msgs||msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';return;}
-                msgs.sort(function(a,b){return a.id-b.id;});
-                msgs.forEach(function(m){appendMessage(m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',false);});
-                area.scrollTop=area.scrollHeight;
-            }catch(e){document.getElementById('messagesArea').innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div>';}
+                loadedMessages[currentChatId]=msgs;
+                showCachedMessages(currentChatId);
+            }catch(e){document.getElementById('messagesArea').innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Ошибка загрузки</div>';}
         }
 
-        function loadUser(){var token=getToken(),user=JSON.parse(localStorage.getItem('user')||'{}');if(!token){window.location.href='/';return;}nickname=user.nickname||'Пользователь';username=user.username||'Пользователь';myAvatar=user.avatar||'';loadMessages();connectWebSocket(token);}
-        function connectWebSocket(token){var p=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(p+'//'+location.host+'/ws?token='+token);ws.onmessage=function(e){var msg=JSON.parse(e.data);if(msg.username==='system'){onlineCount=parseInt(msg.text)||0;document.getElementById('onlineCount').textContent=onlineCount+' участников онлайн';return;}if(msg.chat_id===currentChatId||(currentChatId===1&&(!msg.chat_id||msg.chat_id===1)))appendMessage(msg.username,msg.nickname||msg.username,msg.text,msg.time,msg.avatar||'',true);};ws.onclose=function(){setTimeout(function(){connectWebSocket(token);},3000);};}
-        function appendMessage(sender,senderNick,text,time,avatar,animate){var area=document.getElementById('messagesArea'),div=document.createElement('div'),isMine=sender===username;div.className='message '+(isMine?'mine':'other');if(!animate)div.style.animation='none';var avHtml='';if(!isMine){if(avatar&&avatar!==''){avHtml='<img class="message-avatar" src="'+avatar+'" onclick="openProfile(\''+sender+'\')">';}else{avHtml='<div class="message-avatar-placeholder" onclick="openProfile(\''+sender+'\')">'+senderNick.charAt(0).toUpperCase()+'</div>';}}div.innerHTML=avHtml+'<div class="message-bubble">'+(isMine?'':'<div class="message-username" onclick="openProfile(\''+sender+'\')">'+escapeHtml(senderNick)+'</div>')+escapeHtml(text)+'<div class="message-time">'+time+'</div></div>';area.appendChild(div);area.scrollTop=area.scrollHeight;}
+        function showCachedMessages(chatId){
+            var msgs=loadedMessages[chatId]||[];
+            var area=document.getElementById('messagesArea');area.innerHTML='';
+            if(msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';return;}
+            msgs.sort(function(a,b){return a.id-b.id;});
+            msgs.forEach(function(m){appendMessage(m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',false);});
+            area.scrollTop=area.scrollHeight;
+        }
+
+        function loadUser(){
+            var token=getToken(),user=JSON.parse(localStorage.getItem('user')||'{}');
+            if(!token){window.location.href='/';return;}
+            nickname=user.nickname||'Пользователь';username=user.username||'Пользователь';myAvatar=user.avatar||'';
+            loadChatList();switchChat(1,'');connectWebSocket(token);
+        }
+
+        async function loadChatList(){
+            try{
+                var r=await api('/api/chat/list');var chats=await r.json();
+                chats.forEach(function(c){addChatToList(c.chat_id,c.peer);});
+            }catch(e){}
+        }
+
+        function connectWebSocket(token){
+            var p=location.protocol==='https:'?'wss:':'ws:';
+            ws=new WebSocket(p+'//'+location.host+'/ws?token='+token);
+            ws.onmessage=function(e){
+                var msg=JSON.parse(e.data);
+                if(msg.username==='system'){onlineCount=parseInt(msg.text)||0;document.getElementById('onlineCount').textContent=onlineCount+' участников онлайн';return;}
+                var targetChat=msg.chat_id||1;
+                if(!loadedMessages[targetChat])loadedMessages[targetChat]=[];
+                loadedMessages[targetChat].push(msg);
+                if(targetChat===currentChatId||(currentChatId===1&&targetChat===1)){
+                    appendMessage(msg.username,msg.nickname||msg.username,msg.text,msg.time,msg.avatar||'',true);
+                }
+            };
+            ws.onclose=function(){setTimeout(function(){connectWebSocket(token);},3000);};
+        }
+
+        function appendMessage(sender,senderNick,text,time,avatar,animate){
+            var area=document.getElementById('messagesArea'),div=document.createElement('div'),isMine=sender===username;
+            div.className='message '+(isMine?'mine':'other');if(!animate)div.style.animation='none';
+            var avHtml='';if(!isMine){if(avatar&&avatar!==''){avHtml='<img class="message-avatar" src="'+avatar+'" onclick="openProfile(\''+sender+'\')">';}else{avHtml='<div class="message-avatar-placeholder" onclick="openProfile(\''+sender+'\')">'+senderNick.charAt(0).toUpperCase()+'</div>';}}
+            div.innerHTML=avHtml+'<div class="message-bubble">'+(isMine?'':'<div class="message-username" onclick="openProfile(\''+sender+'\')">'+escapeHtml(senderNick)+'</div>')+escapeHtml(text)+'<div class="message-time">'+time+'</div></div>';
+            area.appendChild(div);area.scrollTop=area.scrollHeight;
+        }
+
         function sendMessage(){var input=document.getElementById('messageInput'),text=input.value.trim();if(text&&ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:text,chat_id:currentChatId}));input.value='';}}
         function logout(){localStorage.removeItem('token');localStorage.removeItem('user');window.location.href='/';}
+
+        // Клик по шапке чата
+        document.getElementById('chatHeader').addEventListener('click',function(){if(currentPeer)openProfile(currentPeer);});
 
         loadTheme();loadUser();
     </script>
