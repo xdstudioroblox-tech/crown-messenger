@@ -11,14 +11,14 @@
             --border: #d0d7de; --text: #1a202c; --text-light: #a0aec0; --msg-other-bg: #ffffff;
             --input-bg: #f8fafc; --hover: #edf2f7; --active: #e8f0fe; --blue: #3b82f6; --blue-dark: #2563eb;
             --shadow: 0 4px 12px rgba(0,0,0,0.08); --shadow-lg: 0 8px 24px rgba(0,0,0,0.12); --radius: 14px; --radius-lg: 18px;
-            --chat-bg: #f5f7fa; --chat-bg-image: none; --chat-bg-color: #f5f7fa;
+            --chat-bg-color: #f5f7fa; --chat-bg-image: none;
         }
         body.dark {
             --bg: #0f1117; --sidebar-bg: #16181d; --main-bg: #1a1d23; --messages-bg: #121418;
             --border: #2d3239; --text: #e4e8ee; --text-light: #8b949e; --msg-other-bg: #1e2128;
             --input-bg: #1e2128; --hover: #1e2128; --active: #1a2340;
             --shadow: 0 4px 12px rgba(0,0,0,0.4); --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
-            --chat-bg: #121418; --chat-bg-image: none; --chat-bg-color: #121418;
+            --chat-bg-color: #121418; --chat-bg-image: none;
         }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; -webkit-tap-highlight-color: transparent; }
         .app-container { width: 100%; height: 100vh; display: flex; background: var(--main-bg); position: relative; overflow: hidden; }
@@ -79,6 +79,7 @@
         .message-time { font-size: 10px; opacity: 0.55; margin-top: 4px; }
         .message-read { font-size: 10px; margin-top: 2px; text-align: right; }
         .message-edited { font-size: 10px; opacity: 0.7; }
+        .typing-indicator { font-size: 12px; color: var(--text-light); padding: 4px 0; font-style: italic; }
         .context-menu { display: none; position: fixed; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); z-index: 400; padding: 6px 0; min-width: 160px; }
         .context-menu.show { display: block; }
         .context-item { padding: 10px 16px; cursor: pointer; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 8px; border: none; background: none; width: 100%; text-align: left; }
@@ -121,6 +122,9 @@
         .wallpaper-item { width: 100%; aspect-ratio: 1; border-radius: 10px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; object-fit: cover; }
         .wallpaper-item:hover, .wallpaper-item.active { border-color: var(--blue); }
         .wallpaper-color { width: 100%; aspect-ratio: 1; border-radius: 10px; cursor: pointer; border: 2px solid transparent; }
+        .wallpaper-color:hover, .wallpaper-color.active { border-color: var(--blue); }
+        .color-picker-wrapper { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+        .color-picker-wrapper input[type="color"] { width: 40px; height: 40px; border: none; cursor: pointer; border-radius: 50%; }
         @media (max-width: 768px) {
             .sidebar { position: absolute; left: -100%; top: 0; bottom: 0; width: 280px; min-width: 280px; transition: left 0.3s; box-shadow: 4px 0 30px rgba(0,0,0,0.25); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
             .sidebar.open { left: 0; } .back-btn { display: flex; } .main-area { width: 100%; }
@@ -143,7 +147,7 @@
         <div class="input-area" style="position:relative;">
             <button class="input-btn" onclick="document.getElementById('fileInput').click()" title="Прикрепить файл">📎</button>
             <input type="file" id="fileInput" accept="image/*,video/*,audio/*" style="display:none;" onchange="uploadFile()">
-            <input type="text" id="messageInput" placeholder="Напишите сообщение..." onkeypress="if(event.key==='Enter')sendMessage()">
+            <input type="text" id="messageInput" placeholder="Напишите сообщение..." onkeypress="if(event.key==='Enter')sendMessage()" oninput="handleTyping()">
             <button class="input-btn" onclick="toggleEmoji()" title="Эмодзи">😊</button>
             <button class="send-btn" onclick="sendMessage()">➤</button>
             <div class="emoji-panel" id="emojiPanel">
@@ -158,10 +162,11 @@
 <div class="modal" id="profileModal"><div class="modal-content"><button class="modal-close" onclick="closeProfile()">✕</button><div style="text-align:center;"><img class="profile-avatar" id="profileAvatarImg" style="display:none;"><div class="profile-avatar-placeholder" id="profileAvatarPlaceholder">👤</div><input type="file" id="avatarInput" accept="image/*" style="display:none;"></div><div class="profile-field"><label>Никнейм</label><input type="text" id="profileNickname" disabled></div><div class="profile-field"><label>Юзернейм</label><input type="text" id="profileUsername" disabled></div><div class="profile-field"><label>О себе</label><textarea id="profileAbout" rows="3" disabled></textarea></div><button class="btn btn-primary" id="profileSaveBtn" style="display:none;">Сохранить</button><button class="btn btn-primary" id="profileChatBtn" style="display:none;">💬 Написать</button></div></div>
 <div class="modal" id="groupModal"><div class="modal-content"><button class="modal-close" onclick="closeGroupModal()">✕</button><div id="groupModalContent"></div></div></div>
 <div class="modal" id="inviteModal"><div class="modal-content"><button class="modal-close" onclick="closeInviteModal()">✕</button><div id="inviteModalContent"></div></div></div>
-<div class="modal" id="settingsModal"><div class="modal-content"><button class="modal-close" onclick="closeSettings()">✕</button><div id="settingsContent"></div></div></div>
+<div class="modal" id="settingsModal"><div class="modal-content" style="max-width:420px;"><button class="modal-close" onclick="closeSettings()">✕</button><div id="settingsContent"></div></div></div>
 
 <script>
 var username="",nickname="",myAvatar="",ws,currentChatId=1,currentPeer="",currentIsGroup=false,viewingProfile="",searchTimeout,onlineCount=0,contextMsgId=null,currentGroupId=null;
+var typingTimeout=null,typingSent=false;
 
 function getToken(){return localStorage.getItem('token');}
 function escapeHtml(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML;}
@@ -197,43 +202,30 @@ document.getElementById('searchInput').oninput=function(){
     },300);
 };
 
-async function openProfile(u){
-    viewingProfile=u;var isMe=(u===username);
-    try{var r=await fetch('/api/profile?username='+u);if(!r.ok){alert('Ошибка загрузки профиля');return;}var user=await r.json();
-        document.getElementById('profileNickname').value=user.nickname||'';document.getElementById('profileUsername').value=user.username||'';document.getElementById('profileAbout').value=user.about||'';
-        var img=document.getElementById('profileAvatarImg'),ph=document.getElementById('profileAvatarPlaceholder');
-        if(user.avatar){img.src=user.avatar;img.style.display='block';ph.style.display='none';}else{img.style.display='none';ph.style.display='flex';ph.textContent=getInitials(user.nickname);}
-        document.getElementById('profileSaveBtn').style.display=isMe?'block':'none';document.getElementById('profileChatBtn').style.display=isMe?'none':'block';
-        document.getElementById('profileNickname').disabled=!isMe;document.getElementById('profileAbout').disabled=!isMe;
-        if(isMe){document.getElementById('avatarInput').style.display='';ph.onclick=function(){document.getElementById('avatarInput').click();};img.onclick=function(){document.getElementById('avatarInput').click();};}
-        document.getElementById('profileModal').classList.add('show');
-    }catch(e){alert('Ошибка: '+e);}
-}
+async function openProfile(u){viewingProfile=u;var isMe=(u===username);try{var r=await fetch('/api/profile?username='+u);if(!r.ok){alert('Ошибка загрузки профиля');return;}var user=await r.json();document.getElementById('profileNickname').value=user.nickname||'';document.getElementById('profileUsername').value=user.username||'';document.getElementById('profileAbout').value=user.about||'';var img=document.getElementById('profileAvatarImg'),ph=document.getElementById('profileAvatarPlaceholder');if(user.avatar){img.src=user.avatar;img.style.display='block';ph.style.display='none';}else{img.style.display='none';ph.style.display='flex';ph.textContent=getInitials(user.nickname);}document.getElementById('profileSaveBtn').style.display=isMe?'block':'none';document.getElementById('profileChatBtn').style.display=isMe?'none':'block';document.getElementById('profileNickname').disabled=!isMe;document.getElementById('profileAbout').disabled=!isMe;if(isMe){document.getElementById('avatarInput').style.display='';ph.onclick=function(){document.getElementById('avatarInput').click();};img.onclick=function(){document.getElementById('avatarInput').click();};}document.getElementById('profileModal').classList.add('show');}catch(e){alert('Ошибка: '+e);}}
 function closeProfile(){document.getElementById('profileModal').classList.remove('show');}
-document.getElementById('profileSaveBtn').onclick=async function(){
-    var nick=document.getElementById('profileNickname').value.trim(),about=document.getElementById('profileAbout').value.trim();
-    await fetch('/api/profile',{method:'PUT',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({nickname:nick,about:about})});
-    nickname=nick||nickname;closeProfile();
-};
-document.getElementById('avatarInput').onchange=async function(){
-    var file=this.files[0];if(!file)return;var fd=new FormData();fd.append('avatar',file);
-    var r=await fetch('/api/upload-avatar',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});var data=await r.json();myAvatar=data.avatar;
-    document.getElementById('profileAvatarImg').src=myAvatar;document.getElementById('profileAvatarImg').style.display='block';document.getElementById('profileAvatarPlaceholder').style.display='none';
-};
-document.getElementById('profileChatBtn').onclick=async function(){
-    if(!viewingProfile||viewingProfile===username){alert('Нельзя написать себе');return;}
-    try{var r=await fetch('/api/chat/create',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({user2:viewingProfile})});var data=await r.json();
-        if(data.chat_id){closeProfile();addChatToList(data.chat_id,viewingProfile,false);switchToChat(data.chat_id,viewingProfile,false);}else{alert('Ошибка: '+JSON.stringify(data));}
-    }catch(e){alert('Ошибка: '+e);}
-};
+document.getElementById('profileSaveBtn').onclick=async function(){var nick=document.getElementById('profileNickname').value.trim(),about=document.getElementById('profileAbout').value.trim();await fetch('/api/profile',{method:'PUT',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({nickname:nick,about:about})});nickname=nick||nickname;closeProfile();};
+document.getElementById('avatarInput').onchange=async function(){var file=this.files[0];if(!file)return;var fd=new FormData();fd.append('avatar',file);var r=await fetch('/api/upload-avatar',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});var data=await r.json();myAvatar=data.avatar;document.getElementById('profileAvatarImg').src=myAvatar;document.getElementById('profileAvatarImg').style.display='block';document.getElementById('profileAvatarPlaceholder').style.display='none';};
+document.getElementById('profileChatBtn').onclick=async function(){if(!viewingProfile||viewingProfile===username){alert('Нельзя написать себе');return;}try{var r=await fetch('/api/chat/create',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({user2:viewingProfile})});var data=await r.json();if(data.chat_id){closeProfile();addChatToList(data.chat_id,viewingProfile,false);switchToChat(data.chat_id,viewingProfile,false);}else{alert('Ошибка: '+JSON.stringify(data));}}catch(e){alert('Ошибка: '+e);}};
+
+// ====== СТАТУСЫ (ПЕЧАТАЕТ, ОТПРАВЛЯЕТ ФАЙЛ) ======
+function handleTyping(){
+    if(!ws||ws.readyState!==WebSocket.OPEN)return;
+    if(!typingSent){ws.send(JSON.stringify({action:'typing',chat_id:currentChatId}));typingSent=true;}
+    clearTimeout(typingTimeout);
+    typingTimeout=setTimeout(function(){typingSent=false;},2000);
+}
+function sendUploadStatus(type){
+    if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({action:'uploading_'+type,chat_id:currentChatId}));}
+}
 
 // ====== ЗАГРУЗКА ФАЙЛОВ ======
 async function uploadFile(){
     var file=document.getElementById('fileInput').files[0];if(!file)return;
+    var isPhoto=file.type.startsWith('image/');var isVideo=file.type.startsWith('video/');var isAudio=file.type.startsWith('audio/');
+    if(isPhoto)sendUploadStatus('photo');else if(isVideo)sendUploadStatus('video');else if(isAudio)sendUploadStatus('audio');
     var fd=new FormData();fd.append('file',file);
-    try{var r=await fetch('/api/upload-file',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});var d=await r.json();
-        if(d.file_url){sendMessageWithFile(d.file_url,d.file_type);}
-    }catch(e){alert('Ошибка загрузки');}
+    try{var r=await fetch('/api/upload-file',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});var d=await r.json();if(d.file_url){sendMessageWithFile(d.file_url,d.file_type);}}catch(e){alert('Ошибка загрузки');}
     document.getElementById('fileInput').value='';
 }
 function sendMessageWithFile(fileUrl,fileType){if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:'',chat_id:currentChatId,file_url:fileUrl,file_type:fileType}));}}
@@ -245,8 +237,8 @@ function showEmojiTab(tab,btn){document.querySelectorAll('.emoji-tab').forEach(f
 function insertEmoji(e){var input=document.getElementById('messageInput');input.value+=e;input.focus();}
 
 // ====== НАСТРОЙКИ ======
-var wallpaperColors=['#f5f7fa','#e8f5e9','#fff3e0','#fce4ec','#e3f2fd','#f3e5f5','#121418','#1a1a2e','#16213e','#0f3460'];
-var wallpaperImages=['https://images.unsplash.com/photo-1557683316-973673baf926?w=200','https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=200','https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?w=200','https://images.unsplash.com/photo-1557682260-96773eb01377?w=200'];
+var wallpaperColors=['#f5f7fa','#e8f5e9','#fff3e0','#fce4ec','#e3f2fd','#f3e5f5','#1a1a2e','#16213e','#0f3460','#2d1b4e'];
+var defaultWallpapers=['https://images.unsplash.com/photo-1557683316-973673baf926?w=300','https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300','https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=300','https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?w=300'];
 
 function showSettings(){
     closeMenu();
@@ -264,15 +256,16 @@ function showSettings(){
 function closeSettings(){document.getElementById('settingsModal').classList.remove('show');}
 
 function showSettingsTab(tab,btn){
-    document.querySelectorAll('.settings-tab').forEach(function(e){e.classList.remove('active');});
-    btn.classList.add('active');
+    document.querySelectorAll('.settings-tab').forEach(function(e){e.classList.remove('active');});btn.classList.add('active');
     var tc=document.getElementById('settingsTabContent');
     if(tab==='wallpaper'){
-        tc.innerHTML='<p style="font-size:13px;color:var(--text-light);margin-bottom:10px;">Цвета</p><div class="wallpaper-grid">'+
+        tc.innerHTML='<p style="font-size:13px;color:var(--text-light);margin-bottom:10px;">🎨 Палитра цветов</p><div class="wallpaper-grid">'+
             wallpaperColors.map(function(c){return '<div class="wallpaper-color" style="background:'+c+';" onclick="setWallpaperColor(\''+c+'\')"></div>';}).join('')+'</div>'+
-            '<p style="font-size:13px;color:var(--text-light);margin:16px 0 10px;">Фото (Unsplash)</p><div class="wallpaper-grid">'+
-            wallpaperImages.map(function(i){return '<img class="wallpaper-item" src="'+i+'" onclick="setWallpaperImage(\''+i+'\')">';}).join('')+'</div>'+
-            '<button class="btn btn-primary btn-sm" style="margin-top:16px;" onclick="resetWallpaper()">🔄 Сбросить обои</button>';
+            '<div class="color-picker-wrapper"><span style="font-size:13px;color:var(--text-light);">Свой цвет:</span><input type="color" id="customColor" value="#f5f7fa" onchange="setWallpaperColor(this.value)"></div>'+
+            '<p style="font-size:13px;color:var(--text-light);margin:16px 0 10px;">🖼️ Встроенные обои</p><div class="wallpaper-grid">'+
+            defaultWallpapers.map(function(i){return '<img class="wallpaper-item" src="'+i+'" onclick="setWallpaperImage(\''+i+'\')">';}).join('')+'</div>'+
+            '<p style="font-size:13px;color:var(--text-light);margin:16px 0 10px;">📷 Своё фото</p><input type="file" id="customWallpaper" accept="image/*" onchange="uploadCustomWallpaper()" style="margin-bottom:10px;">'+
+            '<button class="btn btn-primary btn-sm" onclick="resetWallpaper()">🔄 Сбросить обои</button>';
     }else if(tab==='language'){
         tc.innerHTML='<p style="font-size:13px;color:var(--text-light);margin-bottom:10px;">Выберите язык интерфейса</p>'+
             '<button class="btn btn-primary" onclick="setLanguage(\'ru\')" style="margin-bottom:8px;">🇷🇺 Русский</button>'+
@@ -289,57 +282,18 @@ function showSettingsTab(tab,btn){
             '<div class="profile-field"><label>Вибрация</label><div style="display:flex;align-items:center;justify-content:space-between;"><span>Вибрация при сообщении</span><label class="switch"><input type="checkbox" id="notifVibro" '+(vibro?'checked':'')+' onchange="saveNotifications()"><span class="slider"></span></label></div></div>';
     }
 }
-function setWallpaperColor(color){
-    document.documentElement.style.setProperty('--chat-bg-color',color);
-    document.documentElement.style.setProperty('--chat-bg-image','none');
-    localStorage.setItem('wallpaper_type','color');
-    localStorage.setItem('wallpaper_value',color);
-}
-function setWallpaperImage(url){
-    document.documentElement.style.setProperty('--chat-bg-image','url('+url+')');
-    document.documentElement.style.setProperty('--chat-bg-color','transparent');
-    localStorage.setItem('wallpaper_type','image');
-    localStorage.setItem('wallpaper_value',url);
-}
-function resetWallpaper(){
-    document.documentElement.style.setProperty('--chat-bg-color','');
-    document.documentElement.style.setProperty('--chat-bg-image','none');
-    localStorage.removeItem('wallpaper_type');
-    localStorage.removeItem('wallpaper_value');
-}
-function loadWallpaper(){
-    var type=localStorage.getItem('wallpaper_type');
-    var value=localStorage.getItem('wallpaper_value');
-    if(type==='color'){document.documentElement.style.setProperty('--chat-bg-color',value);}
-    else if(type==='image'){document.documentElement.style.setProperty('--chat-bg-image','url('+value+')');document.documentElement.style.setProperty('--chat-bg-color','transparent');}
-}
+function setWallpaperColor(color){document.documentElement.style.setProperty('--chat-bg-color',color);document.documentElement.style.setProperty('--chat-bg-image','none');localStorage.setItem('wallpaper_type','color');localStorage.setItem('wallpaper_value',color);}
+function setWallpaperImage(url){document.documentElement.style.setProperty('--chat-bg-image','url('+url+')');document.documentElement.style.setProperty('--chat-bg-color','transparent');localStorage.setItem('wallpaper_type','image');localStorage.setItem('wallpaper_value',url);}
+function uploadCustomWallpaper(){var file=document.getElementById('customWallpaper').files[0];if(!file)return;var reader=new FileReader();reader.onload=function(e){setWallpaperImage(e.target.result);};reader.readAsDataURL(file);}
+function resetWallpaper(){document.documentElement.style.setProperty('--chat-bg-color','');document.documentElement.style.setProperty('--chat-bg-image','none');localStorage.removeItem('wallpaper_type');localStorage.removeItem('wallpaper_value');}
+function loadWallpaper(){var type=localStorage.getItem('wallpaper_type');var value=localStorage.getItem('wallpaper_value');if(type==='color'){document.documentElement.style.setProperty('--chat-bg-color',value);}else if(type==='image'){document.documentElement.style.setProperty('--chat-bg-image','url('+value+')');document.documentElement.style.setProperty('--chat-bg-color','transparent');}}
 function savePrivacy(){localStorage.setItem('privacy_lastseen',document.getElementById('privacyLastSeen').checked);localStorage.setItem('privacy_phone',document.getElementById('privacyPhone').checked);}
 function saveNotifications(){localStorage.setItem('notif_sound',document.getElementById('notifSound').checked);localStorage.setItem('notif_vibro',document.getElementById('notifVibro').checked);}
 function setLanguage(lang){localStorage.setItem('language',lang);alert(lang==='ru'?'Язык: Русский':'Language: English (coming soon)');}
 
 // ====== ГРУППЫ ======
-function showCreateGroup(){
-    var c=document.getElementById('groupModalContent');
-    c.innerHTML='<h3 style="margin-bottom:16px;">👥 Создать группу</h3><div class="profile-field"><label>Название группы</label><input type="text" id="groupName" placeholder="Введите название"></div><button class="btn btn-primary" onclick="createGroup()">Создать</button>';
-    document.getElementById('groupModal').classList.add('show');
-}
-async function createGroup(){
-    var name=document.getElementById('groupName').value.trim();if(!name)return;
-    var r=await fetch('/api/group/create',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({name:name})});
-    var d=await r.json();
-    if(d.group_id){
-        closeGroupModal();
-        document.getElementById('messagesArea').innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Создание группы...</div>';
-        currentChatId=d.group_id;currentPeer=d.name;currentIsGroup=true;
-        document.getElementById('chatTitle').textContent=d.name;document.getElementById('chatHeaderIcon').textContent=getInitials(d.name);
-        addChatToList(d.group_id,d.name,true);
-        document.querySelectorAll('.chat-item').forEach(function(el){el.classList.remove('active');});
-        var item=document.querySelector('.chat-item[data-chat-id="'+d.group_id+'"]');if(item)item.classList.add('active');
-        var area=document.getElementById('messagesArea');area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div>';
-        fetch('/api/messages?chat_id='+d.group_id,{headers:{'Authorization':'Bearer '+getToken()}}).then(function(r){return r.json();}).then(function(msgs){area.innerHTML='';if(!msgs||msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Группа создана! Напишите первое сообщение.</div>';return;}msgs.sort(function(a,b){return a.id-b.id;});msgs.forEach(function(m){appendMessage(m.id,m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',m.read,m.edited,false,m.file_url,m.file_type);});area.scrollTop=area.scrollHeight;}).catch(function(){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Группа создана! Напишите первое сообщение.</div>';});
-        showInviteModal(d.group_id,d.name,d.invite_code);
-    }else{alert('Ошибка: '+JSON.stringify(d));}
-}
+function showCreateGroup(){var c=document.getElementById('groupModalContent');c.innerHTML='<h3 style="margin-bottom:16px;">👥 Создать группу</h3><div class="profile-field"><label>Название группы</label><input type="text" id="groupName" placeholder="Введите название"></div><button class="btn btn-primary" onclick="createGroup()">Создать</button>';document.getElementById('groupModal').classList.add('show');}
+async function createGroup(){var name=document.getElementById('groupName').value.trim();if(!name)return;var r=await fetch('/api/group/create',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({name:name})});var d=await r.json();if(d.group_id){closeGroupModal();document.getElementById('messagesArea').innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Создание группы...</div>';currentChatId=d.group_id;currentPeer=d.name;currentIsGroup=true;document.getElementById('chatTitle').textContent=d.name;document.getElementById('chatHeaderIcon').textContent=getInitials(d.name);addChatToList(d.group_id,d.name,true);document.querySelectorAll('.chat-item').forEach(function(el){el.classList.remove('active');});var item=document.querySelector('.chat-item[data-chat-id="'+d.group_id+'"]');if(item)item.classList.add('active');var area=document.getElementById('messagesArea');area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div>';fetch('/api/messages?chat_id='+d.group_id,{headers:{'Authorization':'Bearer '+getToken()}}).then(function(r){return r.json();}).then(function(msgs){area.innerHTML='';if(!msgs||msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Группа создана! Напишите первое сообщение.</div>';return;}msgs.sort(function(a,b){return a.id-b.id;});msgs.forEach(function(m){appendMessage(m.id,m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',m.read,m.edited,false,m.file_url,m.file_type);});area.scrollTop=area.scrollHeight;}).catch(function(){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Группа создана! Напишите первое сообщение.</div>';});showInviteModal(d.group_id,d.name,d.invite_code);}else{alert('Ошибка: '+JSON.stringify(d));}}
 function showJoinGroup(){var c=document.getElementById('groupModalContent');c.innerHTML='<h3 style="margin-bottom:16px;">🔗 Присоединиться к группе</h3><div class="profile-field"><label>Код приглашения</label><input type="text" id="inviteCode" placeholder="Введите код"></div><button class="btn btn-primary" onclick="joinGroup()">Присоединиться</button>';document.getElementById('groupModal').classList.add('show');}
 async function joinGroup(){var code=document.getElementById('inviteCode').value.trim();if(!code)return;var r=await fetch('/api/group/join',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({code:code})});var d=await r.json();if(d.group_id){closeGroupModal();addChatToList(d.group_id,d.name,true);switchToChat(d.group_id,d.name,true);}else{alert('Ошибка: '+JSON.stringify(d));}}
 function closeGroupModal(){document.getElementById('groupModal').classList.remove('show');}
@@ -360,8 +314,10 @@ document.getElementById('ctxEdit').onclick=function(){document.getElementById('c
 document.getElementById('ctxDelete').onclick=function(){document.getElementById('contextMenu').classList.remove('show');if(confirm('Удалить сообщение?')){fetch('/api/messages',{method:'DELETE',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({id:contextMsgId})}).then(function(){switchToChat(currentChatId,currentPeer,currentIsGroup);});}};
 function loadUser(){var urlParams=new URLSearchParams(window.location.search);var inviteCode=urlParams.get('code');if(inviteCode){fetch('/api/group/join',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({code:inviteCode})}).then(function(r){return r.json();}).then(function(d){if(d.group_id){alert('Вы присоединились к группе «'+d.name+'»!');window.history.replaceState({},'','/chat');}}).catch(function(){});}var token=getToken();if(!token){window.location.href='/';return;}var user=JSON.parse(localStorage.getItem('user')||'{}');username=user.username||'';nickname=user.nickname||'';myAvatar=user.avatar||'';if(!username){window.location.href='/';return;}loadChatList();switchToChat(1,'',false);connectWebSocket(token);}
 async function loadChatList(){document.getElementById('chatList').innerHTML='';addChatToList(1,'',false);try{var r=await fetch('/api/chat/list',{headers:{'Authorization':'Bearer '+getToken()}});var chats=await r.json();chats.forEach(function(c){if(c.chat_id!==1)addChatToList(c.chat_id,c.peer,c.is_group||false);});}catch(e){}}
-function connectWebSocket(token){var p=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(p+'//'+location.host+'/ws?token='+token);ws.onmessage=function(e){var msg=JSON.parse(e.data);if(msg.type==='chat_created'){addChatToList(msg.chat_id,msg.peer,false);return;}if(msg.type==='online_count'){onlineCount=parseInt(msg.text)||0;updateOnlineStatus();return;}var t=msg.chat_id||1;if(t===currentChatId){appendMessage(msg.id,msg.username,msg.nickname||msg.username,msg.text,msg.time,msg.avatar||'',msg.read||false,msg.edited||false,true,msg.file_url,msg.file_type);if(!currentIsGroup&&currentChatId!==1)markAsRead(currentChatId);}};ws.onclose=function(){setTimeout(function(){connectWebSocket(token);},3000);};}
-function sendMessage(){var input=document.getElementById('messageInput'),text=input.value.trim();if(text&&ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:text,chat_id:currentChatId}));input.value='';}}
+function connectWebSocket(token){var p=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(p+'//'+location.host+'/ws?token='+token);ws.onmessage=function(e){var msg=JSON.parse(e.data);if(msg.type==='chat_created'){addChatToList(msg.chat_id,msg.peer,false);return;}if(msg.type==='online_count'){onlineCount=parseInt(msg.text)||0;updateOnlineStatus();return;}if(msg.type==='action'){showActionStatus(msg);return;}var t=msg.chat_id||1;if(t===currentChatId){removeTypingIndicator();appendMessage(msg.id,msg.username,msg.nickname||msg.username,msg.text,msg.time,msg.avatar||'',msg.read||false,msg.edited||false,true,msg.file_url,msg.file_type);if(!currentIsGroup&&currentChatId!==1)markAsRead(currentChatId);}};ws.onclose=function(){setTimeout(function(){connectWebSocket(token);},3000);};}
+function showActionStatus(msg){if(msg.chat_id!==currentChatId)return;removeTypingIndicator();var indicator=document.createElement('div');indicator.className='typing-indicator';indicator.id='typingIndicator';if(msg.action==='typing'){indicator.textContent=msg.nickname+' печатает...';}else if(msg.action==='uploading_photo'){indicator.textContent=msg.nickname+' отправляет фото...';}else if(msg.action==='uploading_video'){indicator.textContent=msg.nickname+' отправляет видео...';}else if(msg.action==='uploading_audio'){indicator.textContent=msg.nickname+' отправляет аудио...';}var area=document.getElementById('messagesArea');area.appendChild(indicator);area.scrollTop=area.scrollHeight;clearTimeout(window._typingTimer);window._typingTimer=setTimeout(removeTypingIndicator,3000);}
+function removeTypingIndicator(){var el=document.getElementById('typingIndicator');if(el)el.remove();clearTimeout(window._typingTimer);}
+function sendMessage(){var input=document.getElementById('messageInput'),text=input.value.trim();if(text&&ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:text,chat_id:currentChatId}));input.value='';typingSent=false;}}
 function logout(){localStorage.removeItem('token');localStorage.removeItem('user');window.location.href='/';}
 document.getElementById('chatHeader').onclick=function(){if(currentIsGroup){showGroupManage(currentChatId);}else if(currentPeer){openProfile(currentPeer);}};
 

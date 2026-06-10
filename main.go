@@ -22,11 +22,12 @@ import (
 )
 
 var (
-	upgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
-	db        *sql.DB
-	jwtSecret = []byte("super-secret-key-change-in-production")
+	upgrader    = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
+	db          *sql.DB
+	jwtSecret   = []byte("super-secret-key-change-in-production")
 	clients     = make(map[*websocket.Conn]string)
 	onlineUsers = make(map[string]bool)
+	typingUsers = make(map[string]map[int]bool) // username -> chat_id -> typing
 	broadcast   = make(chan Message)
 	mu          sync.Mutex
 )
@@ -55,6 +56,7 @@ type Message struct {
 	Edited   bool   `json:"edited"`
 	FileURL  string `json:"file_url,omitempty"`
 	FileType string `json:"file_type,omitempty"`
+	Action   string `json:"action,omitempty"` // typing, uploading_photo, uploading_video, uploading_audio
 }
 
 type AuthRequest struct {
@@ -264,17 +266,12 @@ func handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	file, header, _ := r.FormFile("file")
 	defer file.Close()
 	ext := strings.ToLower(filepath.Ext(header.Filename))
-	var folder string
-	var fileType string
+	var folder, fileType string
 	switch ext {
-	case ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp":
-		folder = "photos"; fileType = "photo"
-	case ".mp4", ".webm", ".mov", ".avi":
-		folder = "videos"; fileType = "video"
-	case ".mp3", ".ogg", ".wav", ".m4a":
-		folder = "audio"; fileType = "audio"
-	default:
-		folder = "photos"; fileType = "file"
+	case ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp": folder = "photos"; fileType = "photo"
+	case ".mp4", ".webm", ".mov", ".avi": folder = "videos"; fileType = "video"
+	case ".mp3", ".ogg", ".wav", ".m4a": folder = "audio"; fileType = "audio"
+	default: folder = "photos"; fileType = "file"
 	}
 	filename := currentUser + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + ext
 	out, _ := os.Create("uploads/" + folder + "/" + filename)
@@ -430,16 +427,49 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		if err := ws.ReadJSON(&msg); err != nil { mu.Lock(); delete(clients, ws); delete(onlineUsers, username); mu.Unlock(); broadcastOnlineCount(); break }
 		msg.Username = username; msg.Nickname = nickname; msg.Avatar = getAvatarURL(avatar); msg.Time = time.Now().Format("15:04")
 		if msg.ChatID == 0 { msg.ChatID = 1 }
+
+		// Статусы (печатает, отправляет файл)
+		if msg.Action == "typing" || msg.Action == "uploading_photo" || msg.Action == "uploading_video" || msg.Action == "uploading_audio" {
+			mu.Lock()
+			for c := range clients {
+				c.WriteJSON(map[string]interface{}{
+					"username": msg.Username,
+					"nickname": msg.Nickname,
+					"action":   msg.Action,
+					"chat_id":  msg.ChatID,
+					"type":     "action",
+				})
+			}
+			mu.Unlock()
+			continue
+		}
+
 		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar, read, edited, file_url, file_type) VALUES ($1, $2, $3, $4, $5, $6, false, false, $7, $8)", msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar, msg.FileURL, msg.FileType)
 		broadcast <- msg
 	}
 }
 
 func handleMessages() {
-	for { msg := <-broadcast; mu.Lock(); for c := range clients { c.WriteJSON(map[string]interface{}{"id": msg.ID, "username": msg.Username, "nickname": msg.Nickname, "text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID, "avatar": msg.Avatar, "read": msg.Read, "edited": msg.Edited, "file_url": msg.FileURL, "file_type": msg.FileType}) }; mu.Unlock() }
+	for {
+		msg := <-broadcast
+		mu.Lock()
+		for c := range clients {
+			c.WriteJSON(map[string]interface{}{
+				"id": msg.ID, "username": msg.Username, "nickname": msg.Nickname,
+				"text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID,
+				"avatar": msg.Avatar, "read": msg.Read, "edited": msg.Edited,
+				"file_url": msg.FileURL, "file_type": msg.FileType,
+			})
+		}
+		mu.Unlock()
+	}
 }
 
 func broadcastOnlineCount() {
 	mu.Lock(); c := len(clients); mu.Unlock()
-	mu.Lock(); for cl := range clients { cl.WriteJSON(map[string]interface{}{"username": "system", "type": "online_count", "text": fmt.Sprintf("%d", c), "time": "online"}) }; mu.Unlock()
+	mu.Lock()
+	for cl := range clients {
+		cl.WriteJSON(map[string]interface{}{"username": "system", "type": "online_count", "text": fmt.Sprintf("%d", c), "time": "online"})
+	}
+	mu.Unlock()
 }
