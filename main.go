@@ -53,6 +53,8 @@ type Message struct {
 	Peer     string `json:"peer,omitempty"`
 	Read     bool   `json:"read"`
 	Edited   bool   `json:"edited"`
+	FileURL  string `json:"file_url,omitempty"`
+	FileType string `json:"file_type,omitempty"`
 }
 
 type AuthRequest struct {
@@ -86,6 +88,9 @@ func main() {
 	db.Ping()
 	log.Println("Подключено к PostgreSQL успешно!")
 	os.MkdirAll("uploads", 0755)
+	os.MkdirAll("uploads/photos", 0755)
+	os.MkdirAll("uploads/videos", 0755)
+	os.MkdirAll("uploads/audio", 0755)
 	createTables()
 
 	http.HandleFunc("/api/register", handleRegister)
@@ -94,6 +99,7 @@ func main() {
 	http.HandleFunc("/api/messages", handleMessagesAPI)
 	http.HandleFunc("/api/profile", handleProfile)
 	http.HandleFunc("/api/upload-avatar", handleUploadAvatar)
+	http.HandleFunc("/api/upload-file", handleUploadFile)
 	http.HandleFunc("/api/chat/create", handleCreateChat)
 	http.HandleFunc("/api/chat/list", handleChatList)
 	http.HandleFunc("/api/clearchats", handleClearChats)
@@ -122,7 +128,7 @@ func main() {
 func createTables() {
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, nickname TEXT NOT NULL, password TEXT NOT NULL, email TEXT DEFAULT '', about TEXT DEFAULT '', avatar TEXT DEFAULT '')`,
-		`CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, username TEXT NOT NULL, nickname TEXT NOT NULL, text TEXT NOT NULL, time TEXT NOT NULL, chat_id INTEGER DEFAULT 1, avatar TEXT DEFAULT '', read BOOLEAN DEFAULT false, edited BOOLEAN DEFAULT false)`,
+		`CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, username TEXT NOT NULL, nickname TEXT NOT NULL, text TEXT DEFAULT '', time TEXT NOT NULL, chat_id INTEGER DEFAULT 1, avatar TEXT DEFAULT '', read BOOLEAN DEFAULT false, edited BOOLEAN DEFAULT false, file_url TEXT DEFAULT '', file_type TEXT DEFAULT '')`,
 		`CREATE TABLE IF NOT EXISTS chats (id SERIAL PRIMARY KEY, user1 TEXT NOT NULL, user2 TEXT NOT NULL, UNIQUE(user1, user2))`,
 		`CREATE TABLE IF NOT EXISTS groups_chat (id SERIAL PRIMARY KEY, name TEXT NOT NULL, avatar TEXT DEFAULT '', created_by TEXT NOT NULL, created_at TEXT DEFAULT '', invite_code TEXT UNIQUE NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS group_members (group_id INTEGER NOT NULL, username TEXT NOT NULL, role TEXT DEFAULT 'member', UNIQUE(group_id, username))`,
@@ -131,6 +137,8 @@ func createTables() {
 	db.Exec("DELETE FROM chats WHERE user1 = '' OR user2 = ''")
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS read BOOLEAN DEFAULT false")
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited BOOLEAN DEFAULT false")
+	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_url TEXT DEFAULT ''")
+	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_type TEXT DEFAULT ''")
 	log.Println("Таблицы проверены")
 }
 
@@ -156,8 +164,6 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" { http.Error(w, "Method not allowed", http.StatusMethodNotAllowed); return }
 	var req AuthRequest; json.NewDecoder(r.Body).Decode(&req)
 	if req.Username == "" || req.Password == "" || req.Nickname == "" { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Все поля обязательны"}); return }
-	if len(req.Username) < 3 { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Минимум 3 символа"}); return }
-	if len(req.Password) < 6 { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Минимум 6 символов"}); return }
 	var existingID int
 	if db.QueryRow("SELECT id FROM users WHERE username = $1", req.Username).Scan(&existingID) == nil { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Пользователь уже существует"}); return }
 	var userID int
@@ -194,10 +200,10 @@ func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
 	if r.Method == "GET" {
 		chatID := r.URL.Query().Get("chat_id"); if chatID == "" { chatID = "1" }
-		rows, _ := db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false) FROM messages WHERE chat_id = $1 ORDER BY id ASC LIMIT 100", chatID)
+		rows, _ := db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false), COALESCE(file_url,''), COALESCE(file_type,'') FROM messages WHERE chat_id = $1 ORDER BY id ASC LIMIT 100", chatID)
 		defer rows.Close()
 		var messages []Message
-		for rows.Next() { var m Message; var avatar sql.NullString; rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &avatar, &m.Read, &m.Edited); m.Avatar = getAvatarURL(avatar.String); messages = append(messages, m) }
+		for rows.Next() { var m Message; var avatar sql.NullString; rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &avatar, &m.Read, &m.Edited, &m.FileURL, &m.FileType); m.Avatar = getAvatarURL(avatar.String); messages = append(messages, m) }
 		if messages == nil { messages = []Message{} }
 		json.NewEncoder(w).Encode(messages); return
 	}
@@ -244,12 +250,38 @@ func handleUploadAvatar(w http.ResponseWriter, r *http.Request) {
 	file, header, _ := r.FormFile("avatar")
 	defer file.Close()
 	ext := filepath.Ext(header.Filename)
-	filename := currentUser + "_" + strconv.FormatInt(time.Now().Unix(), 10) + ext
+	filename := "avatar_" + currentUser + "_" + strconv.FormatInt(time.Now().Unix(), 10) + ext
 	out, _ := os.Create("uploads/" + filename)
 	defer out.Close()
 	io.Copy(out, file)
 	db.Exec("UPDATE users SET avatar = $1 WHERE username = $2", filename, currentUser)
 	json.NewEncoder(w).Encode(map[string]string{"avatar": "/uploads/" + filename})
+}
+
+func handleUploadFile(w http.ResponseWriter, r *http.Request) {
+	currentUser := getUserFromRequest(r)
+	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
+	file, header, _ := r.FormFile("file")
+	defer file.Close()
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	var folder string
+	var fileType string
+	switch ext {
+	case ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp":
+		folder = "photos"; fileType = "photo"
+	case ".mp4", ".webm", ".mov", ".avi":
+		folder = "videos"; fileType = "video"
+	case ".mp3", ".ogg", ".wav", ".m4a":
+		folder = "audio"; fileType = "audio"
+	default:
+		folder = "photos"; fileType = "file"
+	}
+	filename := currentUser + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + ext
+	out, _ := os.Create("uploads/" + folder + "/" + filename)
+	defer out.Close()
+	io.Copy(out, file)
+	fileURL := "/uploads/" + folder + "/" + filename
+	json.NewEncoder(w).Encode(map[string]string{"file_url": fileURL, "file_type": fileType})
 }
 
 func handleCreateChat(w http.ResponseWriter, r *http.Request) {
@@ -274,21 +306,19 @@ func sendChatNotification(fromUser, toUser string, chatID int) {
 func handleChatList(w http.ResponseWriter, r *http.Request) {
 	currentUser := getUserFromRequest(r)
 	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
+	var chats []map[string]interface{}
+	chats = append(chats, map[string]interface{}{"chat_id": 1, "peer": "", "is_group": false})
 	rows, _ := db.Query("SELECT id, user1, user2 FROM chats WHERE user1 = $1 OR user2 = $2", currentUser, currentUser)
 	defer rows.Close()
-	var chats []map[string]interface{}
-	for rows.Next() { var id int; var u1, u2 string; rows.Scan(&id, &u1, &u2); peer := u1; if peer == currentUser { peer = u2 }; chats = append(chats, map[string]interface{}{"chat_id": id, "peer": peer}) }
-	// Добавляем группы
+	for rows.Next() { var id int; var u1, u2 string; rows.Scan(&id, &u1, &u2); peer := u1; if peer == currentUser { peer = u2 }; chats = append(chats, map[string]interface{}{"chat_id": id, "peer": peer, "is_group": false}) }
 	grows, _ := db.Query("SELECT g.id, g.name FROM groups_chat g JOIN group_members gm ON g.id = gm.group_id WHERE gm.username = $1", currentUser)
 	defer grows.Close()
 	for grows.Next() { var gid int; var gn string; grows.Scan(&gid, &gn); chats = append(chats, map[string]interface{}{"chat_id": gid, "peer": gn, "is_group": true}) }
-	if chats == nil { chats = []map[string]interface{}{} }
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(chats)
 }
 
 func handleClearChats(w http.ResponseWriter, r *http.Request) { db.Exec("DELETE FROM chats"); json.NewEncoder(w).Encode(map[string]string{"status": "ok"}) }
-
 func handleOnlineStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	un := r.URL.Query().Get("username")
@@ -296,7 +326,6 @@ func handleOnlineStatus(w http.ResponseWriter, r *http.Request) {
 	mu.Lock(); _, online := onlineUsers[un]; mu.Unlock()
 	json.NewEncoder(w).Encode(map[string]bool{"online": online})
 }
-
 func handleMarkRead(w http.ResponseWriter, r *http.Request) {
 	currentUser := getUserFromRequest(r)
 	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
@@ -304,7 +333,6 @@ func handleMarkRead(w http.ResponseWriter, r *http.Request) {
 	db.Exec("UPDATE messages SET read = true WHERE chat_id = $1 AND username != $2 AND read = false", req.ChatID, currentUser)
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
-
 func handleDBTest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var userCount int; db.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCount)
@@ -312,9 +340,7 @@ func handleDBTest(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"users_table": tableExists, "user_count": userCount})
 }
 
-// ====== ГРУППЫ ======
 func generateInviteCode() string { b := make([]byte, 8); rand.Read(b); return hex.EncodeToString(b) }
-
 func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentUser := getUserFromRequest(r)
@@ -328,7 +354,6 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	db.Exec("INSERT INTO group_members (group_id, username, role) VALUES ($1, $2, 'admin')", groupID, currentUser)
 	json.NewEncoder(w).Encode(map[string]interface{}{"group_id": groupID, "invite_code": inviteCode, "name": req.Name})
 }
-
 func handleJoinGroup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentUser := getUserFromRequest(r)
@@ -343,7 +368,6 @@ func handleJoinGroup(w http.ResponseWriter, r *http.Request) {
 	db.Exec("INSERT INTO group_members (group_id, username, role) VALUES ($1, $2, 'member')", groupID, currentUser)
 	json.NewEncoder(w).Encode(map[string]interface{}{"group_id": groupID, "name": groupName})
 }
-
 func handleGroupInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	groupID := r.URL.Query().Get("id")
@@ -351,7 +375,6 @@ func handleGroupInfo(w http.ResponseWriter, r *http.Request) {
 	db.QueryRow("SELECT id, name, COALESCE(avatar,''), created_by, created_at, invite_code FROM groups_chat WHERE id = $1", groupID).Scan(&id, &name, &avatar, &createdBy, &createdAt, &code)
 	json.NewEncoder(w).Encode(map[string]interface{}{"id": id, "name": name, "avatar": getAvatarURL(avatar), "created_by": createdBy, "created_at": createdAt, "invite_code": code})
 }
-
 func handleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentUser := getUserFromRequest(r)
@@ -362,7 +385,6 @@ func handleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	if req.Name != "" { db.Exec("UPDATE groups_chat SET name = $1 WHERE id = $2", req.Name, req.ID) }
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
-
 func handleGroupMembers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	groupID := r.URL.Query().Get("id")
@@ -373,7 +395,6 @@ func handleGroupMembers(w http.ResponseWriter, r *http.Request) {
 	if members == nil { members = []map[string]interface{}{} }
 	json.NewEncoder(w).Encode(members)
 }
-
 func handleGroupInvites(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentUser := getUserFromRequest(r)
@@ -384,7 +405,6 @@ func handleGroupInvites(w http.ResponseWriter, r *http.Request) {
 	var code string; db.QueryRow("SELECT invite_code FROM groups_chat WHERE id = $1", groupID).Scan(&code)
 	json.NewEncoder(w).Encode(map[string]string{"invite_code": code})
 }
-
 func handleGroupLeave(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentUser := getUserFromRequest(r)
@@ -410,13 +430,13 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		if err := ws.ReadJSON(&msg); err != nil { mu.Lock(); delete(clients, ws); delete(onlineUsers, username); mu.Unlock(); broadcastOnlineCount(); break }
 		msg.Username = username; msg.Nickname = nickname; msg.Avatar = getAvatarURL(avatar); msg.Time = time.Now().Format("15:04")
 		if msg.ChatID == 0 { msg.ChatID = 1 }
-		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar, read, edited) VALUES ($1, $2, $3, $4, $5, $6, false, false)", msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar)
+		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar, read, edited, file_url, file_type) VALUES ($1, $2, $3, $4, $5, $6, false, false, $7, $8)", msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar, msg.FileURL, msg.FileType)
 		broadcast <- msg
 	}
 }
 
 func handleMessages() {
-	for { msg := <-broadcast; mu.Lock(); for c := range clients { c.WriteJSON(map[string]interface{}{"id": msg.ID, "username": msg.Username, "nickname": msg.Nickname, "text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID, "avatar": msg.Avatar, "read": msg.Read, "edited": msg.Edited}) }; mu.Unlock() }
+	for { msg := <-broadcast; mu.Lock(); for c := range clients { c.WriteJSON(map[string]interface{}{"id": msg.ID, "username": msg.Username, "nickname": msg.Nickname, "text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID, "avatar": msg.Avatar, "read": msg.Read, "edited": msg.Edited, "file_url": msg.FileURL, "file_type": msg.FileType}) }; mu.Unlock() }
 }
 
 func broadcastOnlineCount() {

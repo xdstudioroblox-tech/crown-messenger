@@ -52,7 +52,9 @@
         .message.mine { align-self: flex-end; flex-direction: row-reverse; }
         .message-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; cursor: pointer; }
         .message-avatar-placeholder { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 10px; flex-shrink: 0; cursor: pointer; }
-        .message-bubble { padding: 9px 14px; border-radius: var(--radius); font-size: 14px; line-height: 1.45; word-break: break-word; }
+        .message-bubble { padding: 9px 14px; border-radius: var(--radius); font-size: 14px; line-height: 1.45; word-break: break-word; max-width: 100%; overflow: hidden; }
+        .message-bubble img, .message-bubble video { max-width: 250px; max-height: 250px; border-radius: 10px; cursor: pointer; display: block; }
+        .message-bubble audio { max-width: 250px; display: block; }
         .message.other .message-bubble { background: var(--msg-other-bg); border-bottom-left-radius: 4px; color: var(--text); }
         .message.mine .message-bubble { background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; border-bottom-right-radius: 4px; }
         .message-username { font-weight: 600; font-size: 11px; margin-bottom: 2px; opacity: 0.8; cursor: pointer; }
@@ -65,7 +67,17 @@
         .context-item:hover { background: var(--hover); } .context-item.danger { color: #e53e3e; }
         .input-area { padding: 12px 16px; padding-bottom: max(14px, env(safe-area-inset-bottom, 10px)); background: var(--main-bg); border-top: 2px solid var(--border); display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
         .input-area input { flex: 1; padding: 11px 16px; border: 2px solid var(--border); border-radius: 22px; font-size: 14px; outline: none; background: var(--input-bg); color: var(--text); }
+        .input-btn { width: 42px; height: 42px; border-radius: 50%; background: none; border: none; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; color: var(--text-light); transition: all 0.2s; }
+        .input-btn:hover { background: var(--hover); }
         .send-btn { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; border: none; cursor: pointer; font-size: 17px; display: flex; align-items: center; justify-content: center; }
+        .emoji-panel { display: none; position: absolute; bottom: 80px; left: 16px; right: 16px; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 50; max-height: 300px; overflow-y: auto; padding: 10px; }
+        .emoji-panel.show { display: block; }
+        .emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+        .emoji-item { font-size: 24px; cursor: pointer; padding: 6px; text-align: center; border-radius: 8px; transition: all 0.15s; }
+        .emoji-item:hover { background: var(--hover); }
+        .emoji-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+        .emoji-tab { padding: 8px 12px; cursor: pointer; border-radius: 8px; font-size: 13px; border: none; background: none; color: var(--text-light); }
+        .emoji-tab.active { background: var(--blue); color: white; }
         .overlay { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.35); z-index: 15; }
         .overlay.show { display: block; } .back-btn { display: none; background: none; border: none; color: white; font-size: 22px; cursor: pointer; padding: 4px 8px; margin-right: 8px; }
         .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.45); z-index: 200; justify-content: center; align-items: center; padding: 20px; }
@@ -88,6 +100,7 @@
             .sidebar { position: absolute; left: -100%; top: 0; bottom: 0; width: 280px; min-width: 280px; transition: left 0.3s; box-shadow: 4px 0 30px rgba(0,0,0,0.25); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
             .sidebar.open { left: 0; } .back-btn { display: flex; } .main-area { width: 100%; }
             .message { max-width: 88%; } .input-area { padding: 10px 12px; padding-bottom: max(14px, env(safe-area-inset-bottom, 14px)); }
+            .emoji-grid { grid-template-columns: repeat(6, 1fr); }
         }
     </style>
 </head>
@@ -102,15 +115,28 @@
     <div class="main-area">
         <div class="chat-header" id="chatHeader"><button class="back-btn" onclick="openSidebar()">☰</button><div class="chat-header-avatar-placeholder" id="chatHeaderIcon">💬</div><div class="chat-header-info"><h3 id="chatTitle">Общий чат</h3><span id="onlineStatus">Загрузка...</span></div></div>
         <div class="messages-area" id="messagesArea"><div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div></div>
-        <div class="input-area"><input type="text" id="messageInput" placeholder="Напишите сообщение..." onkeypress="if(event.key==='Enter')sendMessage()"><button class="send-btn" onclick="sendMessage()">➤</button></div>
+        <div class="input-area" style="position:relative;">
+            <button class="input-btn" onclick="document.getElementById('fileInput').click()" title="Прикрепить файл">📎</button>
+            <input type="file" id="fileInput" accept="image/*,video/*,audio/*" style="display:none;" onchange="uploadFile()">
+            <input type="text" id="messageInput" placeholder="Напишите сообщение..." onkeypress="if(event.key==='Enter')sendMessage()">
+            <button class="input-btn" onclick="toggleEmoji()" title="Эмодзи">😊</button>
+            <button class="send-btn" onclick="sendMessage()">➤</button>
+            <div class="emoji-panel" id="emojiPanel">
+                <div class="emoji-tabs">
+                    <button class="emoji-tab active" onclick="showEmojiTab('emoji',this)">😊 Эмодзи</button>
+                    <button class="emoji-tab" onclick="showEmojiTab('gifs',this)">🎬 Гифки</button>
+                    <button class="emoji-tab" onclick="showEmojiTab('stickers',this)">🌟 Стикеры</button>
+                </div>
+                <div class="emoji-grid" id="emojiGrid"></div>
+            </div>
+        </div>
     </div>
 </div>
 <div class="context-menu" id="contextMenu"><button class="context-item" id="ctxEdit"><span>✏️</span> Редактировать</button><button class="context-item danger" id="ctxDelete"><span>🗑️</span> Удалить</button></div>
-<div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"><div class="menu-panel" onclick="event.stopPropagation()"><div class="menu-profile"><img class="menu-avatar" id="menuAvatarImg" style="display:none;"><div class="menu-avatar-placeholder" id="menuAvatarPlaceholder">👤</div><div class="menu-nickname" id="menuNickname">Пользователь</div><div class="menu-username" id="menuUsername">@user</div></div><div class="menu-items"><button class="menu-item" onclick="closeMenu();openProfile(username);"><span class="menu-icon">👤</span> Мой профиль</button><button class="menu-item" onclick="closeMenu();showCreateGroup();"><span class="menu-icon">👥</span> Создать группу</button><button class="menu-item" onclick="closeMenu();showJoinGroup();"><span class="menu-icon">🔗</span> Присоединиться</button></div><hr class="menu-divider"><div class="menu-footer"><span>🌙 Ночной режим</span><label class="switch"><input type="checkbox" id="menuThemeToggle" onchange="toggleTheme()"><span class="slider"></span></label></div><div class="menu-footer" style="justify-content:center;padding-top:0;"><span>Crown Messenger v0.2 (beta)</span></div></div></div>
+<div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"><div class="menu-panel" onclick="event.stopPropagation()"><div class="menu-profile"><img class="menu-avatar" id="menuAvatarImg" style="display:none;"><div class="menu-avatar-placeholder" id="menuAvatarPlaceholder">👤</div><div class="menu-nickname" id="menuNickname">Пользователь</div><div class="menu-username" id="menuUsername">@user</div></div><div class="menu-items"><button class="menu-item" onclick="closeMenu();openProfile(username);"><span class="menu-icon">👤</span> Мой профиль</button><button class="menu-item" onclick="closeMenu();showCreateGroup();"><span class="menu-icon">👥</span> Создать группу</button><button class="menu-item" onclick="closeMenu();showJoinGroup();"><span class="menu-icon">🔗</span> Присоединиться</button></div><hr class="menu-divider"><div class="menu-footer"><span>🌙 Ночной режим</span><label class="switch"><input type="checkbox" id="menuThemeToggle" onchange="toggleTheme()"><span class="slider"></span></label></div><div class="menu-footer" style="justify-content:center;padding-top:0;"><span>Crown Messenger v0.3 (beta)</span></div></div></div>
 <div class="modal" id="profileModal"><div class="modal-content"><button class="modal-close" onclick="closeProfile()">✕</button><div style="text-align:center;"><img class="profile-avatar" id="profileAvatarImg" style="display:none;"><div class="profile-avatar-placeholder" id="profileAvatarPlaceholder">👤</div><input type="file" id="avatarInput" accept="image/*" style="display:none;"></div><div class="profile-field"><label>Никнейм</label><input type="text" id="profileNickname" disabled></div><div class="profile-field"><label>Юзернейм</label><input type="text" id="profileUsername" disabled></div><div class="profile-field"><label>О себе</label><textarea id="profileAbout" rows="3" disabled></textarea></div><button class="btn btn-primary" id="profileSaveBtn" style="display:none;">Сохранить</button><button class="btn btn-primary" id="profileChatBtn" style="display:none;">💬 Написать</button></div></div>
 <div class="modal" id="groupModal"><div class="modal-content"><button class="modal-close" onclick="closeGroupModal()">✕</button><div id="groupModalContent"></div></div></div>
 <div class="modal" id="inviteModal"><div class="modal-content"><button class="modal-close" onclick="closeInviteModal()">✕</button><div id="inviteModalContent"></div></div></div>
-<div class="modal" id="groupManageModal"><div class="modal-content"><button class="modal-close" onclick="closeGroupManageModal()">✕</button><div id="groupManageContent"></div></div></div>
 
 <script>
 var username="",nickname="",myAvatar="",ws,currentChatId=1,currentPeer="",currentIsGroup=false,viewingProfile="",searchTimeout,onlineCount=0,contextMsgId=null,currentGroupId=null;
@@ -179,6 +205,40 @@ document.getElementById('profileChatBtn').onclick=async function(){
     }catch(e){alert('Ошибка: '+e);}
 };
 
+// ====== ЗАГРУЗКА ФАЙЛОВ ======
+async function uploadFile(){
+    var file=document.getElementById('fileInput').files[0];if(!file)return;
+    var fd=new FormData();fd.append('file',file);
+    try{
+        var r=await fetch('/api/upload-file',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});
+        var d=await r.json();
+        if(d.file_url){sendMessageWithFile(d.file_url,d.file_type);}
+    }catch(e){alert('Ошибка загрузки');}
+    document.getElementById('fileInput').value='';
+}
+function sendMessageWithFile(fileUrl,fileType){
+    if(ws&&ws.readyState===WebSocket.OPEN){
+        ws.send(JSON.stringify({text:'',chat_id:currentChatId,file_url:fileUrl,file_type:fileType}));
+    }
+}
+
+// ====== ЭМОДЗИ ======
+var emojis=['😀','😂','😍','🥰','😎','🤩','😇','🤗','😋','😜','🤔','😐','😢','😡','👍','👎','👏','🙌','💪','🤝','❤️','💔','🔥','⭐','🎉','🎂','🍕','☕','🚀','💻','📱','💡','🎵','🌈','🦊','🐱','🐶','🦄','🌺','🍀'];
+var currentEmojiTab='emoji';
+
+function toggleEmoji(){
+    var panel=document.getElementById('emojiPanel');panel.classList.toggle('show');
+    if(panel.classList.contains('show')){showEmojiTab('emoji',document.querySelector('.emoji-tab.active')||document.querySelector('.emoji-tab'));}
+}
+function showEmojiTab(tab,btn){
+    currentEmojiTab=tab;document.querySelectorAll('.emoji-tab').forEach(function(e){e.classList.remove('active');});btn.classList.add('active');
+    var grid=document.getElementById('emojiGrid');grid.innerHTML='';
+    if(tab==='emoji'){emojis.forEach(function(e){var d=document.createElement('div');d.className='emoji-item';d.textContent=e;d.onclick=function(){insertEmoji(e);};grid.appendChild(d);});}
+    else if(tab==='gifs'){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--text-light);padding:20px;">Гифки — в разработке</div>';}
+    else{grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--text-light);padding:20px;">Стикеры — в разработке</div>';}
+}
+function insertEmoji(e){var input=document.getElementById('messageInput');input.value+=e;input.focus();}
+
 // ====== ГРУППЫ ======
 function showCreateGroup(){
     var c=document.getElementById('groupModalContent');
@@ -189,8 +249,14 @@ async function createGroup(){
     var name=document.getElementById('groupName').value.trim();if(!name)return;
     var r=await fetch('/api/group/create',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({name:name})});
     var d=await r.json();
-    if(d.group_id){closeGroupModal();addChatToList(d.group_id,d.name,true);switchToChat(d.group_id,d.name,true);showInviteModal(d.group_id,d.name,d.invite_code);}
-    else{alert('Ошибка: '+JSON.stringify(d));}
+    if(d.group_id){closeGroupModal();addChatToList(d.group_id,d.name,true);
+        document.getElementById('messagesArea').innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div>';
+        currentChatId=d.group_id;currentPeer=d.name;currentIsGroup=true;
+        document.getElementById('chatTitle').textContent=d.name;document.getElementById('chatHeaderIcon').textContent=getInitials(d.name);
+        document.querySelectorAll('.chat-item').forEach(function(el){el.classList.remove('active');});
+        var item=document.querySelector('.chat-item[data-chat-id="'+d.group_id+'"]');if(item)item.classList.add('active');
+        fetch('/api/messages?chat_id='+d.group_id,{headers:{'Authorization':'Bearer '+getToken()}}).then(function(r){return r.json();}).then(function(msgs){var area=document.getElementById('messagesArea');area.innerHTML='';if(!msgs||msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';return;}msgs.sort(function(a,b){return a.id-b.id;});msgs.forEach(function(m){appendMessage(m.id,m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',m.read,m.edited,false);});area.scrollTop=area.scrollHeight;});
+        showInviteModal(d.group_id,d.name,d.invite_code);}else{alert('Ошибка: '+JSON.stringify(d));}
 }
 function showJoinGroup(){
     var c=document.getElementById('groupModalContent');
@@ -205,33 +271,17 @@ async function joinGroup(){
     else{alert('Ошибка: '+JSON.stringify(d));}
 }
 function closeGroupModal(){document.getElementById('groupModal').classList.remove('show');}
-
-function showInviteModal(groupId, groupName, code){
-    currentGroupId = groupId;
-    var inviteLink = 'https://crown-messenger.onrender.com/chat?code=' + code;
-    var c = document.getElementById('inviteModalContent');
-    c.innerHTML = '<h3 style="margin-bottom:16px;">🔗 Пригласить в «' + groupName + '»</h3>' +
-        '<div class="profile-field"><label>Код приглашения</label><div style="display:flex;gap:8px;"><input type="text" id="inviteCodeText" value="' + code + '" readonly style="flex:1;"><button class="btn btn-primary btn-sm" style="margin-top:0;white-space:nowrap;" onclick="copyInviteCode()">📋 Копировать</button></div></div>' +
-        '<div class="profile-field"><label>Ссылка-приглашение</label><div style="display:flex;gap:8px;"><input type="text" id="inviteLinkText" value="' + inviteLink + '" readonly style="flex:1;"><button class="btn btn-primary btn-sm" style="margin-top:0;white-space:nowrap;" onclick="copyInviteLink()">📋 Копировать</button></div></div>' +
-        '<p style="font-size:12px;color:var(--text-light);margin-top:8px;">Отправьте код или ссылку другу.</p>';
+function showInviteModal(groupId,groupName,code){
+    currentGroupId=groupId;
+    var inviteLink='https://crown-messenger.onrender.com/chat?code='+code;
+    var c=document.getElementById('inviteModalContent');
+    c.innerHTML='<h3 style="margin-bottom:16px;">🔗 Пригласить в «'+groupName+'»</h3><div class="profile-field"><label>Код приглашения</label><div style="display:flex;gap:8px;"><input type="text" id="inviteCodeText" value="'+code+'" readonly style="flex:1;"><button class="btn btn-primary btn-sm" style="margin-top:0;white-space:nowrap;" onclick="copyInviteCode()">📋 Копировать</button></div></div><div class="profile-field"><label>Ссылка-приглашение</label><div style="display:flex;gap:8px;"><input type="text" id="inviteLinkText" value="'+inviteLink+'" readonly style="flex:1;"><button class="btn btn-primary btn-sm" style="margin-top:0;white-space:nowrap;" onclick="copyInviteLink()">📋 Копировать</button></div></div><p style="font-size:12px;color:var(--text-light);margin-top:8px;">Отправьте код или ссылку другу.</p>';
     document.getElementById('inviteModal').classList.add('show');
 }
 function closeInviteModal(){document.getElementById('inviteModal').classList.remove('show');}
 function copyInviteCode(){var inp=document.getElementById('inviteCodeText');inp.select();document.execCommand('copy');alert('Код скопирован!');}
 function copyInviteLink(){var inp=document.getElementById('inviteLinkText');inp.select();document.execCommand('copy');alert('Ссылка скопирована!');}
-
-function showGroupManage(groupId){
-    currentGroupId = groupId;
-    fetch('/api/group/info?id='+groupId,{headers:{'Authorization':'Bearer '+getToken()}})
-        .then(function(r){return r.json();})
-        .then(function(g){
-            fetch('/api/group/invites?id='+groupId,{headers:{'Authorization':'Bearer '+getToken()}})
-                .then(function(r){return r.json();})
-                .then(function(inv){showInviteModal(groupId,g.name,inv.invite_code);})
-                .catch(function(){alert('Только админ может смотреть код приглашения');});
-        });
-}
-function closeGroupManageModal(){document.getElementById('groupManageModal').classList.remove('show');}
+function showGroupManage(groupId){fetch('/api/group/info?id='+groupId,{headers:{'Authorization':'Bearer '+getToken()}}).then(function(r){return r.json();}).then(function(g){fetch('/api/group/invites?id='+groupId,{headers:{'Authorization':'Bearer '+getToken()}}).then(function(r){return r.json();}).then(function(inv){showInviteModal(groupId,g.name,inv.invite_code);}).catch(function(){alert('Только админ может смотреть код');});});}
 
 // ====== ЧАТЫ ======
 function addChatToList(id,peer,isGroup){
@@ -250,28 +300,27 @@ function switchToChat(id,peer,isGroup){
     var item=document.querySelector('.chat-item[data-chat-id="'+id+'"]');if(item)item.classList.add('active');
     updateOnlineStatus();if(!currentIsGroup&&currentChatId!==1){markAsRead(currentChatId);}
     var area=document.getElementById('messagesArea');area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div>';
-    fetch('/api/messages?chat_id='+id,{headers:{'Authorization':'Bearer '+getToken()}})
-        .then(function(r){return r.json();})
-        .then(function(msgs){area.innerHTML='';
-            if(!msgs||msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';return;}
-            msgs.sort(function(a,b){return a.id-b.id;});
-            msgs.forEach(function(m){appendMessage(m.id,m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',m.read,m.edited,false);});
-            area.scrollTop=area.scrollHeight;
-        }).catch(function(){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Ошибка загрузки</div>';});
+    fetch('/api/messages?chat_id='+id,{headers:{'Authorization':'Bearer '+getToken()}}).then(function(r){return r.json();}).then(function(msgs){area.innerHTML='';if(!msgs||msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';return;}msgs.sort(function(a,b){return a.id-b.id;});msgs.forEach(function(m){appendMessage(m.id,m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',m.read,m.edited,false);});area.scrollTop=area.scrollHeight;}).catch(function(){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Ошибка загрузки</div>';});
 }
 function markAsRead(chatId){fetch('/api/read',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId})}).catch(function(){});}
-function updateOnlineStatus(){
-    var s=document.getElementById('onlineStatus');if(currentChatId===1||currentIsGroup||!currentPeer){s.textContent=onlineCount+' участников онлайн';return;}
-    fetch('/api/online?username='+currentPeer).then(function(r){return r.json();}).then(function(d){s.textContent=d.online?'🟢 Онлайн':'⚫ Офлайн';}).catch(function(){s.textContent='';});
-}
-function appendMessage(id,sender,senderNick,text,time,avatar,read,edited,animate){
+function updateOnlineStatus(){var s=document.getElementById('onlineStatus');if(currentChatId===1||currentIsGroup||!currentPeer){s.textContent=onlineCount+' участников онлайн';return;}fetch('/api/online?username='+currentPeer).then(function(r){return r.json();}).then(function(d){s.textContent=d.online?'🟢 Онлайн':'⚫ Офлайн';}).catch(function(){s.textContent='';});}
+
+function appendMessage(id,sender,senderNick,text,time,avatar,read,edited,animate,fileUrl,fileType){
     var area=document.getElementById('messagesArea'),div=document.createElement('div'),isMine=sender===username;
     div.className='message '+(isMine?'mine':'other');if(!animate)div.style.animation='none';div.setAttribute('data-msg-id',id);
     var avHtml='';if(!isMine){if(avatar&&avatar!==''){avHtml='<img class="message-avatar" src="'+avatar+'" onclick="openProfile(\''+sender+'\')">';}else{avHtml='<div class="message-avatar-placeholder" onclick="openProfile(\''+sender+'\')">'+getInitials(senderNick)+'</div>';}}
     var readHtml=(isMine&&!currentIsGroup&&currentChatId!==1)?'<div class="message-read">'+(read?'✓✓':'✓')+'</div>':'';
     var editedHtml=edited?' <span class="message-edited">(ред.)</span>':'';
     var displayTime=formatTime(time);
-    div.innerHTML=avHtml+'<div class="message-bubble">'+(isMine?'':'<div class="message-username" onclick="openProfile(\''+sender+'\')">'+escapeHtml(senderNick)+'</div>')+escapeHtml(text)+editedHtml+'<div class="message-time">'+displayTime+'</div>'+readHtml+'</div>';
+    var contentHtml='';
+    if(fileUrl){
+        if(fileType==='photo'){contentHtml='<img src="'+fileUrl+'" onclick="window.open(\''+fileUrl+'\')" style="max-width:250px;max-height:250px;border-radius:10px;cursor:pointer;display:block;">';}
+        else if(fileType==='video'){contentHtml='<video controls src="'+fileUrl+'" style="max-width:250px;max-height:250px;border-radius:10px;display:block;"></video>';}
+        else if(fileType==='audio'){contentHtml='<audio controls src="'+fileUrl+'" style="max-width:250px;display:block;"></audio>';}
+        else{contentHtml='<a href="'+fileUrl+'" target="_blank" style="color:inherit;">📎 Файл</a>';}
+    }
+    if(text){contentHtml+=escapeHtml(text);}
+    div.innerHTML=avHtml+'<div class="message-bubble">'+(isMine?'':'<div class="message-username" onclick="openProfile(\''+sender+'\')">'+escapeHtml(senderNick)+'</div>')+contentHtml+editedHtml+'<div class="message-time">'+displayTime+'</div>'+readHtml+'</div>';
     if(isMine){div.oncontextmenu=function(e){e.preventDefault();showContextMenu(e,id,text);};div.addEventListener('touchstart',function(e){longPressTimer=setTimeout(function(){showContextMenu(e,id,text);},500);});div.addEventListener('touchend',function(){clearTimeout(longPressTimer);});div.addEventListener('touchmove',function(){clearTimeout(longPressTimer);});}
     area.appendChild(div);area.scrollTop=area.scrollHeight;
 }
@@ -312,11 +361,18 @@ function connectWebSocket(token){
         var msg=JSON.parse(e.data);
         if(msg.type==='chat_created'){addChatToList(msg.chat_id,msg.peer,false);return;}
         if(msg.type==='online_count'){onlineCount=parseInt(msg.text)||0;updateOnlineStatus();return;}
-        var t=msg.chat_id||1;if(t===currentChatId){appendMessage(msg.id,msg.username,msg.nickname||msg.username,msg.text,msg.time,msg.avatar||'',msg.read||false,msg.edited||false,true);if(!currentIsGroup&&currentChatId!==1)markAsRead(currentChatId);}
+        var t=msg.chat_id||1;if(t===currentChatId){appendMessage(msg.id,msg.username,msg.nickname||msg.username,msg.text,msg.time,msg.avatar||'',msg.read||false,msg.edited||false,true,msg.file_url,msg.file_type);if(!currentIsGroup&&currentChatId!==1)markAsRead(currentChatId);}
     };
     ws.onclose=function(){setTimeout(function(){connectWebSocket(token);},3000);};
 }
-function sendMessage(){var input=document.getElementById('messageInput'),text=input.value.trim();if(text&&ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:text,chat_id:currentChatId}));input.value='';}}
+function sendMessage(){
+    var input=document.getElementById('messageInput'),text=input.value.trim();
+    if((text||document.getElementById('fileInput').files.length>0)&&ws&&ws.readyState===WebSocket.OPEN){
+        if(document.getElementById('fileInput').files.length>0){uploadFile();}
+        else{ws.send(JSON.stringify({text:text,chat_id:currentChatId}));input.value='';}
+    }
+    else if(text&&ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:text,chat_id:currentChatId}));input.value='';}
+}
 function logout(){localStorage.removeItem('token');localStorage.removeItem('user');window.location.href='/';}
 document.getElementById('chatHeader').onclick=function(){if(currentIsGroup){showGroupManage(currentChatId);}else if(currentPeer){openProfile(currentPeer);}};
 
