@@ -84,7 +84,7 @@
         .context-menu.show { display: block; }
         .context-item { padding: 10px 16px; cursor: pointer; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 8px; border: none; background: none; width: 100%; text-align: left; }
         .context-item:hover { background: var(--hover); } .context-item.danger { color: #e53e3e; }
-        .input-area { padding: 12px 16px; padding-bottom: max(14px, env(safe-area-inset-bottom, 10px)); background: var(--main-bg); border-top: 2px solid var(--border); display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+        .input-area { padding: 12px 16px; padding-bottom: max(18px, env(safe-area-inset-bottom, 18px)); background: var(--main-bg); border-top: 2px solid var(--border); display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
         .input-area input { flex: 1; padding: 11px 16px; border: 2px solid var(--border); border-radius: 22px; font-size: 14px; outline: none; background: var(--input-bg); color: var(--text); }
         .input-btn { width: 42px; height: 42px; border-radius: 50%; background: none; border: none; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; color: var(--text-light); transition: all 0.2s; }
         .input-btn:hover { background: var(--hover); }
@@ -128,7 +128,8 @@
         @media (max-width: 768px) {
             .sidebar { position: absolute; left: -100%; top: 0; bottom: 0; width: 280px; min-width: 280px; transition: left 0.3s; box-shadow: 4px 0 30px rgba(0,0,0,0.25); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
             .sidebar.open { left: 0; } .back-btn { display: flex; } .main-area { width: 100%; }
-            .message { max-width: 88%; } .input-area { padding: 10px 12px; padding-bottom: max(14px, env(safe-area-inset-bottom, 14px)); }
+            .message { max-width: 88%; }
+            .input-area { padding: 10px 12px; padding-bottom: max(24px, env(safe-area-inset-bottom, 24px)); }
             .emoji-grid { grid-template-columns: repeat(6, 1fr); }
         }
     </style>
@@ -208,26 +209,10 @@ document.getElementById('profileSaveBtn').onclick=async function(){var nick=docu
 document.getElementById('avatarInput').onchange=async function(){var file=this.files[0];if(!file)return;var fd=new FormData();fd.append('avatar',file);var r=await fetch('/api/upload-avatar',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});var data=await r.json();myAvatar=data.avatar;document.getElementById('profileAvatarImg').src=myAvatar;document.getElementById('profileAvatarImg').style.display='block';document.getElementById('profileAvatarPlaceholder').style.display='none';};
 document.getElementById('profileChatBtn').onclick=async function(){if(!viewingProfile||viewingProfile===username){alert('Нельзя написать себе');return;}try{var r=await fetch('/api/chat/create',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({user2:viewingProfile})});var data=await r.json();if(data.chat_id){closeProfile();addChatToList(data.chat_id,viewingProfile,false);switchToChat(data.chat_id,viewingProfile,false);}else{alert('Ошибка: '+JSON.stringify(data));}}catch(e){alert('Ошибка: '+e);}};
 
-// ====== СТАТУСЫ (ПЕЧАТАЕТ, ОТПРАВЛЯЕТ ФАЙЛ) ======
-function handleTyping(){
-    if(!ws||ws.readyState!==WebSocket.OPEN)return;
-    if(!typingSent){ws.send(JSON.stringify({action:'typing',chat_id:currentChatId}));typingSent=true;}
-    clearTimeout(typingTimeout);
-    typingTimeout=setTimeout(function(){typingSent=false;},2000);
-}
-function sendUploadStatus(type){
-    if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({action:'uploading_'+type,chat_id:currentChatId}));}
-}
-
-// ====== ЗАГРУЗКА ФАЙЛОВ ======
-async function uploadFile(){
-    var file=document.getElementById('fileInput').files[0];if(!file)return;
-    var isPhoto=file.type.startsWith('image/');var isVideo=file.type.startsWith('video/');var isAudio=file.type.startsWith('audio/');
-    if(isPhoto)sendUploadStatus('photo');else if(isVideo)sendUploadStatus('video');else if(isAudio)sendUploadStatus('audio');
-    var fd=new FormData();fd.append('file',file);
-    try{var r=await fetch('/api/upload-file',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});var d=await r.json();if(d.file_url){sendMessageWithFile(d.file_url,d.file_type);}}catch(e){alert('Ошибка загрузки');}
-    document.getElementById('fileInput').value='';
-}
+// ====== СТАТУСЫ ======
+function handleTyping(){if(!ws||ws.readyState!==WebSocket.OPEN)return;if(!typingSent){ws.send(JSON.stringify({action:'typing',chat_id:currentChatId}));typingSent=true;}clearTimeout(typingTimeout);typingTimeout=setTimeout(function(){typingSent=false;},2000);}
+function sendUploadStatus(type){if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({action:'uploading_'+type,chat_id:currentChatId}));}}
+async function uploadFile(){var file=document.getElementById('fileInput').files[0];if(!file)return;var isPhoto=file.type.startsWith('image/');var isVideo=file.type.startsWith('video/');var isAudio=file.type.startsWith('audio/');if(isPhoto)sendUploadStatus('photo');else if(isVideo)sendUploadStatus('video');else if(isAudio)sendUploadStatus('audio');var fd=new FormData();fd.append('file',file);try{var r=await fetch('/api/upload-file',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});var d=await r.json();if(d.file_url){sendMessageWithFile(d.file_url,d.file_type);}}catch(e){alert('Ошибка загрузки');}document.getElementById('fileInput').value='';}
 function sendMessageWithFile(fileUrl,fileType){if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:'',chat_id:currentChatId,file_url:fileUrl,file_type:fileType}));}}
 
 // ====== ЭМОДЗИ ======
@@ -236,57 +221,35 @@ function toggleEmoji(){var panel=document.getElementById('emojiPanel');panel.cla
 function showEmojiTab(tab,btn){document.querySelectorAll('.emoji-tab').forEach(function(e){e.classList.remove('active');});btn.classList.add('active');var grid=document.getElementById('emojiGrid');grid.innerHTML='';if(tab==='emoji'){emojis.forEach(function(e){var d=document.createElement('div');d.className='emoji-item';d.textContent=e;d.onclick=function(){insertEmoji(e);};grid.appendChild(d);});}else if(tab==='gifs'){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--text-light);padding:20px;">Гифки — в разработке</div>';}else{grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--text-light);padding:20px;">Стикеры — в разработке</div>';}}
 function insertEmoji(e){var input=document.getElementById('messageInput');input.value+=e;input.focus();}
 
-// ====== НАСТРОЙКИ ======
-var wallpaperColors=['#f5f7fa','#e8f5e9','#fff3e0','#fce4ec','#e3f2fd','#f3e5f5','#1a1a2e','#16213e','#0f3460','#2d1b4e'];
-var defaultWallpapers=['https://images.unsplash.com/photo-1557683316-973673baf926?w=300','https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300','https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=300','https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?w=300'];
-
-function showSettings(){
-    closeMenu();
-    var c=document.getElementById('settingsContent');
-    c.innerHTML='<h3 style="margin-bottom:16px;">⚙️ Настройки</h3>'+
-        '<div class="settings-tabs">'+
-        '<button class="settings-tab active" onclick="showSettingsTab(\'wallpaper\',this)">🎨 Обои</button>'+
-        '<button class="settings-tab" onclick="showSettingsTab(\'language\',this)">🌐 Язык</button>'+
-        '<button class="settings-tab" onclick="showSettingsTab(\'privacy\',this)">🔒 Конфиденциальность</button>'+
-        '<button class="settings-tab" onclick="showSettingsTab(\'notifications\',this)">🔔 Уведомления</button>'+
-        '</div><div id="settingsTabContent"></div>';
-    document.getElementById('settingsModal').classList.add('show');
-    showSettingsTab('wallpaper',document.querySelector('.settings-tab.active'));
-}
+// ====== НАСТРОЙКИ (ОБОИ МЕНЯЮТ ВСЮ ТЕМУ) ======
+var wallpaperPresets=[
+    {name:'Светлый',bg:'#f0f4f8',sidebar:'#f8fafc',main:'#ffffff',msgBg:'#f5f7fa',input:'#f8fafc',other:'#ffffff',text:'#1a202c',light:'#a0aec0',border:'#d0d7de',hover:'#edf2f7',active:'#e8f0fe',shadow:'0 4px 12px rgba(0,0,0,0.08)',chatBg:'#f5f7fa',isDark:false},
+    {name:'Тёмный',bg:'#0f1117',sidebar:'#16181d',main:'#1a1d23',msgBg:'#121418',input:'#1e2128',other:'#1e2128',text:'#e4e8ee',light:'#8b949e',border:'#2d3239',hover:'#1e2128',active:'#1a2340',shadow:'0 4px 12px rgba(0,0,0,0.4)',chatBg:'#121418',isDark:true},
+    {name:'Зелёный',bg:'#e8f5e9',sidebar:'#c8e6c9',main:'#ffffff',msgBg:'#e8f5e9',input:'#f1f8e9',other:'#ffffff',text:'#1b5e20',light:'#4caf50',border:'#a5d6a7',hover:'#c8e6c9',active:'#a5d6a7',shadow:'0 4px 12px rgba(0,0,0,0.06)',chatBg:'#e8f5e9',isDark:false},
+    {name:'Розовый',bg:'#fce4ec',sidebar:'#f8bbd0',main:'#ffffff',msgBg:'#fce4ec',input:'#fff0f5',other:'#ffffff',text:'#880e4f',light:'#e91e63',border:'#f48fb1',hover:'#f8bbd0',active:'#f48fb1',shadow:'0 4px 12px rgba(0,0,0,0.06)',chatBg:'#fce4ec',isDark:false},
+    {name:'Синий',bg:'#e3f2fd',sidebar:'#bbdefb',main:'#ffffff',msgBg:'#e3f2fd',input:'#e8eaf6',other:'#ffffff',text:'#0d47a1',light:'#1976d2',border:'#90caf9',hover:'#bbdefb',active:'#90caf9',shadow:'0 4px 12px rgba(0,0,0,0.06)',chatBg:'#e3f2fd',isDark:false},
+    {name:'Фиолетовый',bg:'#f3e5f5',sidebar:'#e1bee7',main:'#ffffff',msgBg:'#f3e5f5',input:'#ede7f6',other:'#ffffff',text:'#4a148c',light:'#7b1fa2',border:'#ce93d8',hover:'#e1bee7',active:'#ce93d8',shadow:'0 4px 12px rgba(0,0,0,0.06)',chatBg:'#f3e5f5',isDark:false},
+    {name:'Тёмно-синий',bg:'#1a1a2e',sidebar:'#16213e',main:'#0f3460',msgBg:'#1a1a2e',input:'#16213e',other:'#1a1a2e',text:'#e4e8ee',light:'#8b949e',border:'#2d3239',hover:'#16213e',active:'#0f3460',shadow:'0 4px 12px rgba(0,0,0,0.5)',chatBg:'#1a1a2e',isDark:true},
+    {name:'Тёмно-зелёный',bg:'#1b2e1b',sidebar:'#1a3a1a',main:'#0d1f0d',msgBg:'#1b2e1b',input:'#1a3a1a',other:'#1b2e1b',text:'#c8e6c9',light:'#66bb6a',border:'#2d3a2d',hover:'#1a3a1a',active:'#0d1f0d',shadow:'0 4px 12px rgba(0,0,0,0.5)',chatBg:'#1b2e1b',isDark:true},
+];
+function showSettings(){closeMenu();var c=document.getElementById('settingsContent');c.innerHTML='<h3 style="margin-bottom:16px;">⚙️ Настройки</h3><div class="settings-tabs"><button class="settings-tab active" onclick="showSettingsTab(\'wallpaper\',this)">🎨 Тема</button><button class="settings-tab" onclick="showSettingsTab(\'custom_wallpaper\',this)">🖼️ Свои обои</button><button class="settings-tab" onclick="showSettingsTab(\'language\',this)">🌐 Язык</button><button class="settings-tab" onclick="showSettingsTab(\'privacy\',this)">🔒 Конфиденциальность</button><button class="settings-tab" onclick="showSettingsTab(\'notifications\',this)">🔔 Уведомления</button></div><div id="settingsTabContent"></div>';document.getElementById('settingsModal').classList.add('show');showSettingsTab('wallpaper',document.querySelector('.settings-tab.active'));}
 function closeSettings(){document.getElementById('settingsModal').classList.remove('show');}
-
-function showSettingsTab(tab,btn){
-    document.querySelectorAll('.settings-tab').forEach(function(e){e.classList.remove('active');});btn.classList.add('active');
-    var tc=document.getElementById('settingsTabContent');
+function showSettingsTab(tab,btn){document.querySelectorAll('.settings-tab').forEach(function(e){e.classList.remove('active');});btn.classList.add('active');var tc=document.getElementById('settingsTabContent');
     if(tab==='wallpaper'){
-        tc.innerHTML='<p style="font-size:13px;color:var(--text-light);margin-bottom:10px;">🎨 Палитра цветов</p><div class="wallpaper-grid">'+
-            wallpaperColors.map(function(c){return '<div class="wallpaper-color" style="background:'+c+';" onclick="setWallpaperColor(\''+c+'\')"></div>';}).join('')+'</div>'+
-            '<div class="color-picker-wrapper"><span style="font-size:13px;color:var(--text-light);">Свой цвет:</span><input type="color" id="customColor" value="#f5f7fa" onchange="setWallpaperColor(this.value)"></div>'+
-            '<p style="font-size:13px;color:var(--text-light);margin:16px 0 10px;">🖼️ Встроенные обои</p><div class="wallpaper-grid">'+
-            defaultWallpapers.map(function(i){return '<img class="wallpaper-item" src="'+i+'" onclick="setWallpaperImage(\''+i+'\')">';}).join('')+'</div>'+
-            '<p style="font-size:13px;color:var(--text-light);margin:16px 0 10px;">📷 Своё фото</p><input type="file" id="customWallpaper" accept="image/*" onchange="uploadCustomWallpaper()" style="margin-bottom:10px;">'+
-            '<button class="btn btn-primary btn-sm" onclick="resetWallpaper()">🔄 Сбросить обои</button>';
-    }else if(tab==='language'){
-        tc.innerHTML='<p style="font-size:13px;color:var(--text-light);margin-bottom:10px;">Выберите язык интерфейса</p>'+
-            '<button class="btn btn-primary" onclick="setLanguage(\'ru\')" style="margin-bottom:8px;">🇷🇺 Русский</button>'+
-            '<button class="btn btn-primary" onclick="setLanguage(\'en\')">🇬🇧 English (soon)</button>';
-    }else if(tab==='privacy'){
-        var lastSeen=localStorage.getItem('privacy_lastseen')!=='false';
-        var phone=localStorage.getItem('privacy_phone')!=='false';
-        tc.innerHTML='<div class="profile-field"><label>Кто видит мой онлайн</label><div style="display:flex;align-items:center;justify-content:space-between;"><span>Показывать последнюю активность</span><label class="switch"><input type="checkbox" id="privacyLastSeen" '+(lastSeen?'checked':'')+' onchange="savePrivacy()"><span class="slider"></span></label></div></div>'+
-            '<div class="profile-field"><label>Номер телефона</label><div style="display:flex;align-items:center;justify-content:space-between;"><span>Показывать номер</span><label class="switch"><input type="checkbox" id="privacyPhone" '+(phone?'checked':'')+' onchange="savePrivacy()"><span class="slider"></span></label></div></div>';
-    }else if(tab==='notifications'){
-        var sound=localStorage.getItem('notif_sound')!=='false';
-        var vibro=localStorage.getItem('notif_vibro')!=='false';
-        tc.innerHTML='<div class="profile-field"><label>Звук</label><div style="display:flex;align-items:center;justify-content:space-between;"><span>Звук новых сообщений</span><label class="switch"><input type="checkbox" id="notifSound" '+(sound?'checked':'')+' onchange="saveNotifications()"><span class="slider"></span></label></div></div>'+
-            '<div class="profile-field"><label>Вибрация</label><div style="display:flex;align-items:center;justify-content:space-between;"><span>Вибрация при сообщении</span><label class="switch"><input type="checkbox" id="notifVibro" '+(vibro?'checked':'')+' onchange="saveNotifications()"><span class="slider"></span></label></div></div>';
-    }
-}
-function setWallpaperColor(color){document.documentElement.style.setProperty('--chat-bg-color',color);document.documentElement.style.setProperty('--chat-bg-image','none');localStorage.setItem('wallpaper_type','color');localStorage.setItem('wallpaper_value',color);}
-function setWallpaperImage(url){document.documentElement.style.setProperty('--chat-bg-image','url('+url+')');document.documentElement.style.setProperty('--chat-bg-color','transparent');localStorage.setItem('wallpaper_type','image');localStorage.setItem('wallpaper_value',url);}
-function uploadCustomWallpaper(){var file=document.getElementById('customWallpaper').files[0];if(!file)return;var reader=new FileReader();reader.onload=function(e){setWallpaperImage(e.target.result);};reader.readAsDataURL(file);}
-function resetWallpaper(){document.documentElement.style.setProperty('--chat-bg-color','');document.documentElement.style.setProperty('--chat-bg-image','none');localStorage.removeItem('wallpaper_type');localStorage.removeItem('wallpaper_value');}
-function loadWallpaper(){var type=localStorage.getItem('wallpaper_type');var value=localStorage.getItem('wallpaper_value');if(type==='color'){document.documentElement.style.setProperty('--chat-bg-color',value);}else if(type==='image'){document.documentElement.style.setProperty('--chat-bg-image','url('+value+')');document.documentElement.style.setProperty('--chat-bg-color','transparent');}}
+        tc.innerHTML='<p style="font-size:13px;color:var(--text-light);margin-bottom:10px;">Готовые темы (меняют всё приложение)</p><div class="wallpaper-grid">'+
+            wallpaperPresets.map(function(p,i){return '<div class="wallpaper-color" style="background:'+p.chatBg+';" onclick="applyTheme('+i+')" title="'+p.name+'"><span style="font-size:10px;display:block;text-align:center;padding-top:40%;color:'+p.text+';">'+p.name+'</span></div>';}).join('')+'</div>'+
+            '<div class="color-picker-wrapper"><span style="font-size:13px;color:var(--text-light);">Свой цвет фона чата:</span><input type="color" id="customColor" value="#f5f7fa" onchange="setCustomChatBg(this.value)"></div>';
+    }else if(tab==='custom_wallpaper'){
+        tc.innerHTML='<p style="font-size:13px;color:var(--text-light);margin-bottom:10px;">🖼️ Своё фото для фона чата</p><input type="file" id="customWallpaper" accept="image/*" onchange="uploadCustomWallpaper()" style="margin-bottom:10px;"><p style="font-size:11px;color:var(--text-light);">Фото будет установлено как фон сообщений (не меняет тему)</p><button class="btn btn-primary btn-sm" onclick="resetWallpaper()">🔄 Сбросить свои обои</button>';
+    }else if(tab==='language'){tc.innerHTML='<p style="font-size:13px;color:var(--text-light);margin-bottom:10px;">Выберите язык интерфейса</p><button class="btn btn-primary" onclick="setLanguage(\'ru\')" style="margin-bottom:8px;">🇷🇺 Русский</button><button class="btn btn-primary" onclick="setLanguage(\'en\')">🇬🇧 English (soon)</button>';}
+    else if(tab==='privacy'){var ls=localStorage.getItem('privacy_lastseen')!=='false';var ph=localStorage.getItem('privacy_phone')!=='false';tc.innerHTML='<div class="profile-field"><label>Кто видит мой онлайн</label><div style="display:flex;align-items:center;justify-content:space-between;"><span>Показывать последнюю активность</span><label class="switch"><input type="checkbox" id="privacyLastSeen" '+(ls?'checked':'')+' onchange="savePrivacy()"><span class="slider"></span></label></div></div><div class="profile-field"><label>Номер телефона</label><div style="display:flex;align-items:center;justify-content:space-between;"><span>Показывать номер</span><label class="switch"><input type="checkbox" id="privacyPhone" '+(ph?'checked':'')+' onchange="savePrivacy()"><span class="slider"></span></label></div></div>';}
+    else if(tab==='notifications'){var snd=localStorage.getItem('notif_sound')!=='false';var vib=localStorage.getItem('notif_vibro')!=='false';tc.innerHTML='<div class="profile-field"><label>Звук</label><div style="display:flex;align-items:center;justify-content:space-between;"><span>Звук новых сообщений</span><label class="switch"><input type="checkbox" id="notifSound" '+(snd?'checked':'')+' onchange="saveNotifications()"><span class="slider"></span></label></div></div><div class="profile-field"><label>Вибрация</label><div style="display:flex;align-items:center;justify-content:space-between;"><span>Вибрация при сообщении</span><label class="switch"><input type="checkbox" id="notifVibro" '+(vib?'checked':'')+' onchange="saveNotifications()"><span class="slider"></span></label></div></div>';}}
+function applyTheme(idx){var t=wallpaperPresets[idx];var root=document.documentElement.style;root.setProperty('--bg',t.bg);root.setProperty('--sidebar-bg',t.sidebar);root.setProperty('--main-bg',t.main);root.setProperty('--messages-bg',t.msgBg);root.setProperty('--input-bg',t.input);root.setProperty('--msg-other-bg',t.other);root.setProperty('--text',t.text);root.setProperty('--text-light',t.light);root.setProperty('--border',t.border);root.setProperty('--hover',t.hover);root.setProperty('--active',t.active);root.setProperty('--shadow',t.shadow);root.setProperty('--chat-bg-color',t.chatBg);root.setProperty('--chat-bg-image','none');localStorage.setItem('custom_theme',JSON.stringify(t));}
+function setCustomChatBg(color){document.documentElement.style.setProperty('--chat-bg-color',color);document.documentElement.style.setProperty('--chat-bg-image','none');localStorage.setItem('custom_chat_bg',color);}
+function uploadCustomWallpaper(){var file=document.getElementById('customWallpaper').files[0];if(!file)return;var reader=new FileReader();reader.onload=function(e){document.documentElement.style.setProperty('--chat-bg-image','url('+e.target.result+')');document.documentElement.style.setProperty('--chat-bg-color','transparent');localStorage.setItem('custom_wallpaper_img',e.target.result);};reader.readAsDataURL(file);}
+function resetWallpaper(){document.documentElement.style.setProperty('--chat-bg-image','none');var saved=localStorage.getItem('custom_chat_bg');document.documentElement.style.setProperty('--chat-bg-color',saved||'');localStorage.removeItem('custom_wallpaper_img');}
+function loadThemeCustom(){var t=localStorage.getItem('custom_theme');if(t){applyThemeFromSaved(JSON.parse(t));}var bg=localStorage.getItem('custom_chat_bg');if(bg)document.documentElement.style.setProperty('--chat-bg-color',bg);var img=localStorage.getItem('custom_wallpaper_img');if(img){document.documentElement.style.setProperty('--chat-bg-image','url('+img+')');document.documentElement.style.setProperty('--chat-bg-color','transparent');}}
+function applyThemeFromSaved(t){var root=document.documentElement.style;root.setProperty('--bg',t.bg);root.setProperty('--sidebar-bg',t.sidebar);root.setProperty('--main-bg',t.main);root.setProperty('--messages-bg',t.msgBg);root.setProperty('--input-bg',t.input);root.setProperty('--msg-other-bg',t.other);root.setProperty('--text',t.text);root.setProperty('--text-light',t.light);root.setProperty('--border',t.border);root.setProperty('--hover',t.hover);root.setProperty('--active',t.active);root.setProperty('--shadow',t.shadow);root.setProperty('--chat-bg-color',t.chatBg);}
 function savePrivacy(){localStorage.setItem('privacy_lastseen',document.getElementById('privacyLastSeen').checked);localStorage.setItem('privacy_phone',document.getElementById('privacyPhone').checked);}
 function saveNotifications(){localStorage.setItem('notif_sound',document.getElementById('notifSound').checked);localStorage.setItem('notif_vibro',document.getElementById('notifVibro').checked);}
 function setLanguage(lang){localStorage.setItem('language',lang);alert(lang==='ru'?'Язык: Русский':'Language: English (coming soon)');}
@@ -321,7 +284,7 @@ function sendMessage(){var input=document.getElementById('messageInput'),text=in
 function logout(){localStorage.removeItem('token');localStorage.removeItem('user');window.location.href='/';}
 document.getElementById('chatHeader').onclick=function(){if(currentIsGroup){showGroupManage(currentChatId);}else if(currentPeer){openProfile(currentPeer);}};
 
-loadTheme();loadWallpaper();window.addEventListener('load',function(){setTimeout(function(){loadUser();},200);});
+loadTheme();loadThemeCustom();window.addEventListener('load',function(){setTimeout(function(){loadUser();},200);});
 </script>
 </body>
 </html>
