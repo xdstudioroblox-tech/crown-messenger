@@ -122,11 +122,7 @@
             <button class="input-btn" onclick="toggleEmoji()" title="Эмодзи">😊</button>
             <button class="send-btn" onclick="sendMessage()">➤</button>
             <div class="emoji-panel" id="emojiPanel">
-                <div class="emoji-tabs">
-                    <button class="emoji-tab active" onclick="showEmojiTab('emoji',this)">😊 Эмодзи</button>
-                    <button class="emoji-tab" onclick="showEmojiTab('gifs',this)">🎬 Гифки</button>
-                    <button class="emoji-tab" onclick="showEmojiTab('stickers',this)">🌟 Стикеры</button>
-                </div>
+                <div class="emoji-tabs"><button class="emoji-tab active" onclick="showEmojiTab('emoji',this)">😊 Эмодзи</button><button class="emoji-tab" onclick="showEmojiTab('gifs',this)">🎬 Гифки</button><button class="emoji-tab" onclick="showEmojiTab('stickers',this)">🌟 Стикеры</button></div>
                 <div class="emoji-grid" id="emojiGrid"></div>
             </div>
         </div>
@@ -209,37 +205,20 @@ document.getElementById('profileChatBtn').onclick=async function(){
 async function uploadFile(){
     var file=document.getElementById('fileInput').files[0];if(!file)return;
     var fd=new FormData();fd.append('file',file);
-    try{
-        var r=await fetch('/api/upload-file',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});
-        var d=await r.json();
+    try{var r=await fetch('/api/upload-file',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});var d=await r.json();
         if(d.file_url){sendMessageWithFile(d.file_url,d.file_type);}
     }catch(e){alert('Ошибка загрузки');}
     document.getElementById('fileInput').value='';
 }
-function sendMessageWithFile(fileUrl,fileType){
-    if(ws&&ws.readyState===WebSocket.OPEN){
-        ws.send(JSON.stringify({text:'',chat_id:currentChatId,file_url:fileUrl,file_type:fileType}));
-    }
-}
+function sendMessageWithFile(fileUrl,fileType){if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:'',chat_id:currentChatId,file_url:fileUrl,file_type:fileType}));}}
 
 // ====== ЭМОДЗИ ======
 var emojis=['😀','😂','😍','🥰','😎','🤩','😇','🤗','😋','😜','🤔','😐','😢','😡','👍','👎','👏','🙌','💪','🤝','❤️','💔','🔥','⭐','🎉','🎂','🍕','☕','🚀','💻','📱','💡','🎵','🌈','🦊','🐱','🐶','🦄','🌺','🍀'];
-var currentEmojiTab='emoji';
-
-function toggleEmoji(){
-    var panel=document.getElementById('emojiPanel');panel.classList.toggle('show');
-    if(panel.classList.contains('show')){showEmojiTab('emoji',document.querySelector('.emoji-tab.active')||document.querySelector('.emoji-tab'));}
-}
-function showEmojiTab(tab,btn){
-    currentEmojiTab=tab;document.querySelectorAll('.emoji-tab').forEach(function(e){e.classList.remove('active');});btn.classList.add('active');
-    var grid=document.getElementById('emojiGrid');grid.innerHTML='';
-    if(tab==='emoji'){emojis.forEach(function(e){var d=document.createElement('div');d.className='emoji-item';d.textContent=e;d.onclick=function(){insertEmoji(e);};grid.appendChild(d);});}
-    else if(tab==='gifs'){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--text-light);padding:20px;">Гифки — в разработке</div>';}
-    else{grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--text-light);padding:20px;">Стикеры — в разработке</div>';}
-}
+function toggleEmoji(){var panel=document.getElementById('emojiPanel');panel.classList.toggle('show');if(panel.classList.contains('show')){showEmojiTab('emoji',document.querySelector('.emoji-tab.active')||document.querySelector('.emoji-tab'));}}
+function showEmojiTab(tab,btn){document.querySelectorAll('.emoji-tab').forEach(function(e){e.classList.remove('active');});btn.classList.add('active');var grid=document.getElementById('emojiGrid');grid.innerHTML='';if(tab==='emoji'){emojis.forEach(function(e){var d=document.createElement('div');d.className='emoji-item';d.textContent=e;d.onclick=function(){insertEmoji(e);};grid.appendChild(d);});}else if(tab==='gifs'){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--text-light);padding:20px;">Гифки — в разработке</div>';}else{grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--text-light);padding:20px;">Стикеры — в разработке</div>';}}
 function insertEmoji(e){var input=document.getElementById('messageInput');input.value+=e;input.focus();}
 
-// ====== ГРУППЫ ======
+// ====== ГРУППЫ (с радикальным исправлением бага) ======
 function showCreateGroup(){
     var c=document.getElementById('groupModalContent');
     c.innerHTML='<h3 style="margin-bottom:16px;">👥 Создать группу</h3><div class="profile-field"><label>Название группы</label><input type="text" id="groupName" placeholder="Введите название"></div><button class="btn btn-primary" onclick="createGroup()">Создать</button>';
@@ -249,35 +228,30 @@ async function createGroup(){
     var name=document.getElementById('groupName').value.trim();if(!name)return;
     var r=await fetch('/api/group/create',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({name:name})});
     var d=await r.json();
-    if(d.group_id){closeGroupModal();addChatToList(d.group_id,d.name,true);
-        document.getElementById('messagesArea').innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div>';
+    if(d.group_id){
+        closeGroupModal();
+        document.getElementById('messagesArea').innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Создание группы...</div>';
         currentChatId=d.group_id;currentPeer=d.name;currentIsGroup=true;
         document.getElementById('chatTitle').textContent=d.name;document.getElementById('chatHeaderIcon').textContent=getInitials(d.name);
+        addChatToList(d.group_id,d.name,true);
         document.querySelectorAll('.chat-item').forEach(function(el){el.classList.remove('active');});
         var item=document.querySelector('.chat-item[data-chat-id="'+d.group_id+'"]');if(item)item.classList.add('active');
-        fetch('/api/messages?chat_id='+d.group_id,{headers:{'Authorization':'Bearer '+getToken()}}).then(function(r){return r.json();}).then(function(msgs){var area=document.getElementById('messagesArea');area.innerHTML='';if(!msgs||msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';return;}msgs.sort(function(a,b){return a.id-b.id;});msgs.forEach(function(m){appendMessage(m.id,m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',m.read,m.edited,false);});area.scrollTop=area.scrollHeight;});
-        showInviteModal(d.group_id,d.name,d.invite_code);}else{alert('Ошибка: '+JSON.stringify(d));}
+        var area=document.getElementById('messagesArea');area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div>';
+        fetch('/api/messages?chat_id='+d.group_id,{headers:{'Authorization':'Bearer '+getToken()}})
+            .then(function(r){return r.json();})
+            .then(function(msgs){area.innerHTML='';
+                if(!msgs||msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Группа создана! Напишите первое сообщение.</div>';return;}
+                msgs.sort(function(a,b){return a.id-b.id;});
+                msgs.forEach(function(m){appendMessage(m.id,m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',m.read,m.edited,false,m.file_url,m.file_type);});
+                area.scrollTop=area.scrollHeight;
+            }).catch(function(){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Группа создана! Напишите первое сообщение.</div>';});
+        showInviteModal(d.group_id,d.name,d.invite_code);
+    }else{alert('Ошибка: '+JSON.stringify(d));}
 }
-function showJoinGroup(){
-    var c=document.getElementById('groupModalContent');
-    c.innerHTML='<h3 style="margin-bottom:16px;">🔗 Присоединиться к группе</h3><div class="profile-field"><label>Код приглашения</label><input type="text" id="inviteCode" placeholder="Введите код"></div><button class="btn btn-primary" onclick="joinGroup()">Присоединиться</button>';
-    document.getElementById('groupModal').classList.add('show');
-}
-async function joinGroup(){
-    var code=document.getElementById('inviteCode').value.trim();if(!code)return;
-    var r=await fetch('/api/group/join',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({code:code})});
-    var d=await r.json();
-    if(d.group_id){closeGroupModal();addChatToList(d.group_id,d.name,true);switchToChat(d.group_id,d.name,true);}
-    else{alert('Ошибка: '+JSON.stringify(d));}
-}
+function showJoinGroup(){var c=document.getElementById('groupModalContent');c.innerHTML='<h3 style="margin-bottom:16px;">🔗 Присоединиться к группе</h3><div class="profile-field"><label>Код приглашения</label><input type="text" id="inviteCode" placeholder="Введите код"></div><button class="btn btn-primary" onclick="joinGroup()">Присоединиться</button>';document.getElementById('groupModal').classList.add('show');}
+async function joinGroup(){var code=document.getElementById('inviteCode').value.trim();if(!code)return;var r=await fetch('/api/group/join',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({code:code})});var d=await r.json();if(d.group_id){closeGroupModal();addChatToList(d.group_id,d.name,true);switchToChat(d.group_id,d.name,true);}else{alert('Ошибка: '+JSON.stringify(d));}}
 function closeGroupModal(){document.getElementById('groupModal').classList.remove('show');}
-function showInviteModal(groupId,groupName,code){
-    currentGroupId=groupId;
-    var inviteLink='https://crown-messenger.onrender.com/chat?code='+code;
-    var c=document.getElementById('inviteModalContent');
-    c.innerHTML='<h3 style="margin-bottom:16px;">🔗 Пригласить в «'+groupName+'»</h3><div class="profile-field"><label>Код приглашения</label><div style="display:flex;gap:8px;"><input type="text" id="inviteCodeText" value="'+code+'" readonly style="flex:1;"><button class="btn btn-primary btn-sm" style="margin-top:0;white-space:nowrap;" onclick="copyInviteCode()">📋 Копировать</button></div></div><div class="profile-field"><label>Ссылка-приглашение</label><div style="display:flex;gap:8px;"><input type="text" id="inviteLinkText" value="'+inviteLink+'" readonly style="flex:1;"><button class="btn btn-primary btn-sm" style="margin-top:0;white-space:nowrap;" onclick="copyInviteLink()">📋 Копировать</button></div></div><p style="font-size:12px;color:var(--text-light);margin-top:8px;">Отправьте код или ссылку другу.</p>';
-    document.getElementById('inviteModal').classList.add('show');
-}
+function showInviteModal(groupId,groupName,code){currentGroupId=groupId;var inviteLink='https://crown-messenger.onrender.com/chat?code='+code;var c=document.getElementById('inviteModalContent');c.innerHTML='<h3 style="margin-bottom:16px;">🔗 Пригласить в «'+groupName+'»</h3><div class="profile-field"><label>Код приглашения</label><div style="display:flex;gap:8px;"><input type="text" id="inviteCodeText" value="'+code+'" readonly style="flex:1;"><button class="btn btn-primary btn-sm" style="margin-top:0;white-space:nowrap;" onclick="copyInviteCode()">📋 Копировать</button></div></div><div class="profile-field"><label>Ссылка-приглашение</label><div style="display:flex;gap:8px;"><input type="text" id="inviteLinkText" value="'+inviteLink+'" readonly style="flex:1;"><button class="btn btn-primary btn-sm" style="margin-top:0;white-space:nowrap;" onclick="copyInviteLink()">📋 Копировать</button></div></div><p style="font-size:12px;color:var(--text-light);margin-top:8px;">Отправьте код или ссылку другу.</p>';document.getElementById('inviteModal').classList.add('show');}
 function closeInviteModal(){document.getElementById('inviteModal').classList.remove('show');}
 function copyInviteCode(){var inp=document.getElementById('inviteCodeText');inp.select();document.execCommand('copy');alert('Код скопирован!');}
 function copyInviteLink(){var inp=document.getElementById('inviteLinkText');inp.select();document.execCommand('copy');alert('Ссылка скопирована!');}
@@ -300,11 +274,17 @@ function switchToChat(id,peer,isGroup){
     var item=document.querySelector('.chat-item[data-chat-id="'+id+'"]');if(item)item.classList.add('active');
     updateOnlineStatus();if(!currentIsGroup&&currentChatId!==1){markAsRead(currentChatId);}
     var area=document.getElementById('messagesArea');area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div>';
-    fetch('/api/messages?chat_id='+id,{headers:{'Authorization':'Bearer '+getToken()}}).then(function(r){return r.json();}).then(function(msgs){area.innerHTML='';if(!msgs||msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';return;}msgs.sort(function(a,b){return a.id-b.id;});msgs.forEach(function(m){appendMessage(m.id,m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',m.read,m.edited,false);});area.scrollTop=area.scrollHeight;}).catch(function(){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Ошибка загрузки</div>';});
+    fetch('/api/messages?chat_id='+id,{headers:{'Authorization':'Bearer '+getToken()}})
+        .then(function(r){return r.json();})
+        .then(function(msgs){area.innerHTML='';
+            if(!msgs||msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';return;}
+            msgs.sort(function(a,b){return a.id-b.id;});
+            msgs.forEach(function(m){appendMessage(m.id,m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',m.read,m.edited,false,m.file_url,m.file_type);});
+            area.scrollTop=area.scrollHeight;
+        }).catch(function(){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Ошибка загрузки</div>';});
 }
 function markAsRead(chatId){fetch('/api/read',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId})}).catch(function(){});}
 function updateOnlineStatus(){var s=document.getElementById('onlineStatus');if(currentChatId===1||currentIsGroup||!currentPeer){s.textContent=onlineCount+' участников онлайн';return;}fetch('/api/online?username='+currentPeer).then(function(r){return r.json();}).then(function(d){s.textContent=d.online?'🟢 Онлайн':'⚫ Офлайн';}).catch(function(){s.textContent='';});}
-
 function appendMessage(id,sender,senderNick,text,time,avatar,read,edited,animate,fileUrl,fileType){
     var area=document.getElementById('messagesArea'),div=document.createElement('div'),isMine=sender===username;
     div.className='message '+(isMine?'mine':'other');if(!animate)div.style.animation='none';div.setAttribute('data-msg-id',id);
@@ -324,55 +304,13 @@ function appendMessage(id,sender,senderNick,text,time,avatar,read,edited,animate
     if(isMine){div.oncontextmenu=function(e){e.preventDefault();showContextMenu(e,id,text);};div.addEventListener('touchstart',function(e){longPressTimer=setTimeout(function(){showContextMenu(e,id,text);},500);});div.addEventListener('touchend',function(){clearTimeout(longPressTimer);});div.addEventListener('touchmove',function(){clearTimeout(longPressTimer);});}
     area.appendChild(div);area.scrollTop=area.scrollHeight;
 }
-function showContextMenu(e,msgId,text){
-    contextMsgId=msgId;var m=document.getElementById('contextMenu');m.classList.remove('show');
-    var x=e.pageX||(e.touches&&e.touches[0]?e.touches[0].pageX:100),y=e.pageY||(e.touches&&e.touches[0]?e.touches[0].pageY:200);
-    var mw=160,mh=80,ww=window.innerWidth,wh=window.innerHeight;
-    if(x+mw>ww)x=ww-mw-10;if(y+mh>wh)y=y-mh;if(x<10)x=10;if(y<10)y=10;
-    m.style.left=x+'px';m.style.top=y+'px';setTimeout(function(){m.classList.add('show');},10);
-}
-document.getElementById('ctxEdit').onclick=function(){
-    document.getElementById('contextMenu').classList.remove('show');
-    var oldText=document.querySelector('[data-msg-id="'+contextMsgId+'"] .message-bubble')?.textContent?.replace('(ред.)','').trim()||'';
-    var t=prompt('Редактировать сообщение:',oldText);
-    if(t&&t.trim()){fetch('/api/messages',{method:'PUT',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({id:contextMsgId,text:t.trim()})}).then(function(){switchToChat(currentChatId,currentPeer,currentIsGroup);});}
-};
-document.getElementById('ctxDelete').onclick=function(){
-    document.getElementById('contextMenu').classList.remove('show');
-    if(confirm('Удалить сообщение?')){fetch('/api/messages',{method:'DELETE',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({id:contextMsgId})}).then(function(){switchToChat(currentChatId,currentPeer,currentIsGroup);});}
-};
-function loadUser(){
-    var urlParams=new URLSearchParams(window.location.search);var inviteCode=urlParams.get('code');
-    if(inviteCode){fetch('/api/group/join',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({code:inviteCode})}).then(function(r){return r.json();}).then(function(d){if(d.group_id){alert('Вы присоединились к группе «'+d.name+'»!');window.history.replaceState({},'','/chat');}}).catch(function(){});}
-    var token=getToken();if(!token){window.location.href='/';return;}
-    var user=JSON.parse(localStorage.getItem('user')||'{}');username=user.username||'';nickname=user.nickname||'';myAvatar=user.avatar||'';
-    if(!username){window.location.href='/';return;}
-    loadChatList();switchToChat(1,'',false);connectWebSocket(token);
-}
-async function loadChatList(){
-    document.getElementById('chatList').innerHTML='';addChatToList(1,'',false);
-    try{var r=await fetch('/api/chat/list',{headers:{'Authorization':'Bearer '+getToken()}});var chats=await r.json();
-        chats.forEach(function(c){if(c.chat_id!==1)addChatToList(c.chat_id,c.peer,c.is_group||false);});
-    }catch(e){}
-}
-function connectWebSocket(token){
-    var p=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(p+'//'+location.host+'/ws?token='+token);
-    ws.onmessage=function(e){
-        var msg=JSON.parse(e.data);
-        if(msg.type==='chat_created'){addChatToList(msg.chat_id,msg.peer,false);return;}
-        if(msg.type==='online_count'){onlineCount=parseInt(msg.text)||0;updateOnlineStatus();return;}
-        var t=msg.chat_id||1;if(t===currentChatId){appendMessage(msg.id,msg.username,msg.nickname||msg.username,msg.text,msg.time,msg.avatar||'',msg.read||false,msg.edited||false,true,msg.file_url,msg.file_type);if(!currentIsGroup&&currentChatId!==1)markAsRead(currentChatId);}
-    };
-    ws.onclose=function(){setTimeout(function(){connectWebSocket(token);},3000);};
-}
-function sendMessage(){
-    var input=document.getElementById('messageInput'),text=input.value.trim();
-    if((text||document.getElementById('fileInput').files.length>0)&&ws&&ws.readyState===WebSocket.OPEN){
-        if(document.getElementById('fileInput').files.length>0){uploadFile();}
-        else{ws.send(JSON.stringify({text:text,chat_id:currentChatId}));input.value='';}
-    }
-    else if(text&&ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:text,chat_id:currentChatId}));input.value='';}
-}
+function showContextMenu(e,msgId,text){contextMsgId=msgId;var m=document.getElementById('contextMenu');m.classList.remove('show');var x=e.pageX||(e.touches&&e.touches[0]?e.touches[0].pageX:100),y=e.pageY||(e.touches&&e.touches[0]?e.touches[0].pageY:200);var mw=160,mh=80,ww=window.innerWidth,wh=window.innerHeight;if(x+mw>ww)x=ww-mw-10;if(y+mh>wh)y=y-mh;if(x<10)x=10;if(y<10)y=10;m.style.left=x+'px';m.style.top=y+'px';setTimeout(function(){m.classList.add('show');},10);}
+document.getElementById('ctxEdit').onclick=function(){document.getElementById('contextMenu').classList.remove('show');var oldText=document.querySelector('[data-msg-id="'+contextMsgId+'"] .message-bubble')?.textContent?.replace('(ред.)','').trim()||'';var t=prompt('Редактировать сообщение:',oldText);if(t&&t.trim()){fetch('/api/messages',{method:'PUT',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({id:contextMsgId,text:t.trim()})}).then(function(){switchToChat(currentChatId,currentPeer,currentIsGroup);});}};
+document.getElementById('ctxDelete').onclick=function(){document.getElementById('contextMenu').classList.remove('show');if(confirm('Удалить сообщение?')){fetch('/api/messages',{method:'DELETE',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({id:contextMsgId})}).then(function(){switchToChat(currentChatId,currentPeer,currentIsGroup);});}};
+function loadUser(){var urlParams=new URLSearchParams(window.location.search);var inviteCode=urlParams.get('code');if(inviteCode){fetch('/api/group/join',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({code:inviteCode})}).then(function(r){return r.json();}).then(function(d){if(d.group_id){alert('Вы присоединились к группе «'+d.name+'»!');window.history.replaceState({},'','/chat');}}).catch(function(){});}var token=getToken();if(!token){window.location.href='/';return;}var user=JSON.parse(localStorage.getItem('user')||'{}');username=user.username||'';nickname=user.nickname||'';myAvatar=user.avatar||'';if(!username){window.location.href='/';return;}loadChatList();switchToChat(1,'',false);connectWebSocket(token);}
+async function loadChatList(){document.getElementById('chatList').innerHTML='';addChatToList(1,'',false);try{var r=await fetch('/api/chat/list',{headers:{'Authorization':'Bearer '+getToken()}});var chats=await r.json();chats.forEach(function(c){if(c.chat_id!==1)addChatToList(c.chat_id,c.peer,c.is_group||false);});}catch(e){}}
+function connectWebSocket(token){var p=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(p+'//'+location.host+'/ws?token='+token);ws.onmessage=function(e){var msg=JSON.parse(e.data);if(msg.type==='chat_created'){addChatToList(msg.chat_id,msg.peer,false);return;}if(msg.type==='online_count'){onlineCount=parseInt(msg.text)||0;updateOnlineStatus();return;}var t=msg.chat_id||1;if(t===currentChatId){appendMessage(msg.id,msg.username,msg.nickname||msg.username,msg.text,msg.time,msg.avatar||'',msg.read||false,msg.edited||false,true,msg.file_url,msg.file_type);if(!currentIsGroup&&currentChatId!==1)markAsRead(currentChatId);}};ws.onclose=function(){setTimeout(function(){connectWebSocket(token);},3000);};}
+function sendMessage(){var input=document.getElementById('messageInput'),text=input.value.trim();if(text&&ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:text,chat_id:currentChatId}));input.value='';}}
 function logout(){localStorage.removeItem('token');localStorage.removeItem('user');window.location.href='/';}
 document.getElementById('chatHeader').onclick=function(){if(currentIsGroup){showGroupManage(currentChatId);}else if(currentPeer){openProfile(currentPeer);}};
 
