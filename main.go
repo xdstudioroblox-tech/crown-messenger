@@ -27,7 +27,7 @@ var (
 	jwtSecret   = []byte("super-secret-key-change-in-production")
 	clients     = make(map[*websocket.Conn]string)
 	onlineUsers = make(map[string]bool)
-	typingUsers = make(map[string]map[int]bool) // username -> chat_id -> typing
+	typingUsers = make(map[int]map[string]time.Time) // chat_id -> username -> last typing time
 	broadcast   = make(chan Message)
 	mu          sync.Mutex
 )
@@ -43,20 +43,23 @@ type User struct {
 }
 
 type Message struct {
-	ID       int    `json:"id"`
-	Username string `json:"username"`
-	Nickname string `json:"nickname"`
-	Text     string `json:"text"`
-	Time     string `json:"time"`
-	ChatID   int    `json:"chat_id"`
-	Avatar   string `json:"avatar,omitempty"`
-	Type     string `json:"type,omitempty"`
-	Peer     string `json:"peer,omitempty"`
-	Read     bool   `json:"read"`
-	Edited   bool   `json:"edited"`
-	FileURL  string `json:"file_url,omitempty"`
-	FileType string `json:"file_type,omitempty"`
-	Action   string `json:"action,omitempty"` // typing, uploading_photo, uploading_video, uploading_audio
+	ID        int    `json:"id"`
+	Username  string `json:"username"`
+	Nickname  string `json:"nickname"`
+	Text      string `json:"text"`
+	Time      string `json:"time"`
+	ChatID    int    `json:"chat_id"`
+	Avatar    string `json:"avatar,omitempty"`
+	Type      string `json:"type,omitempty"`
+	Peer      string `json:"peer,omitempty"`
+	Read      bool   `json:"read"`
+	Edited    bool   `json:"edited"`
+	FileURL   string `json:"file_url,omitempty"`
+	FileType  string `json:"file_type,omitempty"`
+	Action    string `json:"action,omitempty"`
+	ReplyTo   int    `json:"reply_to,omitempty"`
+	ReplyText string `json:"reply_text,omitempty"`
+	ReplyNick string `json:"reply_nick,omitempty"`
 }
 
 type AuthRequest struct {
@@ -79,6 +82,25 @@ type SearchResponse struct {
 	Error   string `json:"error,omitempty"`
 }
 
+type StickerPack struct {
+	ID     int    `json:"id"`
+	Name   string `json:"name"`
+	Owner  string `json:"owner"`
+	Public bool   `json:"public"`
+}
+
+type Sticker struct {
+	ID    int    `json:"id"`
+	PackID int   `json:"pack_id"`
+	URL   string `json:"url"`
+}
+
+type Gif struct {
+	ID    int    `json:"id"`
+	URL   string `json:"url"`
+	Owner string `json:"owner"`
+}
+
 func main() {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" { log.Fatal("DATABASE_URL не установлен") }
@@ -93,6 +115,8 @@ func main() {
 	os.MkdirAll("uploads/photos", 0755)
 	os.MkdirAll("uploads/videos", 0755)
 	os.MkdirAll("uploads/audio", 0755)
+	os.MkdirAll("uploads/stickers", 0755)
+	os.MkdirAll("uploads/gifs", 0755)
 	createTables()
 
 	http.HandleFunc("/api/register", handleRegister)
@@ -115,12 +139,19 @@ func main() {
 	http.HandleFunc("/api/group/members", handleGroupMembers)
 	http.HandleFunc("/api/group/invites", handleGroupInvites)
 	http.HandleFunc("/api/group/leave", handleGroupLeave)
+	// Стикеры и гифки
+	http.HandleFunc("/api/stickers/packs", handleStickerPacks)
+	http.HandleFunc("/api/stickers/upload", handleStickerUpload)
+	http.HandleFunc("/api/stickers/list", handleStickerList)
+	http.HandleFunc("/api/gifs/upload", handleGifUpload)
+	http.HandleFunc("/api/gifs/list", handleGifList)
 	http.HandleFunc("/ws", handleConnections)
 	http.HandleFunc("/uploads/", serveUploads)
 	http.HandleFunc("/", serveHome)
 	http.HandleFunc("/chat", serveChat)
 
 	go handleMessages()
+	go clearTypingStatuses()
 	port := os.Getenv("PORT")
 	if port == "" { port = "8080" }
 	log.Println("Сервер запущен на порту " + port)
@@ -130,10 +161,13 @@ func main() {
 func createTables() {
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, nickname TEXT NOT NULL, password TEXT NOT NULL, email TEXT DEFAULT '', about TEXT DEFAULT '', avatar TEXT DEFAULT '')`,
-		`CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, username TEXT NOT NULL, nickname TEXT NOT NULL, text TEXT DEFAULT '', time TEXT NOT NULL, chat_id INTEGER DEFAULT 1, avatar TEXT DEFAULT '', read BOOLEAN DEFAULT false, edited BOOLEAN DEFAULT false, file_url TEXT DEFAULT '', file_type TEXT DEFAULT '')`,
+		`CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, username TEXT NOT NULL, nickname TEXT NOT NULL, text TEXT DEFAULT '', time TEXT NOT NULL, chat_id INTEGER DEFAULT 1, avatar TEXT DEFAULT '', read BOOLEAN DEFAULT false, edited BOOLEAN DEFAULT false, file_url TEXT DEFAULT '', file_type TEXT DEFAULT '', reply_to INTEGER DEFAULT 0, reply_text TEXT DEFAULT '', reply_nick TEXT DEFAULT '')`,
 		`CREATE TABLE IF NOT EXISTS chats (id SERIAL PRIMARY KEY, user1 TEXT NOT NULL, user2 TEXT NOT NULL, UNIQUE(user1, user2))`,
 		`CREATE TABLE IF NOT EXISTS groups_chat (id SERIAL PRIMARY KEY, name TEXT NOT NULL, avatar TEXT DEFAULT '', created_by TEXT NOT NULL, created_at TEXT DEFAULT '', invite_code TEXT UNIQUE NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS group_members (group_id INTEGER NOT NULL, username TEXT NOT NULL, role TEXT DEFAULT 'member', UNIQUE(group_id, username))`,
+		`CREATE TABLE IF NOT EXISTS sticker_packs (id SERIAL PRIMARY KEY, name TEXT NOT NULL, owner TEXT NOT NULL, public BOOLEAN DEFAULT false)`,
+		`CREATE TABLE IF NOT EXISTS stickers (id SERIAL PRIMARY KEY, pack_id INTEGER NOT NULL, url TEXT NOT NULL)`,
+		`CREATE TABLE IF NOT EXISTS gifs (id SERIAL PRIMARY KEY, url TEXT NOT NULL, owner TEXT NOT NULL)`,
 	}
 	for _, q := range queries { db.Exec(q) }
 	db.Exec("DELETE FROM chats WHERE user1 = '' OR user2 = ''")
@@ -141,6 +175,9 @@ func createTables() {
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited BOOLEAN DEFAULT false")
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_url TEXT DEFAULT ''")
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_type TEXT DEFAULT ''")
+	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to INTEGER DEFAULT 0")
+	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_text TEXT DEFAULT ''")
+	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_nick TEXT DEFAULT ''")
 	log.Println("Таблицы проверены")
 }
 
@@ -166,6 +203,8 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" { http.Error(w, "Method not allowed", http.StatusMethodNotAllowed); return }
 	var req AuthRequest; json.NewDecoder(r.Body).Decode(&req)
 	if req.Username == "" || req.Password == "" || req.Nickname == "" { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Все поля обязательны"}); return }
+	if len(req.Username) < 3 { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Минимум 3 символа"}); return }
+	if len(req.Password) < 6 { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Минимум 6 символов"}); return }
 	var existingID int
 	if db.QueryRow("SELECT id FROM users WHERE username = $1", req.Username).Scan(&existingID) == nil { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Пользователь уже существует"}); return }
 	var userID int
@@ -202,10 +241,11 @@ func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
 	if r.Method == "GET" {
 		chatID := r.URL.Query().Get("chat_id"); if chatID == "" { chatID = "1" }
-		rows, _ := db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false), COALESCE(file_url,''), COALESCE(file_type,'') FROM messages WHERE chat_id = $1 ORDER BY id ASC LIMIT 100", chatID)
+		rows, err := db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false), COALESCE(file_url,''), COALESCE(file_type,''), COALESCE(reply_to,0), COALESCE(reply_text,''), COALESCE(reply_nick,'') FROM messages WHERE chat_id = $1 ORDER BY id ASC LIMIT 200", chatID)
+		if err != nil { log.Println("Ошибка загрузки сообщений:", err); json.NewEncoder(w).Encode([]Message{}); return }
 		defer rows.Close()
 		var messages []Message
-		for rows.Next() { var m Message; var avatar sql.NullString; rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &avatar, &m.Read, &m.Edited, &m.FileURL, &m.FileType); m.Avatar = getAvatarURL(avatar.String); messages = append(messages, m) }
+		for rows.Next() { var m Message; var avatar sql.NullString; rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &avatar, &m.Read, &m.Edited, &m.FileURL, &m.FileType, &m.ReplyTo, &m.ReplyText, &m.ReplyNick); m.Avatar = getAvatarURL(avatar.String); messages = append(messages, m) }
 		if messages == nil { messages = []Message{} }
 		json.NewEncoder(w).Encode(messages); return
 	}
@@ -289,10 +329,10 @@ func handleCreateChat(w http.ResponseWriter, r *http.Request) {
 	u1, u2 := currentUser, req.User2; if u1 > u2 { u1, u2 = u2, u1 }
 	var chatID int
 	err := db.QueryRow("SELECT id FROM chats WHERE user1 = $1 AND user2 = $2", u1, u2).Scan(&chatID)
-	if err == nil { json.NewEncoder(w).Encode(map[string]int{"chat_id": chatID}); sendChatNotification(currentUser, req.User2, chatID); return }
+	if err == nil { json.NewEncoder(w).Encode(map[string]int{"chat_id": chatID}); return }
+	// Чат создаётся, но не отправляем уведомление — он появится при первом сообщении
 	db.QueryRow("INSERT INTO chats (user1, user2) VALUES ($1, $2) RETURNING id", u1, u2).Scan(&chatID)
 	json.NewEncoder(w).Encode(map[string]int{"chat_id": chatID})
-	sendChatNotification(currentUser, req.User2, chatID)
 }
 
 func sendChatNotification(fromUser, toUser string, chatID int) {
@@ -305,7 +345,7 @@ func handleChatList(w http.ResponseWriter, r *http.Request) {
 	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
 	var chats []map[string]interface{}
 	chats = append(chats, map[string]interface{}{"chat_id": 1, "peer": "", "is_group": false})
-	rows, _ := db.Query("SELECT id, user1, user2 FROM chats WHERE user1 = $1 OR user2 = $2", currentUser, currentUser)
+	rows, _ := db.Query("SELECT c.id, c.user1, c.user2 FROM chats c WHERE (c.user1 = $1 OR c.user2 = $2) AND EXISTS (SELECT 1 FROM messages m WHERE m.chat_id = c.id)", currentUser, currentUser)
 	defer rows.Close()
 	for rows.Next() { var id int; var u1, u2 string; rows.Scan(&id, &u1, &u2); peer := u1; if peer == currentUser { peer = u2 }; chats = append(chats, map[string]interface{}{"chat_id": id, "peer": peer, "is_group": false}) }
 	grows, _ := db.Query("SELECT g.id, g.name FROM groups_chat g JOIN group_members gm ON g.id = gm.group_id WHERE gm.username = $1", currentUser)
@@ -411,6 +451,82 @@ func handleGroupLeave(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
+// ====== СТИКЕРЫ ======
+func handleStickerPacks(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	currentUser := getUserFromRequest(r)
+	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
+	if r.Method == "POST" {
+		var req struct { Name string `json:"name"` }; json.NewDecoder(r.Body).Decode(&req)
+		if req.Name == "" { json.NewEncoder(w).Encode(map[string]string{"error": "Название обязательно"}); return }
+		var packID int
+		db.QueryRow("INSERT INTO sticker_packs (name, owner) VALUES ($1, $2) RETURNING id", req.Name, currentUser).Scan(&packID)
+		json.NewEncoder(w).Encode(map[string]interface{}{"pack_id": packID, "name": req.Name}); return
+	}
+	// GET — список наборов (свои + публичные)
+	rows, _ := db.Query("SELECT id, name, owner FROM sticker_packs WHERE owner = $1 OR public = true", currentUser)
+	defer rows.Close()
+	var packs []StickerPack
+	for rows.Next() { var p StickerPack; rows.Scan(&p.ID, &p.Name, &p.Owner); packs = append(packs, p) }
+	if packs == nil { packs = []StickerPack{} }
+	json.NewEncoder(w).Encode(packs)
+}
+func handleStickerUpload(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	currentUser := getUserFromRequest(r)
+	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
+	packIDStr := r.FormValue("pack_id")
+	packID, _ := strconv.Atoi(packIDStr)
+	var owner string
+	db.QueryRow("SELECT owner FROM sticker_packs WHERE id = $1", packID).Scan(&owner)
+	if owner != currentUser { http.Error(w, "Forbidden", http.StatusForbidden); return }
+	file, header, _ := r.FormFile("sticker")
+	defer file.Close()
+	filename := "sticker_" + currentUser + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + filepath.Ext(header.Filename)
+	out, _ := os.Create("uploads/stickers/" + filename)
+	defer out.Close()
+	io.Copy(out, file)
+	url := "/uploads/stickers/" + filename
+	db.Exec("INSERT INTO stickers (pack_id, url) VALUES ($1, $2)", packID, url)
+	json.NewEncoder(w).Encode(map[string]string{"url": url})
+}
+func handleStickerList(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	packID := r.URL.Query().Get("pack_id")
+	rows, _ := db.Query("SELECT id, pack_id, url FROM stickers WHERE pack_id = $1", packID)
+	defer rows.Close()
+	var stickers []Sticker
+	for rows.Next() { var s Sticker; rows.Scan(&s.ID, &s.PackID, &s.URL); stickers = append(stickers, s) }
+	if stickers == nil { stickers = []Sticker{} }
+	json.NewEncoder(w).Encode(stickers)
+}
+
+// ====== ГИФКИ ======
+func handleGifUpload(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	currentUser := getUserFromRequest(r)
+	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
+	file, header, _ := r.FormFile("gif")
+	defer file.Close()
+	filename := "gif_" + currentUser + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + filepath.Ext(header.Filename)
+	out, _ := os.Create("uploads/gifs/" + filename)
+	defer out.Close()
+	io.Copy(out, file)
+	url := "/uploads/gifs/" + filename
+	db.Exec("INSERT INTO gifs (url, owner) VALUES ($1, $2)", url, currentUser)
+	json.NewEncoder(w).Encode(map[string]string{"url": url})
+}
+func handleGifList(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	rows, _ := db.Query("SELECT id, url, owner FROM gifs ORDER BY id DESC LIMIT 50")
+	defer rows.Close()
+	var gifs []Gif
+	for rows.Next() { var g Gif; rows.Scan(&g.ID, &g.URL, &g.Owner); gifs = append(gifs, g) }
+	if gifs == nil { gifs = []Gif{} }
+	json.NewEncoder(w).Encode(gifs)
+}
+
+// ====== WEBSOCKET ======
 func handleConnections(w http.ResponseWriter, r *http.Request) {
 	tokenString := r.URL.Query().Get("token")
 	if tokenString == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
@@ -428,48 +544,61 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		msg.Username = username; msg.Nickname = nickname; msg.Avatar = getAvatarURL(avatar); msg.Time = time.Now().Format("15:04")
 		if msg.ChatID == 0 { msg.ChatID = 1 }
 
-		// Статусы (печатает, отправляет файл)
+		// Статусы
 		if msg.Action == "typing" || msg.Action == "uploading_photo" || msg.Action == "uploading_video" || msg.Action == "uploading_audio" {
 			mu.Lock()
+			if _, ok := typingUsers[msg.ChatID]; !ok { typingUsers[msg.ChatID] = make(map[string]time.Time) }
+			typingUsers[msg.ChatID][username] = time.Now()
 			for c := range clients {
-				c.WriteJSON(map[string]interface{}{
-					"username": msg.Username,
-					"nickname": msg.Nickname,
-					"action":   msg.Action,
-					"chat_id":  msg.ChatID,
-					"type":     "action",
-				})
+				c.WriteJSON(map[string]interface{}{"username": msg.Username, "nickname": msg.Nickname, "action": msg.Action, "chat_id": msg.ChatID, "type": "action"})
 			}
 			mu.Unlock()
 			continue
 		}
 
-		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar, read, edited, file_url, file_type) VALUES ($1, $2, $3, $4, $5, $6, false, false, $7, $8)", msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar, msg.FileURL, msg.FileType)
+		// Уведомление о новом чате при первом сообщении
+		sendChatNotificationIfNew(username, msg.ChatID, nickname)
+
+		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar, read, edited, file_url, file_type, reply_to, reply_text, reply_nick) VALUES ($1, $2, $3, $4, $5, $6, false, false, $7, $8, $9, $10, $11)", msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar, msg.FileURL, msg.FileType, msg.ReplyTo, msg.ReplyText, msg.ReplyNick)
 		broadcast <- msg
 	}
 }
 
-func handleMessages() {
+func sendChatNotificationIfNew(username string, chatID int, nickname string) {
+	if chatID == 1 { return }
+	var u1, u2 string
+	db.QueryRow("SELECT user1, user2 FROM chats WHERE id = $1", chatID).Scan(&u1, &u2)
+	peer := u1; if peer == username { peer = u2 }
+	// Проверяем, есть ли уже сообщения в чате
+	var count int
+	db.QueryRow("SELECT COUNT(*) FROM messages WHERE chat_id = $1", chatID).Scan(&count)
+	if count == 0 { sendChatNotification(username, peer, chatID) }
+}
+
+func clearTypingStatuses() {
 	for {
-		msg := <-broadcast
+		time.Sleep(5 * time.Second)
 		mu.Lock()
-		for c := range clients {
-			c.WriteJSON(map[string]interface{}{
-				"id": msg.ID, "username": msg.Username, "nickname": msg.Nickname,
-				"text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID,
-				"avatar": msg.Avatar, "read": msg.Read, "edited": msg.Edited,
-				"file_url": msg.FileURL, "file_type": msg.FileType,
-			})
+		now := time.Now()
+		for chatID, users := range typingUsers {
+			for username, t := range users {
+				if now.Sub(t) > 4*time.Second {
+					delete(typingUsers[chatID], username)
+					for c := range clients {
+						c.WriteJSON(map[string]interface{}{"type": "typing_clear", "chat_id": chatID, "username": username})
+					}
+				}
+			}
 		}
 		mu.Unlock()
 	}
 }
 
+func handleMessages() {
+	for { msg := <-broadcast; mu.Lock(); for c := range clients { c.WriteJSON(map[string]interface{}{"id": msg.ID, "username": msg.Username, "nickname": msg.Nickname, "text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID, "avatar": msg.Avatar, "read": msg.Read, "edited": msg.Edited, "file_url": msg.FileURL, "file_type": msg.FileType, "reply_to": msg.ReplyTo, "reply_text": msg.ReplyText, "reply_nick": msg.ReplyNick}) }; mu.Unlock() }
+}
+
 func broadcastOnlineCount() {
 	mu.Lock(); c := len(clients); mu.Unlock()
-	mu.Lock()
-	for cl := range clients {
-		cl.WriteJSON(map[string]interface{}{"username": "system", "type": "online_count", "text": fmt.Sprintf("%d", c), "time": "online"})
-	}
-	mu.Unlock()
+	mu.Lock(); for cl := range clients { cl.WriteJSON(map[string]interface{}{"username": "system", "type": "online_count", "text": fmt.Sprintf("%d", c), "time": "online"}) }; mu.Unlock()
 }
