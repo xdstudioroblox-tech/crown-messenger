@@ -1,0 +1,10 @@
+{
+    "name": "Crown Messenger",
+    "short_name": "Crown",
+    "description": "Crown Messenger — современный мессенджер",
+    "start_url": "/chat",
+    "display": "standalone",
+    "background_color": "#f0f4f8",
+    "theme_color": "#3b82f6",
+    "orientation": "portrait-primary"
+}

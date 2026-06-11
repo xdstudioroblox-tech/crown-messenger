@@ -112,9 +112,20 @@
             .sidebar { position: absolute; left: -100%; top: 0; bottom: 0; width: 290px; min-width: 290px; transition: left 0.3s; box-shadow: 4px 0 30px rgba(0,0,0,0.25); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; } .sidebar.open { left: 0; } .back-btn { display: flex; } .main-area { width: 100%; }
             .message { max-width: 85%; } .input-area { padding: 10px 12px; padding-bottom: max(24px, env(safe-area-inset-bottom, 24px)); } .emoji-grid { grid-template-columns: repeat(6, 1fr); }
         }
-    </style>
+ </style>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#3b82f6">
 </head>
-<body>
+<script>
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').then(function(reg) {
+        console.log('SW registered');
+    }).catch(function(err) {
+        console.log('SW error:', err);
+    });
+}
+</script>
+</body>
 <div class="app-container">
     <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
     <div class="sidebar" id="sidebar">
