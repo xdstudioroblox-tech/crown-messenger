@@ -27,7 +27,6 @@ import (
 )
 
 var (
-	// Доверенные домены для CORS
 	trustedOrigins = map[string]bool{
 		"https://crown-messenger.onrender.com": true,
 		"http://localhost:8080":                true,
@@ -179,7 +178,6 @@ func withMiddleware(h http.HandlerFunc) http.HandlerFunc {
 	return recoveryMiddleware(rateLimitMiddleware(h))
 }
 
-// Логирование в файл
 func setupLogging() {
 	logFile, err := os.OpenFile("server.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
@@ -252,6 +250,7 @@ func main() {
 	http.HandleFunc("/api/gifs/list", withMiddleware(handleGifList))
 	http.HandleFunc("/api/read", withMiddleware(handleMarkRead))
 	http.HandleFunc("/api/online", withMiddleware(handleOnlineStatus))
+	http.HandleFunc("/api/lastseen", withMiddleware(handleLastSeen))
 	http.HandleFunc("/api/health", handleHealth)
 	http.HandleFunc("/api/dbtest", withMiddleware(handleDBTest))
 	http.HandleFunc("/ws", handleConnections)
@@ -293,7 +292,7 @@ func main() {
 
 func createTables() {
 	queries := []string{
-		`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, nickname TEXT NOT NULL, password TEXT NOT NULL, email TEXT DEFAULT '', about TEXT DEFAULT '', avatar TEXT DEFAULT '', phone TEXT DEFAULT '')`,
+		`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, nickname TEXT NOT NULL, password TEXT NOT NULL, email TEXT DEFAULT '', about TEXT DEFAULT '', avatar TEXT DEFAULT '', phone TEXT DEFAULT '', last_seen TIMESTAMP DEFAULT NULL)`,
 		`CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, username TEXT NOT NULL, nickname TEXT NOT NULL, text TEXT DEFAULT '', time TEXT NOT NULL, chat_id INTEGER DEFAULT 1, avatar TEXT DEFAULT '', read BOOLEAN DEFAULT false, edited BOOLEAN DEFAULT false, file_url TEXT DEFAULT '', file_type TEXT DEFAULT '', reply_to INTEGER DEFAULT 0, reply_text TEXT DEFAULT '', reply_nick TEXT DEFAULT '')`,
 		`CREATE TABLE IF NOT EXISTS chats (id SERIAL PRIMARY KEY, user1 TEXT NOT NULL, user2 TEXT NOT NULL, UNIQUE(user1, user2))`,
 		`CREATE TABLE IF NOT EXISTS groups_chat (id SERIAL PRIMARY KEY, name TEXT NOT NULL, avatar TEXT DEFAULT '', description TEXT DEFAULT '', created_by TEXT NOT NULL, created_at TEXT DEFAULT '', invite_code TEXT UNIQUE NOT NULL, public BOOLEAN DEFAULT false)`,
@@ -310,6 +309,7 @@ func createTables() {
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_messages_chat_id_id ON messages(chat_id, id)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
 	db.Exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT ''")
+	db.Exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP DEFAULT NULL")
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS read BOOLEAN DEFAULT false")
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited BOOLEAN DEFAULT false")
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_url TEXT DEFAULT ''")
@@ -337,7 +337,7 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	}
 	http.ServeFile(w, r, "index.html")
 }
-func serveChat(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "chat.html") }
+func serveChat(w http.ResponseWriter, r *http.Request)  { http.ServeFile(w, r, "chat.html") }
 func serveSW(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/javascript")
 	w.Header().Set("Cache-Control", "max-age=0")
@@ -515,7 +515,6 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(SearchResponse{Success: true, Users: users, Groups: groups})
 }
 
-// Пагинация: поддержка ?before=ID&limit=50
 func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentUser := getUserFromRequest(r)
@@ -564,7 +563,6 @@ func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 			m.Avatar = getAvatarURL(avatar.String)
 			messages = append(messages, m)
 		}
-		// Разворачиваем, т.к. запрос был ORDER BY id DESC
 		for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
 			messages[i], messages[j] = messages[j], messages[i]
 		}
@@ -836,6 +834,25 @@ func handleOnlineStatus(w http.ResponseWriter, r *http.Request) {
 	mu.Unlock()
 	json.NewEncoder(w).Encode(map[string]bool{"online": online})
 }
+
+func handleLastSeen(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	username := r.URL.Query().Get("username")
+	if username == "" {
+		json.NewEncoder(w).Encode(map[string]interface{}{"online": false, "last_seen": ""})
+		return
+	}
+	mu.Lock()
+	_, online := onlineUsers[username]
+	mu.Unlock()
+	var lastSeen sql.NullString
+	db.QueryRow("SELECT COALESCE(last_seen::text, '') FROM users WHERE username = $1", username).Scan(&lastSeen)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"online":    online,
+		"last_seen": lastSeen.String,
+	})
+}
+
 func handleMarkRead(w http.ResponseWriter, r *http.Request) {
 	currentUser := getUserFromRequest(r)
 	if currentUser == "" {
@@ -1005,7 +1022,6 @@ func handleGroupLeave(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
-// Загрузка стикеров
 func handleStickerUpload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentUser := getUserFromRequest(r)
@@ -1041,7 +1057,6 @@ func handleStickerUpload(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"url": fileURL, "success": "true"})
 }
 
-// Список стикеров в наборе
 func handleStickerList(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	packID := r.URL.Query().Get("pack_id")
@@ -1063,7 +1078,6 @@ func handleStickerList(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stickers)
 }
 
-// Загрузка гифок
 func handleGifUpload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentUser := getUserFromRequest(r)
@@ -1087,7 +1101,6 @@ func handleGifUpload(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"url": fileURL, "success": "true"})
 }
 
-// Список гифок
 func handleGifList(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	rows, _ := db.Query("SELECT id, url, owner FROM gifs ORDER BY id DESC LIMIT 50")
@@ -1156,6 +1169,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	clients[ws] = username
 	onlineUsers[username] = true
+	db.Exec("UPDATE users SET last_seen = NOW() WHERE username = $1", username)
 	if blockedUsers[username] == nil {
 		blockedUsers[username] = make(map[string]bool)
 	}
@@ -1175,6 +1189,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			mu.Lock()
 			delete(clients, ws)
 			delete(onlineUsers, username)
+			db.Exec("UPDATE users SET last_seen = NOW() WHERE username = $1", username)
 			mu.Unlock()
 			broadcastOnlineCount()
 			break
