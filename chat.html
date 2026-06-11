@@ -456,7 +456,7 @@ function updateOnlineStatus() {
             if (d.online) {
                 s.textContent = '🟢 Онлайн';
             } else if (d.last_seen) {
-                var lastSeen = new Date(d.last_seen);
+                var lastSeen = new Date(d.last_seen + 'Z');
                 var now = new Date();
                 var diffMs = now - lastSeen;
                 var diffMin = Math.floor(diffMs / 60000);
