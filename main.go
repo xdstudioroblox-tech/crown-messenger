@@ -58,7 +58,9 @@ var (
 	visitors   = make(map[string]*rate.Limiter)
 	visitorsMu sync.Mutex
 
-	imgurClientID = os.Getenv("IMGUR_CLIENT_ID")
+	cloudinaryCloudName = os.Getenv("CLOUDINARY_CLOUD_NAME")
+	cloudinaryAPIKey    = os.Getenv("CLOUDINARY_API_KEY")
+	cloudinaryAPISecret = os.Getenv("CLOUDINARY_API_SECRET")
 )
 
 type User struct {
@@ -193,20 +195,23 @@ func setupLogging() {
 	log.Println("📝 Логирование в файл server.log активировано")
 }
 
-// Загрузка файла на Imgur
-func uploadToImgur(fileBytes []byte, filename string) (string, error) {
-	if imgurClientID == "" {
-		return "", fmt.Errorf("IMGUR_CLIENT_ID не установлен")
+// Загрузка файла в Cloudinary
+func uploadToCloudinary(fileBytes []byte, folder string) (string, error) {
+	if cloudinaryCloudName == "" || cloudinaryAPIKey == "" || cloudinaryAPISecret == "" {
+		return "", fmt.Errorf("Cloudinary не настроен")
 	}
 
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
-	fw, _ := w.CreateFormFile("image", filename)
+	w.WriteField("upload_preset", "crown_messenger")
+	w.WriteField("folder", folder)
+	fw, _ := w.CreateFormFile("file", "upload")
 	fw.Write(fileBytes)
 	w.Close()
 
-	req, _ := http.NewRequest("POST", "https://api.imgur.com/3/image", &b)
-	req.Header.Set("Authorization", "Client-ID "+imgurClientID)
+	url := fmt.Sprintf("https://api.cloudinary.com/v1_1/%s/upload", cloudinaryCloudName)
+	req, _ := http.NewRequest("POST", url, &b)
+	req.SetBasicAuth(cloudinaryAPIKey, cloudinaryAPISecret)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 
 	client := &http.Client{Timeout: 30 * time.Second}
@@ -220,12 +225,10 @@ func uploadToImgur(fileBytes []byte, filename string) (string, error) {
 	var result map[string]interface{}
 	json.Unmarshal(body, &result)
 
-	if data, ok := result["data"].(map[string]interface{}); ok {
-		if link, ok := data["link"].(string); ok {
-			return link, nil
-		}
+	if secureURL, ok := result["secure_url"].(string); ok {
+		return secureURL, nil
 	}
-	return "", fmt.Errorf("не удалось загрузить на Imgur")
+	return "", fmt.Errorf("не удалось загрузить: %s", string(body))
 }
 
 func main() {
@@ -237,8 +240,10 @@ func main() {
 		log.Println("⚠️ JWT_SECRET не установлен!")
 	}
 
-	if imgurClientID == "" {
-		log.Println("⚠️ IMGUR_CLIENT_ID не установлен! Файлы будут храниться локально.")
+	if cloudinaryCloudName != "" {
+		log.Println("✅ Cloudinary настроен: " + cloudinaryCloudName)
+	} else {
+		log.Println("⚠️ Cloudinary не настроен! Файлы будут храниться локально.")
 	}
 
 	databaseURL := os.Getenv("DATABASE_URL")
@@ -399,6 +404,9 @@ func serveUploads(w http.ResponseWriter, r *http.Request) {
 func getAvatarURL(a string) string {
 	if a == "" {
 		return ""
+	}
+	if strings.HasPrefix(a, "http") {
+		return a
 	}
 	return "/uploads/" + a
 }
@@ -709,21 +717,18 @@ func handleUploadAvatar(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	fileBytes, _ := io.ReadAll(file)
-	ext := filepath.Ext(header.Filename)
 
 	// Сохраняем локально как fallback
+	ext := filepath.Ext(header.Filename)
 	filename := "avatar_" + currentUser + "_" + strconv.FormatInt(time.Now().Unix(), 10) + ext
 	os.WriteFile("uploads/"+filename, fileBytes, 0644)
-
 	fileURL := "/uploads/" + filename
 
-	// Пробуем загрузить на Imgur
-	if imgurClientID != "" {
-		if imgurURL, err := uploadToImgur(fileBytes, header.Filename); err == nil {
-			fileURL = imgurURL
-			log.Printf("✅ Аватар загружен на Imgur: %s", fileURL)
-		} else {
-			log.Printf("⚠️ Не удалось загрузить на Imgur: %v", err)
+	// Загружаем в Cloudinary
+	if cloudinaryCloudName != "" {
+		if cloudURL, err := uploadToCloudinary(fileBytes, "avatars"); err == nil {
+			fileURL = cloudURL
+			log.Printf("✅ Аватар загружен в Cloudinary")
 		}
 	}
 
@@ -760,14 +765,13 @@ func handleUploadFile(w http.ResponseWriter, r *http.Request) {
 
 	filename := currentUser + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + ext
 	os.WriteFile("uploads/"+folder+"/"+filename, fileBytes, 0644)
-
 	fileURL := "/uploads/" + folder + "/" + filename
 
-	// Загружаем на Imgur если это изображение
-	if imgurClientID != "" && (fileType == "photo" || fileType == "file") {
-		if imgurURL, err := uploadToImgur(fileBytes, header.Filename); err == nil {
-			fileURL = imgurURL
-			log.Printf("✅ Файл загружен на Imgur: %s", fileURL)
+	// Загружаем в Cloudinary
+	if cloudinaryCloudName != "" && fileType == "photo" {
+		if cloudURL, err := uploadToCloudinary(fileBytes, folder); err == nil {
+			fileURL = cloudURL
+			log.Printf("✅ Файл загружен в Cloudinary")
 		}
 	}
 
@@ -1094,7 +1098,6 @@ func handleGroupLeave(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
-// Загрузка стикеров (с Imgur)
 func handleStickerUpload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentUser := getUserFromRequest(r)
@@ -1126,13 +1129,12 @@ func handleStickerUpload(w http.ResponseWriter, r *http.Request) {
 	ext := filepath.Ext(header.Filename)
 	filename := "sticker_" + currentUser + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + ext
 	os.WriteFile("uploads/stickers/"+filename, fileBytes, 0644)
-
 	fileURL := "/uploads/stickers/" + filename
 
-	// Загружаем на Imgur
-	if imgurClientID != "" {
-		if imgurURL, err := uploadToImgur(fileBytes, header.Filename); err == nil {
-			fileURL = imgurURL
+	// Загружаем в Cloudinary
+	if cloudinaryCloudName != "" {
+		if cloudURL, err := uploadToCloudinary(fileBytes, "stickers"); err == nil {
+			fileURL = cloudURL
 		}
 	}
 
@@ -1161,7 +1163,6 @@ func handleStickerList(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stickers)
 }
 
-// Загрузка гифок (с Imgur)
 func handleGifUpload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentUser := getUserFromRequest(r)
@@ -1180,13 +1181,12 @@ func handleGifUpload(w http.ResponseWriter, r *http.Request) {
 	ext := filepath.Ext(header.Filename)
 	filename := "gif_" + currentUser + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + ext
 	os.WriteFile("uploads/gifs/"+filename, fileBytes, 0644)
-
 	fileURL := "/uploads/gifs/" + filename
 
-	// Загружаем на Imgur
-	if imgurClientID != "" {
-		if imgurURL, err := uploadToImgur(fileBytes, header.Filename); err == nil {
-			fileURL = imgurURL
+	// Загружаем в Cloudinary
+	if cloudinaryCloudName != "" {
+		if cloudURL, err := uploadToCloudinary(fileBytes, "gifs"); err == nil {
+			fileURL = cloudURL
 		}
 	}
 
