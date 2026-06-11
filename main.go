@@ -1102,7 +1102,8 @@ func handleStickerUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	file, header, err := r.FormFile("sticker")
 	if err != nil {
-		json.NewEncoder(w).Encode(map[string]string{"error": "Файл не найден"})
+		log.Printf("❌ Ошибка получения файла стикера: %v", err)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Файл не найден: " + err.Error()})
 		return
 	}
 	defer file.Close()
@@ -1114,6 +1115,35 @@ func handleStickerUpload(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": "Неверный pack_id"})
 		return
 	}
+	var owner string
+	db.QueryRow("SELECT owner FROM sticker_packs WHERE id = $1", packID).Scan(&owner)
+	if owner != currentUser {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	// Пробуем загрузить в Cloudinary
+	var fileURL string
+	if cloudinaryCloudName != "" {
+		cloudURL, err := uploadToCloudinary(fileBytes, "stickers")
+		if err != nil {
+			log.Printf("❌ Ошибка Cloudinary: %v", err)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Ошибка загрузки в Cloudinary: " + err.Error()})
+			return
+		}
+		fileURL = cloudURL
+		log.Printf("✅ Стикер загружен в Cloudinary: %s", fileURL)
+	} else {
+		// Сохраняем локально (только если нет Cloudinary)
+		ext := filepath.Ext(header.Filename)
+		filename := "sticker_" + currentUser + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + ext
+		os.WriteFile("uploads/stickers/"+filename, fileBytes, 0644)
+		fileURL = "/uploads/stickers/" + filename
+	}
+
+	db.Exec("INSERT INTO stickers (pack_id, url) VALUES ($1, $2)", packID, fileURL)
+	json.NewEncoder(w).Encode(map[string]string{"url": fileURL, "success": "true"})
+}
 	var owner string
 	db.QueryRow("SELECT owner FROM sticker_packs WHERE id = $1", packID).Scan(&owner)
 	if owner != currentUser {
