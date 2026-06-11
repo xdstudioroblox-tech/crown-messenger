@@ -142,7 +142,7 @@ if ('serviceWorker' in navigator) {
 </div>
 <div class="lightbox" id="lightbox" onclick="closeLightbox()"><span class="lightbox-close">✕</span><div id="lightboxContent" onclick="event.stopPropagation()"></div></div>
 <div class="context-menu" id="contextMenu"><button class="context-item" id="ctxReply">↩️ Ответить</button><button class="context-item" id="ctxCopy">📋 Копировать</button><button class="context-item" id="ctxPin">📌 Закрепить</button><button class="context-item" id="ctxEdit">✏️ Редактировать</button><button class="context-item danger" id="ctxDelete">🗑️ Удалить</button></div>
-<div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"><div class="menu-panel" onclick="event.stopPropagation()"><div class="menu-profile"><img class="menu-avatar" id="menuAvatarImg" style="display:none;"><div class="menu-avatar-placeholder" id="menuAvatarPlaceholder">👤</div><div class="menu-nickname" id="menuNickname">Пользователь</div><div class="menu-username" id="menuUsername">@user</div></div><div class="menu-items"><button class="menu-item" onclick="closeMenu();openProfile(username);">👤 Мой профиль</button><button class="menu-item" onclick="closeMenu();showCreateGroup();">👥 Создать группу</button><button class="menu-item" onclick="closeMenu();showJoinGroup();">🔗 Присоединиться</button><button class="menu-item" onclick="closeMenu();showSettings();">⚙️ Настройки</button></div><hr class="menu-divider"><div class="menu-footer"><span>🌙 Ночной режим</span><label class="switch"><input type="checkbox" id="menuThemeToggle" onchange="toggleTheme()"><span class="slider"></span></label></div><div class="menu-footer" style="justify-content:center;padding-top:0;"><span>Crown Messenger v0.6 (beta)</span></div></div></div>
+<div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"><div class="menu-panel" onclick="event.stopPropagation()"><div class="menu-profile"><img class="menu-avatar" id="menuAvatarImg" style="display:none;"><div class="menu-avatar-placeholder" id="menuAvatarPlaceholder">👤</div><div class="menu-nickname" id="menuNickname">Пользователь</div><div class="menu-username" id="menuUsername">@user</div></div><div class="menu-items"><button class="menu-item" onclick="closeMenu();openProfile(username);">👤 Мой профиль</button><button class="menu-item" onclick="closeMenu();showCreateGroup();">👥 Создать группу</button><button class="menu-item" onclick="closeMenu();showJoinGroup();">🔗 Присоединиться</button><button class="menu-item" onclick="closeMenu();showSettings();">⚙️ Настройки</button></div><hr class="menu-divider"><div class="menu-footer"><span>🌙 Ночной режим</span><label class="switch"><input type="checkbox" id="menuThemeToggle" onchange="toggleTheme()"><span class="slider"></span></label></div><div class="menu-footer" style="justify-content:center;padding-top:0;"><span>Crown Messenger v0.7 (beta)</span></div></div></div>
 <div class="modal" id="profileModal"><div class="modal-content"><button class="modal-close" onclick="closeProfile()">✕</button><div style="text-align:center;"><img class="profile-avatar" id="profileAvatarImg" style="display:none;"><div class="profile-avatar-placeholder" id="profileAvatarPlaceholder">👤</div><label class="custom-file-btn" for="avatarInput" style="margin:0 auto 8px;">📷 Сменить фото</label><input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="uploadAvatar()"></div><div class="profile-field"><label>Никнейм</label><input type="text" id="profileNickname" disabled></div><div class="profile-field"><label>Юзернейм</label><input type="text" id="profileUsername" disabled></div><div class="profile-field"><label>О себе</label><textarea id="profileAbout" rows="3" disabled></textarea></div><button class="btn btn-primary" id="profileSaveBtn" style="display:none;">Сохранить</button><button class="btn btn-primary" id="profileChatBtn" style="display:none;">💬 Написать</button><button class="btn btn-danger" id="profileBlockBtn" style="display:none;">🚫 Заблокировать</button><button class="btn btn-danger" id="profileDeleteChatBtn" style="display:none;">🗑️ Удалить чат</button></div></div>
 <div class="modal" id="groupModal"><div class="modal-content"><button class="modal-close" onclick="closeGroupModal()">✕</button><div id="groupModalContent"></div></div></div>
 <div class="modal" id="inviteModal"><div class="modal-content"><button class="modal-close" onclick="closeInviteModal()">✕</button><div id="inviteModalContent"></div></div></div>
@@ -151,7 +151,7 @@ if ('serviceWorker' in navigator) {
 <div class="modal" id="groupManageModal"><div class="modal-content"><button class="modal-close" onclick="closeGroupManageModal()">✕</button><div id="groupManageContent"></div></div></div>
 
 <script>
-var username="",nickname="",myAvatar="",ws,currentChatId=1,currentPeer="",currentIsGroup=false,viewingProfile="",searchTimeout,onlineCount=0,contextMsgId=null,typingTimeout=null,typingSent=false,replyToId=null,replyToText=null,replyToNick=null,typingUsers={},lastMsgs={},unreadCounts={},searchResults=[],currentSearchIdx=-1,currentPinnedId=null;
+var username="",nickname="",myAvatar="",ws,currentChatId=1,currentPeer="",currentIsGroup=false,viewingProfile="",searchTimeout,onlineCount=0,contextMsgId=null,typingTimeout=null,typingSent=false,replyToId=null,replyToText=null,replyToNick=null,typingUsers={},lastMsgs={},lastTimes={},unreadCounts={},searchResults=[],currentSearchIdx=-1,currentPinnedId=null;
 var originalTitle=document.title,newMsgCount=0,titleBlinkInterval=null;
 var isLoadingMessages=false,allMessagesLoaded=false,oldestMessageId=null;
 
@@ -293,7 +293,32 @@ function closeInviteModal(){document.getElementById('inviteModal').classList.rem
 function showGroupManage(gid){fetch('/api/group/info?id='+gid,{headers:{'Authorization':'Bearer '+getToken()}}).then(function(r){return r.json();}).then(function(g){fetch('/api/group/invites?id='+gid,{headers:{'Authorization':'Bearer '+getToken()}}).then(function(r){return r.json();}).then(function(inv){showInviteModal(gid,g.name,inv.invite_code);});});}
 
 // Чаты
-function addChatToList(id,peer,isGroup){var existing=document.querySelector('.chat-item[data-chat-id="'+id+'"]');if(existing){var last=lastMsgs[id]||'';var unread=unreadCounts[id]||0;var badge=existing.querySelector('.chat-badge');var lastMsg=existing.querySelector('.chat-last-msg');if(badge){if(unread>0){badge.textContent=unread>99?'99+':unread;badge.style.display='';}else{badge.style.display='none';}}if(lastMsg)lastMsg.textContent=last;return;}var list=document.getElementById('chatList'),div=document.createElement('div');div.className='chat-item';div.setAttribute('data-chat-id',id);div.setAttribute('data-peer',peer||'');div.setAttribute('data-is-group',isGroup?'true':'false');var av=isGroup?getInitials(peer):(peer?getInitials(peer):'💬');var last=lastMsgs[id]||'',unread=unreadCounts[id]||0;div.innerHTML='<div class="chat-avatar-placeholder">'+av+'</div><div class="chat-info"><div class="chat-name">'+(peer||'Общий чат')+'</div>'+(last?'<div class="chat-last-msg">'+last+'</div>':'')+'</div>'+(unread>0?'<div class="chat-badge">'+(unread>99?'99+':unread)+'</div>':'');div.onclick=function(){unreadCounts[id]=0;switchToChat(id,peer,isGroup);};list.appendChild(div);}
+function addChatToList(id,peer,isGroup){
+    var existing=document.querySelector('.chat-item[data-chat-id="'+id+'"]');
+    if(existing){
+        var last=lastMsgs[id]||'';
+        var lastTime=lastTimes[id]||'';
+        var unread=unreadCounts[id]||0;
+        var badge=existing.querySelector('.chat-badge');
+        var lastMsg=existing.querySelector('.chat-last-msg');
+        if(badge){
+            if(unread>0){badge.textContent=unread>99?'99+':unread;badge.style.display='';}
+            else{badge.style.display='none';}
+        }
+        if(lastMsg)lastMsg.innerHTML=last+(lastTime?' <span style="font-size:10px;opacity:0.6;">'+lastTime+'</span>':'');
+        return;
+    }
+    var list=document.getElementById('chatList'),div=document.createElement('div');
+    div.className='chat-item';
+    div.setAttribute('data-chat-id',id);
+    div.setAttribute('data-peer',peer||'');
+    div.setAttribute('data-is-group',isGroup?'true':'false');
+    var av=isGroup?getInitials(peer):(peer?getInitials(peer):'💬');
+    var last=lastMsgs[id]||'',lastTime=lastTimes[id]||'',unread=unreadCounts[id]||0;
+    div.innerHTML='<div class="chat-avatar-placeholder">'+av+'</div><div class="chat-info"><div class="chat-name">'+(peer||'Общий чат')+'</div>'+(last?'<div class="chat-last-msg">'+last+(lastTime?' <span style="font-size:10px;opacity:0.6;">'+lastTime+'</span>':'')+'</div>':'')+'</div>'+(unread>0?'<div class="chat-badge">'+(unread>99?'99+':unread)+'</div>':'');
+    div.onclick=function(){unreadCounts[id]=0;switchToChat(id,peer,isGroup);};
+    list.appendChild(div);
+}
 
 function switchToChat(id, peer, isGroup) {
     currentChatId = parseInt(id);
@@ -403,6 +428,7 @@ function appendMessageToDiv(parent, m) {
     div.addEventListener('touchmove', function() { clearTimeout(longPressTimer); });
     document.getElementById('messagesArea').appendChild(div);
     lastMsgs[currentChatId] = (m.nickname || m.username) + ': ' + (m.text || '[файл]');
+    lastTimes[currentChatId] = formatTime(m.time);
     if (currentChatId !== parseInt((document.querySelector('.chat-item.active') || {}).getAttribute?.('data-chat-id') || 0)) {
         unreadCounts[currentChatId] = (unreadCounts[currentChatId] || 0) + 1;
     }
@@ -418,7 +444,48 @@ function appendMessage(id, sender, senderNick, text, time, avatar, read, edited,
     checkScrollBottom();
 }
 
-function updateOnlineStatus(){var s=document.getElementById('onlineStatus');if(currentChatId===1||currentIsGroup||!currentPeer){s.textContent=onlineCount+' участников онлайн';return;}fetch('/api/online?username='+currentPeer).then(function(r){return r.json();}).then(function(d){s.textContent=d.online?'🟢 Онлайн':'⚫ Офлайн';}).catch(function(){s.textContent='';});}
+function updateOnlineStatus() {
+    var s = document.getElementById('onlineStatus');
+    if (currentChatId === 1 || currentIsGroup || !currentPeer) {
+        s.textContent = onlineCount + ' участников онлайн';
+        return;
+    }
+    fetch('/api/lastseen?username=' + currentPeer)
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.online) {
+                s.textContent = '🟢 Онлайн';
+            } else if (d.last_seen) {
+                var lastSeen = new Date(d.last_seen);
+                var now = new Date();
+                var diffMs = now - lastSeen;
+                var diffMin = Math.floor(diffMs / 60000);
+                var diffHours = Math.floor(diffMs / 3600000);
+                var diffDays = Math.floor(diffMs / 86400000);
+
+                if (diffMin < 1) {
+                    s.textContent = '⚫ Был(а) только что';
+                } else if (diffMin < 60) {
+                    s.textContent = '⚫ Был(а) ' + diffMin + ' мин. назад';
+                } else if (diffHours < 24) {
+                    s.textContent = '⚫ Был(а) ' + diffHours + ' ч. назад';
+                } else if (diffDays < 7) {
+                    s.textContent = '⚫ Был(а) ' + diffDays + ' дн. назад';
+                } else {
+                    var dd = lastSeen.getDate().toString().padStart(2, '0');
+                    var mm = (lastSeen.getMonth() + 1).toString().padStart(2, '0');
+                    var yy = lastSeen.getFullYear().toString().slice(2);
+                    var hh = lastSeen.getHours().toString().padStart(2, '0');
+                    var min = lastSeen.getMinutes().toString().padStart(2, '0');
+                    s.textContent = '⚫ Был(а) ' + dd + '.' + mm + '.' + yy + ' в ' + hh + ':' + min;
+                }
+            } else {
+                s.textContent = '⚫ Офлайн';
+            }
+        })
+        .catch(function() { s.textContent = ''; });
+}
+
 function markAsRead(chatId){fetch('/api/read',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId})}).catch(function(){});}
 function scrollToMessage(msgId){var el=document.querySelector('[data-msg-id="'+msgId+'"]');if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.background='var(--hover)';setTimeout(function(){el.style.background='';},2000);}}
 
@@ -443,20 +510,20 @@ function connectWebSocket(token) {
         var t = msg.chat_id || 1;
         if (t === currentChatId) {
             removeTypingIndicator();
-var m = {
-    id: msg.id, username: msg.username, nickname: msg.nickname || msg.username,
-    text: msg.text, time: msg.time, avatar: msg.avatar || '',
-    read: msg.read || false, edited: msg.edited || false,
-    file_url: msg.file_url, file_type: msg.file_type,
-    reply_to: msg.reply_to, reply_text: msg.reply_text, reply_nick: msg.reply_nick
-};
-var div = document.createElement('div');
-appendMessageToDiv(div, m);
-var area = document.getElementById('messagesArea');
-area.appendChild(div);
-area.scrollTop = area.scrollHeight;
-checkScrollBottom();
+            var m = {
+                id: msg.id, username: msg.username, nickname: msg.nickname || msg.username,
+                text: msg.text, time: msg.time, avatar: msg.avatar || '',
+                read: msg.read || false, edited: msg.edited || false,
+                file_url: msg.file_url, file_type: msg.file_type,
+                reply_to: msg.reply_to, reply_text: msg.reply_text, reply_nick: msg.reply_nick
+            };
+            var div = document.createElement('div');
+            appendMessageToDiv(div, m);
+            var area = document.getElementById('messagesArea');
+            area.appendChild(div);
+            area.scrollTop = area.scrollHeight;
             checkScrollBottom();
+            if (!currentIsGroup && currentChatId !== 1) markAsRead(currentChatId);
         } else {
             lastMsgs[t] = msg.nickname + ': ' + (msg.text || '[файл]');
             if (t !== currentChatId) { unreadCounts[t] = (unreadCounts[t] || 0) + 1; playNotificationSound(); flashTitle(); }
