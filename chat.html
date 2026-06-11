@@ -248,7 +248,16 @@ function showCreateStickerPack(){var c=document.getElementById('stickerPackConte
 async function createStickerPack(){var n=document.getElementById('packName').value.trim();if(!n)return;var r=await fetch('/api/stickers/packs',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({name:n})});var d=await r.json();if(d.pack_id){closeStickerPackModal();loadStickers();}}
 function closeStickerPackModal(){document.getElementById('stickerPackModal').classList.remove('show');}
 async function uploadStickerToPack(pid,input){var f=input.files[0];if(!f)return;var fd=new FormData();fd.append('sticker',f);fd.append('pack_id',pid);await fetch('/api/stickers/upload',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});showStickersInPack(pid);}
-function sendStickerOrGif(url){if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:'',chat_id:currentChatId,file_url:url,file_type:'photo',reply_to:replyToId||0,reply_text:replyToText||'',reply_nick:replyToNick||''}));cancelReply();document.getElementById('emojiPanel').classList.remove('show');}}
+function sendStickerOrGif(url){
+    if(ws&&ws.readyState===WebSocket.OPEN){
+        ws.send(JSON.stringify({text:'',chat_id:currentChatId,file_url:url,file_type:'photo',reply_to:replyToId||0,reply_text:replyToText||'',reply_nick:replyToNick||''}));
+        cancelReply();
+        document.getElementById('emojiPanel').classList.remove('show');
+        playSendSound();
+    } else {
+        alert('Нет соединения с сервером. Обновите страницу.');
+    }
+}
 async function loadGifs(){var grid=document.getElementById('emojiGrid');grid.innerHTML='';try{var r=await fetch('/api/gifs/list');var gifs=await r.json();gifs.forEach(function(g){var img=document.createElement('img');img.src=g.url;img.className='gif-item';img.onclick=function(){sendStickerOrGif(g.url);};grid.appendChild(img);});grid.innerHTML+='<div style="grid-column:1/-1;text-align:center;margin-top:8px;"><label class="custom-file-btn">+ Гиф<input type="file" accept="image/*,video/*" onchange="uploadGif(this)" style="display:none;"></label></div>';}catch(e){}}
 async function uploadGif(input){var f=input.files[0];if(!f)return;var fd=new FormData();fd.append('gif',f);await fetch('/api/gifs/upload',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});loadGifs();}
 

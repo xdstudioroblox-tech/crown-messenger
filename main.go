@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
@@ -8,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"os/signal"
@@ -55,6 +57,8 @@ var (
 
 	visitors   = make(map[string]*rate.Limiter)
 	visitorsMu sync.Mutex
+
+	imgurClientID = os.Getenv("IMGUR_CLIENT_ID")
 )
 
 type User struct {
@@ -189,6 +193,41 @@ func setupLogging() {
 	log.Println("📝 Логирование в файл server.log активировано")
 }
 
+// Загрузка файла на Imgur
+func uploadToImgur(fileBytes []byte, filename string) (string, error) {
+	if imgurClientID == "" {
+		return "", fmt.Errorf("IMGUR_CLIENT_ID не установлен")
+	}
+
+	var b bytes.Buffer
+	w := multipart.NewWriter(&b)
+	fw, _ := w.CreateFormFile("image", filename)
+	fw.Write(fileBytes)
+	w.Close()
+
+	req, _ := http.NewRequest("POST", "https://api.imgur.com/3/image", &b)
+	req.Header.Set("Authorization", "Client-ID "+imgurClientID)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	var result map[string]interface{}
+	json.Unmarshal(body, &result)
+
+	if data, ok := result["data"].(map[string]interface{}); ok {
+		if link, ok := data["link"].(string); ok {
+			return link, nil
+		}
+	}
+	return "", fmt.Errorf("не удалось загрузить на Imgur")
+}
+
 func main() {
 	setupLogging()
 
@@ -196,6 +235,10 @@ func main() {
 	if len(jwtSecret) == 0 {
 		jwtSecret = []byte("super-secret-key-change-in-production")
 		log.Println("⚠️ JWT_SECRET не установлен!")
+	}
+
+	if imgurClientID == "" {
+		log.Println("⚠️ IMGUR_CLIENT_ID не установлен! Файлы будут храниться локально.")
 	}
 
 	databaseURL := os.Getenv("DATABASE_URL")
@@ -257,11 +300,11 @@ func main() {
 	http.HandleFunc("/uploads/", serveUploads)
 	http.HandleFunc("/sw.js", serveSW)
 	http.HandleFunc("/manifest.json", serveManifest)
+	http.HandleFunc("/donate", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://pay.cloudtips.ru/p/a1f1b091", http.StatusFound)
+	})
 	http.HandleFunc("/", serveHome)
 	http.HandleFunc("/chat", serveChat)
-	http.HandleFunc("/donate", func(w http.ResponseWriter, r *http.Request) {
-    http.Redirect(w, r, "https://pay.cloudtips.ru/p/a1f1b091", http.StatusFound)
-})
 
 	go handleMessages()
 	go clearTypingStatuses()
@@ -664,13 +707,28 @@ func handleUploadAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 	file, header, _ := r.FormFile("avatar")
 	defer file.Close()
+
+	fileBytes, _ := io.ReadAll(file)
 	ext := filepath.Ext(header.Filename)
+
+	// Сохраняем локально как fallback
 	filename := "avatar_" + currentUser + "_" + strconv.FormatInt(time.Now().Unix(), 10) + ext
-	out, _ := os.Create("uploads/" + filename)
-	defer out.Close()
-	io.Copy(out, file)
-	db.Exec("UPDATE users SET avatar = $1 WHERE username = $2", filename, currentUser)
-	json.NewEncoder(w).Encode(map[string]string{"avatar": "/uploads/" + filename})
+	os.WriteFile("uploads/"+filename, fileBytes, 0644)
+
+	fileURL := "/uploads/" + filename
+
+	// Пробуем загрузить на Imgur
+	if imgurClientID != "" {
+		if imgurURL, err := uploadToImgur(fileBytes, header.Filename); err == nil {
+			fileURL = imgurURL
+			log.Printf("✅ Аватар загружен на Imgur: %s", fileURL)
+		} else {
+			log.Printf("⚠️ Не удалось загрузить на Imgur: %v", err)
+		}
+	}
+
+	db.Exec("UPDATE users SET avatar = $1 WHERE username = $2", fileURL, currentUser)
+	json.NewEncoder(w).Encode(map[string]string{"avatar": fileURL})
 }
 
 func handleUploadFile(w http.ResponseWriter, r *http.Request) {
@@ -681,6 +739,8 @@ func handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	file, header, _ := r.FormFile("file")
 	defer file.Close()
+
+	fileBytes, _ := io.ReadAll(file)
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	var folder, fileType string
 	switch ext {
@@ -697,11 +757,20 @@ func handleUploadFile(w http.ResponseWriter, r *http.Request) {
 		folder = "photos"
 		fileType = "file"
 	}
+
 	filename := currentUser + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + ext
-	out, _ := os.Create("uploads/" + folder + "/" + filename)
-	defer out.Close()
-	io.Copy(out, file)
+	os.WriteFile("uploads/"+folder+"/"+filename, fileBytes, 0644)
+
 	fileURL := "/uploads/" + folder + "/" + filename
+
+	// Загружаем на Imgur если это изображение
+	if imgurClientID != "" && (fileType == "photo" || fileType == "file") {
+		if imgurURL, err := uploadToImgur(fileBytes, header.Filename); err == nil {
+			fileURL = imgurURL
+			log.Printf("✅ Файл загружен на Imgur: %s", fileURL)
+		}
+	}
+
 	json.NewEncoder(w).Encode(map[string]string{"file_url": fileURL, "file_type": fileType})
 }
 
@@ -1025,6 +1094,7 @@ func handleGroupLeave(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
+// Загрузка стикеров (с Imgur)
 func handleStickerUpload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentUser := getUserFromRequest(r)
@@ -1038,6 +1108,8 @@ func handleStickerUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+
+	fileBytes, _ := io.ReadAll(file)
 	packIDStr := r.FormValue("pack_id")
 	packID, err := strconv.Atoi(packIDStr)
 	if err != nil {
@@ -1050,12 +1122,20 @@ func handleStickerUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
+
 	ext := filepath.Ext(header.Filename)
 	filename := "sticker_" + currentUser + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + ext
-	out, _ := os.Create("uploads/stickers/" + filename)
-	defer out.Close()
-	io.Copy(out, file)
+	os.WriteFile("uploads/stickers/"+filename, fileBytes, 0644)
+
 	fileURL := "/uploads/stickers/" + filename
+
+	// Загружаем на Imgur
+	if imgurClientID != "" {
+		if imgurURL, err := uploadToImgur(fileBytes, header.Filename); err == nil {
+			fileURL = imgurURL
+		}
+	}
+
 	db.Exec("INSERT INTO stickers (pack_id, url) VALUES ($1, $2)", packID, fileURL)
 	json.NewEncoder(w).Encode(map[string]string{"url": fileURL, "success": "true"})
 }
@@ -1081,6 +1161,7 @@ func handleStickerList(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stickers)
 }
 
+// Загрузка гифок (с Imgur)
 func handleGifUpload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentUser := getUserFromRequest(r)
@@ -1094,12 +1175,21 @@ func handleGifUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+
+	fileBytes, _ := io.ReadAll(file)
 	ext := filepath.Ext(header.Filename)
 	filename := "gif_" + currentUser + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + ext
-	out, _ := os.Create("uploads/gifs/" + filename)
-	defer out.Close()
-	io.Copy(out, file)
+	os.WriteFile("uploads/gifs/"+filename, fileBytes, 0644)
+
 	fileURL := "/uploads/gifs/" + filename
+
+	// Загружаем на Imgur
+	if imgurClientID != "" {
+		if imgurURL, err := uploadToImgur(fileBytes, header.Filename); err == nil {
+			fileURL = imgurURL
+		}
+	}
+
 	db.Exec("INSERT INTO gifs (url, owner) VALUES ($1, $2)", fileURL, currentUser)
 	json.NewEncoder(w).Encode(map[string]string{"url": fileURL, "success": "true"})
 }
