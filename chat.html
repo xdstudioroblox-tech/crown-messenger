@@ -219,42 +219,57 @@ function showInviteModal(gid,gn,code){var link='https://crown-messenger.onrender
 function closeInviteModal(){document.getElementById('inviteModal').classList.remove('show');}
 function showGroupManage(gid){fetch('/api/group/info?id='+gid,{headers:{'Authorization':'Bearer '+getToken()}}).then(function(r){return r.json();}).then(function(g){fetch('/api/group/invites?id='+gid,{headers:{'Authorization':'Bearer '+getToken()}}).then(function(r){return r.json();}).then(function(inv){showInviteModal(gid,g.name,inv.invite_code);});});}
 
-// Чаты (СТАБИЛЬНАЯ ВЕРСИЯ)
-function addChatToList(id,peer,isGroup){
-    var old=document.querySelector('.chat-item[data-chat-id="'+id+'"]');if(old)old.remove();
-    var list=document.getElementById('chatList'),div=document.createElement('div');div.className='chat-item';
-    div.setAttribute('data-chat-id',id);div.setAttribute('data-peer',peer||'');div.setAttribute('data-is-group',isGroup?'true':'false');
-    var av=isGroup?getInitials(peer):(peer?getInitials(peer):'💬');
-    var last=lastMsgs[id]||'';var unread=unreadCounts[id]||0;
-    div.innerHTML='<div class="chat-avatar-placeholder">'+av+'</div><div class="chat-info"><div class="chat-name">'+(peer||'Общий чат')+'</div>'+(last?'<div class="chat-last-msg">'+last+'</div>':'')+'</div>'+(unread>0?'<div class="chat-badge">'+(unread>99?'99+':unread)+'</div>':'');
-    div.onclick=function(){unreadCounts[id]=0;switchToChat(id,peer,isGroup);};
+// ====== ЧАТЫ (ИСПРАВЛЕНО ПЕРЕМЕШИВАНИЕ) ======
+function addChatToList(id, peer, isGroup) {
+    var existing = document.querySelector('.chat-item[data-chat-id="' + id + '"]');
+    if (existing) {
+        var last = lastMsgs[id] || '';
+        var unread = unreadCounts[id] || 0;
+        var badge = existing.querySelector('.chat-badge');
+        var lastMsg = existing.querySelector('.chat-last-msg');
+        if (badge) {
+            if (unread > 0) { badge.textContent = unread > 99 ? '99+' : unread; badge.style.display = ''; }
+            else { badge.style.display = 'none'; }
+        }
+        if (lastMsg) lastMsg.textContent = last;
+        return;
+    }
+    var list = document.getElementById('chatList'), div = document.createElement('div');
+    div.className = 'chat-item';
+    div.setAttribute('data-chat-id', id); div.setAttribute('data-peer', peer || ''); div.setAttribute('data-is-group', isGroup ? 'true' : 'false');
+    var av = isGroup ? getInitials(peer) : (peer ? getInitials(peer) : '💬');
+    var last = lastMsgs[id] || '', unread = unreadCounts[id] || 0;
+    div.innerHTML = '<div class="chat-avatar-placeholder">' + av + '</div><div class="chat-info"><div class="chat-name">' + (peer || 'Общий чат') + '</div>' + (last ? '<div class="chat-last-msg">' + last + '</div>' : '') + '</div>' + (unread > 0 ? '<div class="chat-badge">' + (unread > 99 ? '99+' : unread) + '</div>' : '');
+    div.onclick = function() { unreadCounts[id] = 0; switchToChat(id, peer, isGroup); };
     list.appendChild(div);
 }
-function switchToChat(id,peer,isGroup){
-    currentChatId=parseInt(id);currentPeer=peer||'';currentIsGroup=isGroup||false;
-    unreadCounts[currentChatId]=0;
-    document.getElementById('chatTitle').textContent=peer||'Общий чат';
-    document.getElementById('chatHeaderIcon').textContent=peer?getInitials(peer):'💬';
-    document.querySelectorAll('.chat-item').forEach(function(el){el.classList.remove('active');});
-    var item=document.querySelector('.chat-item[data-chat-id="'+id+'"]');if(item)item.classList.add('active');
-    updateOnlineStatus();cancelReply();typingUsers={};updateTypingIndicator();
-    var area=document.getElementById('messagesArea');area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div>';
-    fetch('/api/messages?chat_id='+id,{headers:{'Authorization':'Bearer '+getToken()}}).then(function(r){return r.json();}).then(function(msgs){area.innerHTML='';if(!msgs||msgs.length===0){area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';return;}msgs.sort(function(a,b){return a.id-b.id;});msgs.forEach(function(m){appendMessage(m.id,m.username,m.nickname||m.username,m.text,m.time,m.avatar||'',m.read,m.edited,false,m.file_url,m.file_type,m.reply_to,m.reply_text,m.reply_nick);});area.scrollTop=area.scrollHeight;});
-    if(!currentIsGroup&&currentChatId!==1)markAsRead(currentChatId);
-    addChatToList(id,peer,isGroup);
+
+function switchToChat(id, peer, isGroup) {
+    currentChatId = parseInt(id); currentPeer = peer || ''; currentIsGroup = isGroup || false;
+    unreadCounts[currentChatId] = 0;
+    document.getElementById('chatTitle').textContent = peer || 'Общий чат';
+    document.getElementById('chatHeaderIcon').textContent = peer ? getInitials(peer) : '💬';
+    document.querySelectorAll('.chat-item').forEach(function(el) { el.classList.remove('active'); });
+    var item = document.querySelector('.chat-item[data-chat-id="' + id + '"]'); if (item) item.classList.add('active');
+    var badge = item ? item.querySelector('.chat-badge') : null; if (badge) badge.style.display = 'none';
+    updateOnlineStatus(); cancelReply(); typingUsers = {}; updateTypingIndicator();
+    if (!currentIsGroup && currentChatId !== 1) markAsRead(currentChatId);
+    var area = document.getElementById('messagesArea'); area.innerHTML = '<div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div>';
+    fetch('/api/messages?chat_id=' + id, { headers: { 'Authorization': 'Bearer ' + getToken() } })
+        .then(function(r) { return r.json(); }).then(function(msgs) { area.innerHTML = ''; if (!msgs || msgs.length === 0) { area.innerHTML = '<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>'; return; } msgs.sort(function(a, b) { return a.id - b.id; }); msgs.forEach(function(m) { appendMessage(m.id, m.username, m.nickname || m.username, m.text, m.time, m.avatar || '', m.read, m.edited, false, m.file_url, m.file_type, m.reply_to, m.reply_text, m.reply_nick); }); area.scrollTop = area.scrollHeight; });
 }
+
 function markAsRead(chatId){fetch('/api/read',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId})}).catch(function(){});}
 function updateOnlineStatus(){var s=document.getElementById('onlineStatus');if(currentChatId===1||currentIsGroup||!currentPeer){s.textContent=onlineCount+' участников онлайн';return;}fetch('/api/online?username='+currentPeer).then(function(r){return r.json();}).then(function(d){s.textContent=d.online?'🟢 Онлайн':'⚫ Офлайн';}).catch(function(){s.textContent='';});}
+
 function appendMessage(id,sender,senderNick,text,time,avatar,read,edited,animate,fileUrl,fileType,replyTo,replyText,replyNick){
     var area=document.getElementById('messagesArea'),div=document.createElement('div'),isMine=sender===username;
     div.className='message '+(isMine?'mine':'other');if(!animate)div.style.animation='none';div.setAttribute('data-msg-id',id);
     var avHtml='';if(!isMine){if(avatar&&avatar!=='')avHtml='<img class="message-avatar" src="'+avatar+'" onclick="openProfile(\''+sender+'\')">';else avHtml='<div class="message-avatar-placeholder" onclick="openProfile(\''+sender+'\')">'+getInitials(senderNick)+'</div>';}
     var readHtml='';if(currentIsGroup){readHtml='<div class="message-read">✓'+(read?'✓':'')+'</div>';}else if(isMine&&currentChatId!==1){readHtml='<div class="message-read">'+(read?'✓✓':'✓')+'</div>';}
-    var editedHtml=edited?' <span class="message-edited">(ред.)</span>':'';
-    var displayTime=formatTime(time);
+    var editedHtml=edited?' <span class="message-edited">(ред.)</span>':'';var displayTime=formatTime(time);
     var replyHtml='';if(replyTo&&replyText)replyHtml='<div class="reply-preview" onclick="scrollToMessage('+replyTo+')"><b>'+escapeHtml(replyNick||'')+'</b>: '+escapeHtml(replyText)+'</div>';
-    var contentHtml='';
-    if(fileUrl){if(fileType==='photo')contentHtml='<img src="'+fileUrl+'" onclick="openLightbox(\''+fileUrl+'\',\'photo\')" style="max-width:100%;max-height:400px;border-radius:10px;cursor:pointer;display:block;" loading="lazy">';else if(fileType==='video')contentHtml='<video controls preload="none" src="'+fileUrl+'" onclick="event.stopPropagation();openLightbox(\''+fileUrl+'\',\'video\')" style="max-width:100%;max-height:400px;border-radius:10px;display:block;cursor:pointer;"></video>';else if(fileType==='audio')contentHtml='<audio controls preload="none" src="'+fileUrl+'" style="max-width:280px;display:block;"></audio>';else contentHtml='<a href="'+fileUrl+'" target="_blank">📎 Файл</a>';}
+    var contentHtml='';if(fileUrl){if(fileType==='photo')contentHtml='<img src="'+fileUrl+'" onclick="openLightbox(\''+fileUrl+'\',\'photo\')" style="max-width:100%;max-height:400px;border-radius:10px;cursor:pointer;display:block;" loading="lazy">';else if(fileType==='video')contentHtml='<video controls preload="none" src="'+fileUrl+'" onclick="event.stopPropagation();openLightbox(\''+fileUrl+'\',\'video\')" style="max-width:100%;max-height:400px;border-radius:10px;display:block;cursor:pointer;"></video>';else if(fileType==='audio')contentHtml='<audio controls preload="none" src="'+fileUrl+'" style="max-width:280px;display:block;"></audio>';else contentHtml='<a href="'+fileUrl+'" target="_blank">📎 Файл</a>';}
     if(text)contentHtml+=escapeHtml(text);
     div.innerHTML=avHtml+'<div class="message-bubble">'+replyHtml+(isMine?'':'<div class="message-username" onclick="openProfile(\''+sender+'\')">'+escapeHtml(senderNick)+'</div>')+contentHtml+editedHtml+'<div class="message-time">'+displayTime+'</div>'+readHtml+'</div>';
     div.oncontextmenu=function(e){e.preventDefault();var nn=this.querySelector('.message-username');showContextMenu(e,id,text,nn?nn.textContent:'',isMine);};
@@ -268,7 +283,7 @@ function scrollToMessage(msgId){var el=document.querySelector('[data-msg-id="'+m
 
 function loadUser(){var code=new URLSearchParams(window.location.search).get('code');if(code){fetch('/api/group/join',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({code:code})}).then(function(r){return r.json();}).then(function(d){if(d.group_id){alert('Вы в группе «'+d.name+'»!');window.history.replaceState({},'','/chat');}});}var token=getToken();if(!token){window.location.href='/';return;}var user=JSON.parse(localStorage.getItem('user')||'{}');username=user.username||'';nickname=user.nickname||'';myAvatar=user.avatar||'';if(!username){window.location.href='/';return;}loadChatList();switchToChat(1,'',false);connectWebSocket(token);}
 async function loadChatList(){document.getElementById('chatList').innerHTML='';addChatToList(1,'',false);try{var r=await fetch('/api/chat/list',{headers:{'Authorization':'Bearer '+getToken()}});var chats=await r.json();chats.forEach(function(c){if(c.chat_id!==1)addChatToList(c.chat_id,c.peer,c.is_group||false);});}catch(e){}}
-function connectWebSocket(token){var p=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(p+'//'+location.host+'/ws?token='+token);ws.onmessage=function(e){var msg=JSON.parse(e.data);if(msg.type==='chat_created'){addChatToList(msg.chat_id,msg.peer,false);return;}if(msg.type==='online_count'){onlineCount=parseInt(msg.text)||0;updateOnlineStatus();return;}if(msg.type==='action'){showActionStatus(msg);return;}if(msg.type==='typing_clear'){if(typingUsers[msg.chat_id])delete typingUsers[msg.chat_id][msg.username];updateTypingIndicator();return;}var t=msg.chat_id||1;if(t===currentChatId){removeTypingIndicator();appendMessage(msg.id,msg.username,msg.nickname||msg.username,msg.text,msg.time,msg.avatar||'',msg.read||false,msg.edited||false,true,msg.file_url,msg.file_type,msg.reply_to,msg.reply_text,msg.reply_nick);if(!currentIsGroup&&currentChatId!==1)markAsRead(currentChatId);}else{lastMsgs[t]=msg.nickname+': '+(msg.text||'[файл]');unreadCounts[t]=(unreadCounts[t]||0)+1;addChatToList(t,msg.peer||'',false);}};ws.onclose=function(){setTimeout(function(){connectWebSocket(token);},3000);};}
+function connectWebSocket(token){var p=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(p+'//'+location.host+'/ws?token='+token);ws.onmessage=function(e){var msg=JSON.parse(e.data);if(msg.type==='chat_created'){addChatToList(msg.chat_id,msg.peer,false);return;}if(msg.type==='online_count'){onlineCount=parseInt(msg.text)||0;updateOnlineStatus();return;}if(msg.type==='action'){showActionStatus(msg);return;}if(msg.type==='typing_clear'){if(typingUsers[msg.chat_id])delete typingUsers[msg.chat_id][msg.username];updateTypingIndicator();return;}var t=msg.chat_id||1;if(t===currentChatId){removeTypingIndicator();appendMessage(msg.id,msg.username,msg.nickname||msg.username,msg.text,msg.time,msg.avatar||'',msg.read||false,msg.edited||false,true,msg.file_url,msg.file_type,msg.reply_to,msg.reply_text,msg.reply_nick);if(!currentIsGroup&&currentChatId!==1)markAsRead(currentChatId);}else{lastMsgs[t]=msg.nickname+': '+(msg.text||'[файл]');if(t!==currentChatId)unreadCounts[t]=(unreadCounts[t]||0)+1;addChatToList(t,msg.peer||'',false);}};ws.onclose=function(){setTimeout(function(){connectWebSocket(token);},3000);};}
 function sendMessage(){var input=document.getElementById('messageInput'),text=input.value.trim();if(!text&&!replyToId)return;if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:text,chat_id:currentChatId,reply_to:replyToId||0,reply_text:replyToText||'',reply_nick:replyToNick||''}));input.value='';cancelReply();typingSent=false;}}
 function logout(){localStorage.removeItem('token');localStorage.removeItem('user');window.location.href='/';}
 document.getElementById('chatHeader').onclick=function(){if(currentIsGroup)showGroupManage(currentChatId);else if(currentPeer)openProfile(currentPeer);};
