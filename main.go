@@ -1122,7 +1122,6 @@ func handleStickerUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Пробуем загрузить в Cloudinary
 	var fileURL string
 	if cloudinaryCloudName != "" {
 		cloudURL, err := uploadToCloudinary(fileBytes, "stickers")
@@ -1134,32 +1133,10 @@ func handleStickerUpload(w http.ResponseWriter, r *http.Request) {
 		fileURL = cloudURL
 		log.Printf("✅ Стикер загружен в Cloudinary: %s", fileURL)
 	} else {
-		// Сохраняем локально (только если нет Cloudinary)
 		ext := filepath.Ext(header.Filename)
 		filename := "sticker_" + currentUser + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + ext
 		os.WriteFile("uploads/stickers/"+filename, fileBytes, 0644)
 		fileURL = "/uploads/stickers/" + filename
-	}
-
-	db.Exec("INSERT INTO stickers (pack_id, url) VALUES ($1, $2)", packID, fileURL)
-	json.NewEncoder(w).Encode(map[string]string{"url": fileURL, "success": "true"})
-}
-	var owner string
-	db.QueryRow("SELECT owner FROM sticker_packs WHERE id = $1", packID).Scan(&owner)
-	if owner != currentUser {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-
-	ext := filepath.Ext(header.Filename)
-	filename := "sticker_" + currentUser + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + ext
-	os.WriteFile("uploads/stickers/"+filename, fileBytes, 0644)
-	fileURL := "/uploads/stickers/" + filename
-
-	if cloudinaryCloudName != "" {
-		if cloudURL, err := uploadToCloudinary(fileBytes, "stickers"); err == nil {
-			fileURL = cloudURL
-		}
 	}
 
 	db.Exec("INSERT INTO stickers (pack_id, url) VALUES ($1, $2)", packID, fileURL)
@@ -1313,7 +1290,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		msg.Username = username
 		msg.Nickname = nickname
 		msg.Avatar = getAvatarURL(avatar)
-		msg.Time = time.Now().Format("15:04")
+		msg.Time = time.Now().UTC().Format("15:04")
 		msg.Text = escapeHTML(strings.TrimSpace(msg.Text))
 		if msg.ChatID == 0 {
 			msg.ChatID = 1
