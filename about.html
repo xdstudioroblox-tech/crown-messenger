@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crown Messenger — О проекте</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: linear-gradient(135deg, #f0f4f8 0%, #c8e4f8 50%, #e8f4fd 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        .card { background: white; border-radius: 18px; padding: 36px; max-width: 520px; width: 100%; box-shadow: 0 15px 40px rgba(0,0,0,0.1); }
+        .logo { font-size: 56px; text-align: center; margin-bottom: 6px; }
+        h1 { font-size: 22px; text-align: center; color: #1a202c; margin-bottom: 4px; }
+        .version { text-align: center; font-size: 12px; color: #a0aec0; margin-bottom: 20px; }
+        .section { margin-bottom: 18px; }
+        .section-title { font-size: 13px; font-weight: 700; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .section-text { font-size: 13px; line-height: 1.6; color: #4a5568; }
+        .features { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .feature { background: #f8fafc; padding: 10px 12px; border-radius: 10px; font-size: 12px; color: #2c3e50; display: flex; align-items: center; gap: 6px; }
+        .btn { display: block; width: 100%; padding: 12px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; margin-top: 6px; transition: transform 0.2s, box-shadow 0.2s; }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(59,130,246,0.3); }
+        .btn-outline { background: white; color: #3b82f6; border: 2px solid #3b82f6; }
+        .btn-outline:hover { background: #f0f7ff; box-shadow: none; }
+        .links { display: flex; gap: 8px; margin-top: 4px; }
+        .links .btn { flex: 1; font-size: 13px; padding: 10px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="logo">👑</div>
+        <h1>Crown Messenger</h1>
+        <p class="version">v0.9 beta — июнь 2026</p>
+
+        <div class="section">
+            <div class="section-title">📖 О проекте</div>
+            <div class="section-text">
+                Crown Messenger — это современный мессенджер, который создаётся одним разработчиком с нуля. 
+                Никакой рекламы, никакой слежки, только чистый и удобный опыт общения. 
+                Проект существует на донаты и развивается благодаря поддержке сообщества.
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">⚡ Возможности</div>
+            <div class="features">
+                <div class="feature">💬 Чаты и группы</div>
+                <div class="feature">📎 Отправка файлов</div>
+                <div class="feature">😊 Стикеры и гифки</div>
+                <div class="feature">🎨 Настройка тем</div>
+                <div class="feature">🔒 Приватность</div>
+                <div class="feature">📱 PWA (как приложение)</div>
+                <div class="feature">⚫ Статус онлайн</div>
+                <div class="feature">🌙 Ночной режим</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">🛤️ Дорожная карта</div>
+            <div class="section-text">
+                ✅ Базовая версия (готово)<br>
+                ✅ Донаты (готово)<br>
+                🟡 Видеозвонки (в планах)<br>
+                🟡 Реакции на сообщения (в планах)<br>
+                ⬜ Свой сервер (после донатов)<br>
+                ⬜ Свой домен (после донатов)
+            </div>
+        </div>
+
+        <div class="links">
+            <a href="/chat" class="btn">💬 Открыть мессенджер</a>
+            <a href="/donate" class="btn btn-outline">💳 Поддержать</a>
+        </div>
+    </div>
+</body>
+</html>

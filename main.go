@@ -195,7 +195,6 @@ func setupLogging() {
 	log.Println("📝 Логирование в файл server.log активировано")
 }
 
-// Загрузка файла в Cloudinary
 func uploadToCloudinary(fileBytes []byte, folder string) (string, error) {
 	if cloudinaryCloudName == "" || cloudinaryAPIKey == "" || cloudinaryAPISecret == "" {
 		return "", fmt.Errorf("Cloudinary не настроен")
@@ -305,6 +304,7 @@ func main() {
 	http.HandleFunc("/uploads/", serveUploads)
 	http.HandleFunc("/sw.js", serveSW)
 	http.HandleFunc("/manifest.json", serveManifest)
+	http.HandleFunc("/about", serveAbout)
 	http.HandleFunc("/donate", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "https://pay.cloudtips.ru/p/a1f1b091", http.StatusFound)
 	})
@@ -389,6 +389,7 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "index.html")
 }
 func serveChat(w http.ResponseWriter, r *http.Request)  { http.ServeFile(w, r, "chat.html") }
+func serveAbout(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "about.html") }
 func serveSW(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/javascript")
 	w.Header().Set("Cache-Control", "max-age=0")
@@ -717,18 +718,14 @@ func handleUploadAvatar(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	fileBytes, _ := io.ReadAll(file)
-
-	// Сохраняем локально как fallback
 	ext := filepath.Ext(header.Filename)
 	filename := "avatar_" + currentUser + "_" + strconv.FormatInt(time.Now().Unix(), 10) + ext
 	os.WriteFile("uploads/"+filename, fileBytes, 0644)
 	fileURL := "/uploads/" + filename
 
-	// Загружаем в Cloudinary
 	if cloudinaryCloudName != "" {
 		if cloudURL, err := uploadToCloudinary(fileBytes, "avatars"); err == nil {
 			fileURL = cloudURL
-			log.Printf("✅ Аватар загружен в Cloudinary")
 		}
 	}
 
@@ -767,11 +764,9 @@ func handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	os.WriteFile("uploads/"+folder+"/"+filename, fileBytes, 0644)
 	fileURL := "/uploads/" + folder + "/" + filename
 
-	// Загружаем в Cloudinary
 	if cloudinaryCloudName != "" && fileType == "photo" {
 		if cloudURL, err := uploadToCloudinary(fileBytes, folder); err == nil {
 			fileURL = cloudURL
-			log.Printf("✅ Файл загружен в Cloudinary")
 		}
 	}
 
@@ -1131,7 +1126,6 @@ func handleStickerUpload(w http.ResponseWriter, r *http.Request) {
 	os.WriteFile("uploads/stickers/"+filename, fileBytes, 0644)
 	fileURL := "/uploads/stickers/" + filename
 
-	// Загружаем в Cloudinary
 	if cloudinaryCloudName != "" {
 		if cloudURL, err := uploadToCloudinary(fileBytes, "stickers"); err == nil {
 			fileURL = cloudURL
@@ -1183,7 +1177,6 @@ func handleGifUpload(w http.ResponseWriter, r *http.Request) {
 	os.WriteFile("uploads/gifs/"+filename, fileBytes, 0644)
 	fileURL := "/uploads/gifs/" + filename
 
-	// Загружаем в Cloudinary
 	if cloudinaryCloudName != "" {
 		if cloudURL, err := uploadToCloudinary(fileBytes, "gifs"); err == nil {
 			fileURL = cloudURL
