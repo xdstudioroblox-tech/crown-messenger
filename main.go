@@ -28,7 +28,7 @@ var (
 	jwtSecret    = []byte("super-secret-key-change-in-production")
 	clients      = make(map[*websocket.Conn]string)
 	onlineUsers  = make(map[string]bool)
-	blockedUsers = make(map[string]map[string]bool) // username -> blockedUsername -> true
+	blockedUsers = make(map[string]map[string]bool)
 	typingUsers  = make(map[int]map[string]time.Time)
 	broadcast    = make(chan Message)
 	mu           sync.Mutex
@@ -216,13 +216,7 @@ func getUserFromRequest(r *http.Request) string {
 	if !ok { return "" }
 	return claims["username"].(string)
 }
-
-// Валидация юзернейма: от 6 букв/цифр, без пробелов и спецсимволов
-func isValidUsername(u string) bool {
-	if len(u) < 6 { return false }
-	match, _ := regexp.MatchString(`^[a-zA-Z0-9_]+$`, u)
-	return match
-}
+func isValidUsername(u string) bool { if len(u) < 6 { return false }; m, _ := regexp.MatchString(`^[a-zA-Z0-9_]+$`, u); return m }
 
 func handleRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" { http.Error(w, "Method not allowed", http.StatusMethodNotAllowed); return }
@@ -257,7 +251,6 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	var users []User
 	for rows.Next() { var u User; var email, about, avatar, phone sql.NullString; rows.Scan(&u.ID, &u.Username, &u.Nickname, &email, &about, &avatar, &phone); u.Email = email.String; u.About = about.String; u.Avatar = getAvatarURL(avatar.String); u.Phone = phone.String; users = append(users, u) }
 	if users == nil { users = []User{} }
-	// Поиск публичных групп
 	grows, _ := db.Query("SELECT id, name, COALESCE(avatar,''), created_by FROM groups_chat WHERE public = true AND name ILIKE $1 LIMIT 10", "%"+q+"%")
 	defer grows.Close()
 	var groups []GroupInfo
@@ -272,8 +265,7 @@ func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
 	if r.Method == "GET" {
 		chatID := r.URL.Query().Get("chat_id"); if chatID == "" { chatID = "1" }
-		rows, err := db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false), COALESCE(file_url,''), COALESCE(file_type,''), COALESCE(reply_to,0), COALESCE(reply_text,''), COALESCE(reply_nick,'') FROM messages WHERE chat_id = $1 ORDER BY id ASC LIMIT 300", chatID)
-		if err != nil { json.NewEncoder(w).Encode([]Message{}); return }
+		rows, _ := db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false), COALESCE(file_url,''), COALESCE(file_type,''), COALESCE(reply_to,0), COALESCE(reply_text,''), COALESCE(reply_nick,'') FROM messages WHERE chat_id = $1 ORDER BY id ASC LIMIT 500", chatID)
 		defer rows.Close()
 		var messages []Message
 		for rows.Next() { var m Message; var avatar sql.NullString; rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &avatar, &m.Read, &m.Edited, &m.FileURL, &m.FileType, &m.ReplyTo, &m.ReplyText, &m.ReplyNick); m.Avatar = getAvatarURL(avatar.String); messages = append(messages, m) }
@@ -587,7 +579,6 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	nickname := getNickname(username); avatar := getAvatar(username)
 	ws, _ := upgrader.Upgrade(w, r, nil); defer ws.Close()
 	mu.Lock(); clients[ws] = username; onlineUsers[username] = true
-	// Загружаем блокировки
 	if blockedUsers[username] == nil { blockedUsers[username] = make(map[string]bool) }
 	rows, _ := db.Query("SELECT blocked_username FROM blocked WHERE username = $1", username)
 	defer rows.Close()
@@ -633,7 +624,6 @@ func clearTypingStatuses() {
 func handleMessages() {
 	for { msg := <-broadcast; mu.Lock();
 		for c := range clients {
-			// Проверка блокировки
 			clientUser := clients[c]
 			if blockedUsers[clientUser] != nil && blockedUsers[clientUser][msg.Username] { continue }
 			c.WriteJSON(map[string]interface{}{"id": msg.ID, "username": msg.Username, "nickname": msg.Nickname, "text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID, "avatar": msg.Avatar, "read": msg.Read, "edited": msg.Edited, "file_url": msg.FileURL, "file_type": msg.FileType, "reply_to": msg.ReplyTo, "reply_text": msg.ReplyText, "reply_nick": msg.ReplyNick})
