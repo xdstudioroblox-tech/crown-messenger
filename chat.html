@@ -6,20 +6,8 @@
     <title>Crown Messenger</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root {
-            --bg: #f0f4f8; --sidebar-bg: #f8fafc; --main-bg: #ffffff; --messages-bg: #f5f7fa;
-            --border: #d0d7de; --text: #1a202c; --text-light: #a0aec0; --msg-other-bg: #ffffff;
-            --input-bg: #f8fafc; --hover: #edf2f7; --active: #e8f0fe; --blue: #3b82f6; --blue-dark: #2563eb;
-            --shadow: 0 4px 12px rgba(0,0,0,0.08); --shadow-lg: 0 8px 24px rgba(0,0,0,0.12); --radius: 14px; --radius-lg: 18px;
-            --chat-bg-color: #f5f7fa; --chat-bg-image: none;
-        }
-        body.dark {
-            --bg: #0f1117; --sidebar-bg: #16181d; --main-bg: #1a1d23; --messages-bg: #121418;
-            --border: #2d3239; --text: #e4e8ee; --text-light: #8b949e; --msg-other-bg: #1e2128;
-            --input-bg: #1e2128; --hover: #1e2128; --active: #1a2340;
-            --shadow: 0 4px 12px rgba(0,0,0,0.4); --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
-            --chat-bg-color: #121418; --chat-bg-image: none;
-        }
+        :root { --bg: #f0f4f8; --sidebar-bg: #f8fafc; --main-bg: #ffffff; --messages-bg: #f5f7fa; --border: #d0d7de; --text: #1a202c; --text-light: #a0aec0; --msg-other-bg: #ffffff; --input-bg: #f8fafc; --hover: #edf2f7; --active: #e8f0fe; --blue: #3b82f6; --blue-dark: #2563eb; --shadow: 0 4px 12px rgba(0,0,0,0.08); --radius: 14px; --radius-lg: 18px; --chat-bg-color: #f5f7fa; --chat-bg-image: none; }
+        body.dark { --bg: #0f1117; --sidebar-bg: #16181d; --main-bg: #1a1d23; --messages-bg: #121418; --border: #2d3239; --text: #e4e8ee; --text-light: #8b949e; --msg-other-bg: #1e2128; --input-bg: #1e2128; --hover: #1e2128; --active: #1a2340; --shadow: 0 4px 12px rgba(0,0,0,0.4); --chat-bg-color: #121418; --chat-bg-image: none; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; -webkit-tap-highlight-color: transparent; }
         ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
         .app-container { width: 100%; height: 100vh; display: flex; background: var(--main-bg); position: relative; overflow: hidden; }
@@ -40,17 +28,16 @@
         .menu-divider { border: none; border-top: 1px solid var(--border); margin: 4px 0; } .menu-footer { padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; color: var(--text-light); font-size: 12px; }
         .search-box { padding: 12px 14px; border-bottom: 1px solid var(--border); position: relative; flex-shrink: 0; }
         .search-box input { width: 100%; padding: 10px 14px; border: 2px solid var(--border); border-radius: 22px; font-size: 13px; outline: none; background: var(--input-bg); color: var(--text); }
-        .search-results { position: absolute; top: 100%; left: 14px; right: 14px; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius); max-height: 240px; overflow-y: auto; z-index: 50; display: none; box-shadow: var(--shadow-lg); }
+        .search-results { position: absolute; top: 100%; left: 14px; right: 14px; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius); max-height: 240px; overflow-y: auto; z-index: 50; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
         .search-results.show { display: block; } .search-result-item { padding: 10px 14px; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text); } .search-result-item:hover { background: var(--hover); }
         .chat-list { flex: 1; overflow-y: auto; padding: 6px; }
         .chat-item { padding: 12px 14px; margin: 1px 0; border-radius: var(--radius); cursor: pointer; display: flex; align-items: center; gap: 10px; }
         .chat-item:hover { background: var(--hover); } .chat-item.active { background: var(--active); border-left: 3px solid var(--blue); }
-        .chat-item.unread { font-weight: 600; }
         .chat-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
         .chat-avatar-placeholder { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; flex-shrink: 0; }
         .chat-info { flex: 1; min-width: 0; } .chat-name { font-weight: 600; font-size: 14px; color: var(--text); }
         .chat-last-msg { font-size: 12px; color: var(--text-light); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .chat-badge { background: var(--blue); color: white; font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 600; min-width: 20px; text-align: center; }
+        .chat-badge { background: var(--blue); color: white; font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
         .main-area { flex: 1; display: flex; flex-direction: column; height: 100vh; background: var(--main-bg); min-width: 0; }
         .chat-header { padding: 14px 18px; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; cursor: pointer; }
         .chat-header-avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
@@ -73,14 +60,13 @@
         .reply-preview { background: var(--hover); border-left: 3px solid var(--blue); padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; font-size: 12px; cursor: pointer; color: var(--text); }
         .reply-preview b { color: var(--blue); }
         .typing-indicator { font-size: 12px; color: var(--blue); padding: 4px 0; font-weight: 500; }
-        .context-menu { display: none; position: fixed; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); z-index: 400; padding: 6px 0; min-width: 180px; }
+        .context-menu { display: none; position: fixed; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 400; padding: 6px 0; min-width: 180px; }
         .context-menu.show { display: block; } .context-item { padding: 10px 16px; cursor: pointer; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 8px; border: none; background: none; width: 100%; text-align: left; } .context-item:hover { background: var(--hover); } .context-item.danger { color: #e53e3e; }
         .input-area { padding: 12px 16px; padding-bottom: max(18px, env(safe-area-inset-bottom, 18px)); background: var(--main-bg); border-top: 2px solid var(--border); display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
         .input-area input { flex: 1; padding: 11px 16px; border: 2px solid var(--border); border-radius: 22px; font-size: 14px; outline: none; background: var(--input-bg); color: var(--text); }
-        .input-btn { width: 42px; height: 42px; border-radius: 50%; background: var(--hover); border: none; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; color: var(--text); }
-        .input-btn:hover { background: var(--border); }
+        .input-btn { width: 42px; height: 42px; border-radius: 50%; background: var(--hover); border: none; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; color: var(--text); } .input-btn:hover { background: var(--border); }
         .send-btn { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; border: none; cursor: pointer; font-size: 17px; display: flex; align-items: center; justify-content: center; }
-        .emoji-panel { display: none; position: absolute; bottom: 80px; left: 16px; right: 16px; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 50; max-height: 350px; overflow-y: auto; padding: 10px; }
+        .emoji-panel { display: none; position: absolute; bottom: 80px; left: 16px; right: 16px; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 50; max-height: 350px; overflow-y: auto; padding: 10px; }
         .emoji-panel.show { display: block; } .emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; } .emoji-item { font-size: 24px; cursor: pointer; padding: 6px; text-align: center; border-radius: 8px; } .emoji-item:hover { background: var(--hover); }
         .emoji-tabs { display: flex; gap: 4px; margin-bottom: 10px; } .emoji-tab { padding: 8px 12px; cursor: pointer; border-radius: 8px; font-size: 13px; border: none; background: none; color: var(--text-light); } .emoji-tab.active { background: var(--blue); color: white; }
         .sticker-item, .gif-item { width: 80px; height: 80px; object-fit: contain; cursor: pointer; border-radius: 8px; } .sticker-item:hover, .gif-item:hover { background: var(--hover); }
@@ -130,6 +116,11 @@
 <div class="lightbox" id="lightbox" onclick="closeLightbox()"><span class="lightbox-close">✕</span><div id="lightboxContent" onclick="event.stopPropagation()"></div></div>
 <div class="context-menu" id="contextMenu"><button class="context-item" id="ctxReply">↩️ Ответить</button><button class="context-item" id="ctxEdit">✏️ Редактировать</button><button class="context-item danger" id="ctxDelete">🗑️ Удалить</button></div>
 <div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"><div class="menu-panel" onclick="event.stopPropagation()"><div class="menu-profile"><img class="menu-avatar" id="menuAvatarImg" style="display:none;"><div class="menu-avatar-placeholder" id="menuAvatarPlaceholder">👤</div><div class="menu-nickname" id="menuNickname">Пользователь</div><div class="menu-username" id="menuUsername">@user</div></div><div class="menu-items"><button class="menu-item" onclick="closeMenu();openProfile(username);">👤 Мой профиль</button><button class="menu-item" onclick="closeMenu();showCreateGroup();">👥 Создать группу</button><button class="menu-item" onclick="closeMenu();showJoinGroup();">🔗 Присоединиться</button><button class="menu-item" onclick="closeMenu();showSettings();">⚙️ Настройки</button></div><hr class="menu-divider"><div class="menu-footer"><span>🌙 Ночной режим</span><label class="switch"><input type="checkbox" id="menuThemeToggle" onchange="toggleTheme()"><span class="slider"></span></label></div><div class="menu-footer" style="justify-content:center;padding-top:0;"><span>Crown Messenger v0.4 (beta)</span></div></div></div>
+<div class="modal" id="profileModal"><div class="modal-content"><button class="modal-close" onclick="closeProfile()">✕</button><div style="text-align:center;"><img class="profile-avatar" id="profileAvatarImg" style="display:none;"><div class="profile-avatar-placeholder" id="profileAvatarPlaceholder">👤</div><label class="custom-file-btn" for="avatarInput" style="margin:0 auto 8px;">📷 Сменить фото</label><input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="uploadAvatar()"></div><div class="profile-field"><label>Никнейм</label><input type="text" id="profileNickname" disabled></div><div class="profile-field"><label>Юзернейм</label><input type="text" id="profileUsername" disabled></div><div class="profile-field"><label>О себе</label><textarea id="profileAbout" rows="3" disabled></textarea></div><button class="btn btn-primary" id="profileSaveBtn" style="display:none;">Сохранить</button><button class="btn btn-primary" id="profileChatBtn" style="display:none;">💬 Написать</button><button class="btn btn-danger" id="profileBlockBtn" style="display:none;">🚫 Заблокировать</button><button class="btn btn-danger" id="profileDeleteChatBtn" style="display:none;">🗑️ Удалить чат</button></div></div>
+<div class="modal" id="groupModal"><div class="modal-content"><button class="modal-close" onclick="closeGroupModal()">✕</button><div id="groupModalContent"></div></div></div>
+<div class="modal" id="inviteModal"><div class="modal-content"><button class="modal-close" onclick="closeInviteModal()">✕</button><div id="inviteModalContent"></div></div></div>
+<div class="modal" id="settingsModal"><div class="modal-content" style="max-width:440px;"><button class="modal-close" onclick="closeSettings()">✕</button><div id="settingsContent"></div></div></div>
+<div class="modal" id="stickerPackModal"><div class="modal-content"><button class="modal-close" onclick="closeStickerPackModal()">✕</button><div id="stickerPackContent"></div></div></div>
 
 <script>
 var username="",nickname="",myAvatar="",ws,currentChatId=1,currentPeer="",currentIsGroup=false,viewingProfile="",searchTimeout,onlineCount=0,contextMsgId=null,typingTimeout=null,typingSent=false,replyToId=null,replyToText=null,replyToNick=null,typingUsers={},lastMsgs={},unreadCounts={};
@@ -228,14 +219,13 @@ function showInviteModal(gid,gn,code){var link='https://crown-messenger.onrender
 function closeInviteModal(){document.getElementById('inviteModal').classList.remove('show');}
 function showGroupManage(gid){fetch('/api/group/info?id='+gid,{headers:{'Authorization':'Bearer '+getToken()}}).then(function(r){return r.json();}).then(function(g){fetch('/api/group/invites?id='+gid,{headers:{'Authorization':'Bearer '+getToken()}}).then(function(r){return r.json();}).then(function(inv){showInviteModal(gid,g.name,inv.invite_code);});});}
 
-// Чаты (стабильная версия без багов)
+// Чаты (СТАБИЛЬНАЯ ВЕРСИЯ)
 function addChatToList(id,peer,isGroup){
     var old=document.querySelector('.chat-item[data-chat-id="'+id+'"]');if(old)old.remove();
     var list=document.getElementById('chatList'),div=document.createElement('div');div.className='chat-item';
     div.setAttribute('data-chat-id',id);div.setAttribute('data-peer',peer||'');div.setAttribute('data-is-group',isGroup?'true':'false');
     var av=isGroup?getInitials(peer):(peer?getInitials(peer):'💬');
     var last=lastMsgs[id]||'';var unread=unreadCounts[id]||0;
-    if(unread>0)div.classList.add('unread');
     div.innerHTML='<div class="chat-avatar-placeholder">'+av+'</div><div class="chat-info"><div class="chat-name">'+(peer||'Общий чат')+'</div>'+(last?'<div class="chat-last-msg">'+last+'</div>':'')+'</div>'+(unread>0?'<div class="chat-badge">'+(unread>99?'99+':unread)+'</div>':'');
     div.onclick=function(){unreadCounts[id]=0;switchToChat(id,peer,isGroup);};
     list.appendChild(div);
@@ -245,7 +235,7 @@ function switchToChat(id,peer,isGroup){
     unreadCounts[currentChatId]=0;
     document.getElementById('chatTitle').textContent=peer||'Общий чат';
     document.getElementById('chatHeaderIcon').textContent=peer?getInitials(peer):'💬';
-    document.querySelectorAll('.chat-item').forEach(function(el){el.classList.remove('active');el.classList.remove('unread');});
+    document.querySelectorAll('.chat-item').forEach(function(el){el.classList.remove('active');});
     var item=document.querySelector('.chat-item[data-chat-id="'+id+'"]');if(item)item.classList.add('active');
     updateOnlineStatus();cancelReply();typingUsers={};updateTypingIndicator();
     var area=document.getElementById('messagesArea');area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div>';
@@ -259,7 +249,7 @@ function appendMessage(id,sender,senderNick,text,time,avatar,read,edited,animate
     var area=document.getElementById('messagesArea'),div=document.createElement('div'),isMine=sender===username;
     div.className='message '+(isMine?'mine':'other');if(!animate)div.style.animation='none';div.setAttribute('data-msg-id',id);
     var avHtml='';if(!isMine){if(avatar&&avatar!=='')avHtml='<img class="message-avatar" src="'+avatar+'" onclick="openProfile(\''+sender+'\')">';else avHtml='<div class="message-avatar-placeholder" onclick="openProfile(\''+sender+'\')">'+getInitials(senderNick)+'</div>';}
-    var readHtml='';if(currentIsGroup){readHtml='<div class="message-read" onclick="event.stopPropagation();">✓'+(read?'✓':'')+'</div>';}else if(isMine&&currentChatId!==1){readHtml='<div class="message-read">'+(read?'✓✓':'✓')+'</div>';}
+    var readHtml='';if(currentIsGroup){readHtml='<div class="message-read">✓'+(read?'✓':'')+'</div>';}else if(isMine&&currentChatId!==1){readHtml='<div class="message-read">'+(read?'✓✓':'✓')+'</div>';}
     var editedHtml=edited?' <span class="message-edited">(ред.)</span>':'';
     var displayTime=formatTime(time);
     var replyHtml='';if(replyTo&&replyText)replyHtml='<div class="reply-preview" onclick="scrollToMessage('+replyTo+')"><b>'+escapeHtml(replyNick||'')+'</b>: '+escapeHtml(replyText)+'</div>';
