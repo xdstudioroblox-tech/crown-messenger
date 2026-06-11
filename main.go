@@ -259,6 +259,9 @@ func main() {
 	http.HandleFunc("/manifest.json", serveManifest)
 	http.HandleFunc("/", serveHome)
 	http.HandleFunc("/chat", serveChat)
+	http.HandleFunc("/donate", func(w http.ResponseWriter, r *http.Request) {
+    http.Redirect(w, r, "https://pay.cloudtips.ru/p/a1f1b091", http.StatusFound)
+})
 
 	go handleMessages()
 	go clearTypingStatuses()
