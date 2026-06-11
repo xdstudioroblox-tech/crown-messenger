@@ -401,7 +401,7 @@ function appendMessageToDiv(parent, m) {
     div.addEventListener('touchstart', function(e) { var self = this; longPressTimer = setTimeout(function() { var nn = self.querySelector('.message-username'); showContextMenu(e, m.id, m.text, nn ? nn.textContent : '', isMine); }, 500); });
     div.addEventListener('touchend', function() { clearTimeout(longPressTimer); });
     div.addEventListener('touchmove', function() { clearTimeout(longPressTimer); });
-    parent.appendChild(div);
+    document.getElementById('messagesArea').appendChild(div);
     lastMsgs[currentChatId] = (m.nickname || m.username) + ': ' + (m.text || '[файл]');
     if (currentChatId !== parseInt((document.querySelector('.chat-item.active') || {}).getAttribute?.('data-chat-id') || 0)) {
         unreadCounts[currentChatId] = (unreadCounts[currentChatId] || 0) + 1;
@@ -443,8 +443,19 @@ function connectWebSocket(token) {
         var t = msg.chat_id || 1;
         if (t === currentChatId) {
             removeTypingIndicator();
-            appendMessage(msg.id, msg.username, msg.nickname || msg.username, msg.text, msg.time, msg.avatar || '', msg.read || false, msg.edited || false, true, msg.file_url, msg.file_type, msg.reply_to, msg.reply_text, msg.reply_nick);
-            if (!currentIsGroup && currentChatId !== 1) markAsRead(currentChatId);
+var m = {
+    id: msg.id, username: msg.username, nickname: msg.nickname || msg.username,
+    text: msg.text, time: msg.time, avatar: msg.avatar || '',
+    read: msg.read || false, edited: msg.edited || false,
+    file_url: msg.file_url, file_type: msg.file_type,
+    reply_to: msg.reply_to, reply_text: msg.reply_text, reply_nick: msg.reply_nick
+};
+var div = document.createElement('div');
+appendMessageToDiv(div, m);
+var area = document.getElementById('messagesArea');
+area.appendChild(div);
+area.scrollTop = area.scrollHeight;
+checkScrollBottom();
             checkScrollBottom();
         } else {
             lastMsgs[t] = msg.nickname + ': ' + (msg.text || '[файл]');
