@@ -10,28 +10,42 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
 	_ "github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/time/rate"
 )
 
 var (
-	upgrader     = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
+	upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true // В продакшене заменить на проверку домена
+		},
+		EnableCompression: true, // Сжатие WebSocket
+	}
+
 	db           *sql.DB
-	jwtSecret    = []byte("super-secret-key-change-in-production")
+	jwtSecret    []byte
 	clients      = make(map[*websocket.Conn]string)
 	onlineUsers  = make(map[string]bool)
 	blockedUsers = make(map[string]map[string]bool)
 	typingUsers  = make(map[int]map[string]time.Time)
 	broadcast    = make(chan Message)
 	mu           sync.Mutex
+
+	// Rate limiting
+	visitors = make(map[string]*rate.Limiter)
+	visitorsMu sync.Mutex
 )
 
 type User struct {
@@ -114,16 +128,77 @@ type Gif struct {
 	Owner string `json:"owner"`
 }
 
+// Rate limiting: получаем или создаём лимитер для IP
+func getVisitor(ip string) *rate.Limiter {
+	visitorsMu.Lock()
+	defer visitorsMu.Unlock()
+
+	limiter, exists := visitors[ip]
+	if !exists {
+		limiter = rate.NewLimiter(30, 60) // 30 запросов/сек, burst 60
+		visitors[ip] = limiter
+	}
+	return limiter
+}
+
+// Middleware для rate limiting
+func rateLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ip := r.RemoteAddr
+		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+			ip = strings.Split(forwarded, ",")[0]
+		}
+		limiter := getVisitor(ip)
+		if !limiter.Allow() {
+			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+			return
+		}
+		next(w, r)
+	}
+}
+
+// Recovery middleware
+func recoveryMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				log.Printf("PANIC: %v", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			}
+		}()
+		next(w, r)
+	}
+}
+
+// Применяем middleware
+func withMiddleware(h http.HandlerFunc) http.HandlerFunc {
+	return recoveryMiddleware(rateLimitMiddleware(h))
+}
+
 func main() {
+	// JWT секрет из переменной окружения или по умолчанию
+	jwtSecret = []byte(os.Getenv("JWT_SECRET"))
+	if len(jwtSecret) == 0 {
+		jwtSecret = []byte("super-secret-key-change-in-production")
+		log.Println("⚠️ Используется JWT-секрет по умолчанию! Установите JWT_SECRET!")
+	}
+
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" { log.Fatal("DATABASE_URL не установлен") }
+
 	log.Println("Подключаюсь к PostgreSQL...")
 	var err error
 	db, err = sql.Open("postgres", databaseURL)
 	if err != nil { log.Fatal(err) }
-	defer db.Close()
-	db.Ping()
+
+	// Connection pool
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	if err = db.Ping(); err != nil { log.Fatal(err) }
 	log.Println("Подключено к PostgreSQL успешно!")
+
 	os.MkdirAll("uploads", 0755)
 	os.MkdirAll("uploads/photos", 0755)
 	os.MkdirAll("uploads/videos", 0755)
@@ -132,33 +207,36 @@ func main() {
 	os.MkdirAll("uploads/gifs", 0755)
 	createTables()
 
-	http.HandleFunc("/api/register", handleRegister)
-	http.HandleFunc("/api/login", handleLogin)
-	http.HandleFunc("/api/search", handleSearch)
-	http.HandleFunc("/api/messages", handleMessagesAPI)
-	http.HandleFunc("/api/profile", handleProfile)
-	http.HandleFunc("/api/upload-avatar", handleUploadAvatar)
-	http.HandleFunc("/api/upload-file", handleUploadFile)
-	http.HandleFunc("/api/chat/create", handleCreateChat)
-	http.HandleFunc("/api/chat/list", handleChatList)
-	http.HandleFunc("/api/chat/delete", handleDeleteChat)
-	http.HandleFunc("/api/block", handleBlockUser)
-	http.HandleFunc("/api/clearchats", handleClearChats)
-	http.HandleFunc("/api/dbtest", handleDBTest)
-	http.HandleFunc("/api/online", handleOnlineStatus)
-	http.HandleFunc("/api/read", handleMarkRead)
-	http.HandleFunc("/api/group/create", handleCreateGroup)
-	http.HandleFunc("/api/group/join", handleJoinGroup)
-	http.HandleFunc("/api/group/info", handleGroupInfoAPI)
-	http.HandleFunc("/api/group/update", handleUpdateGroup)
-	http.HandleFunc("/api/group/members", handleGroupMembers)
-	http.HandleFunc("/api/group/invites", handleGroupInvites)
-	http.HandleFunc("/api/group/leave", handleGroupLeave)
-	http.HandleFunc("/api/stickers/packs", handleStickerPacks)
-	http.HandleFunc("/api/stickers/upload", handleStickerUpload)
-	http.HandleFunc("/api/stickers/list", handleStickerList)
-	http.HandleFunc("/api/gifs/upload", handleGifUpload)
-	http.HandleFunc("/api/gifs/list", handleGifList)
+	// API endpoints с rate limiting
+	http.HandleFunc("/api/register", withMiddleware(handleRegister))
+	http.HandleFunc("/api/login", withMiddleware(handleLogin))
+	http.HandleFunc("/api/search", withMiddleware(handleSearch))
+	http.HandleFunc("/api/messages", withMiddleware(handleMessagesAPI))
+	http.HandleFunc("/api/profile", withMiddleware(handleProfile))
+	http.HandleFunc("/api/upload-avatar", withMiddleware(handleUploadAvatar))
+	http.HandleFunc("/api/upload-file", withMiddleware(handleUploadFile))
+	http.HandleFunc("/api/chat/create", withMiddleware(handleCreateChat))
+	http.HandleFunc("/api/chat/list", withMiddleware(handleChatList))
+	http.HandleFunc("/api/chat/delete", withMiddleware(handleDeleteChat))
+	http.HandleFunc("/api/block", withMiddleware(handleBlockUser))
+	http.HandleFunc("/api/group/create", withMiddleware(handleCreateGroup))
+	http.HandleFunc("/api/group/join", withMiddleware(handleJoinGroup))
+	http.HandleFunc("/api/group/info", withMiddleware(handleGroupInfoAPI))
+	http.HandleFunc("/api/group/update", withMiddleware(handleUpdateGroup))
+	http.HandleFunc("/api/group/members", withMiddleware(handleGroupMembers))
+	http.HandleFunc("/api/group/invites", withMiddleware(handleGroupInvites))
+	http.HandleFunc("/api/group/leave", withMiddleware(handleGroupLeave))
+	http.HandleFunc("/api/stickers/packs", withMiddleware(handleStickerPacks))
+	http.HandleFunc("/api/stickers/upload", withMiddleware(handleStickerUpload))
+	http.HandleFunc("/api/stickers/list", withMiddleware(handleStickerList))
+	http.HandleFunc("/api/gifs/upload", withMiddleware(handleGifUpload))
+	http.HandleFunc("/api/gifs/list", withMiddleware(handleGifList))
+	http.HandleFunc("/api/read", withMiddleware(handleMarkRead))
+	http.HandleFunc("/api/online", withMiddleware(handleOnlineStatus))
+	http.HandleFunc("/api/health", handleHealth)
+	http.HandleFunc("/api/dbtest", withMiddleware(handleDBTest))
+
+	// WebSocket и статика без rate limit
 	http.HandleFunc("/ws", handleConnections)
 	http.HandleFunc("/uploads/", serveUploads)
 	http.HandleFunc("/", serveHome)
@@ -166,10 +244,35 @@ func main() {
 
 	go handleMessages()
 	go clearTypingStatuses()
+
 	port := os.Getenv("PORT")
 	if port == "" { port = "8080" }
-	log.Println("Сервер запущен на порту " + port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+
+	// Graceful shutdown
+	server := &http.Server{Addr: ":" + port}
+	go func() {
+		log.Println("Сервер запущен на порту " + port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+
+	// Ждём сигнал завершения
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Завершение сервера...")
+
+	// Закрываем WebSocket соединения
+	mu.Lock()
+	for ws := range clients {
+		ws.Close()
+	}
+	mu.Unlock()
+
+	server.Close()
+	db.Close()
+	log.Println("Сервер остановлен")
 }
 
 func createTables() {
@@ -185,7 +288,15 @@ func createTables() {
 		`CREATE TABLE IF NOT EXISTS blocked (id SERIAL PRIMARY KEY, username TEXT NOT NULL, blocked_username TEXT NOT NULL, UNIQUE(username, blocked_username))`,
 	}
 	for _, q := range queries { db.Exec(q) }
-	db.Exec("DELETE FROM chats WHERE user1 = '' OR user2 = ''")
+
+	// Индексы для производительности
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_messages_time ON messages(time)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_messages_username ON messages(username)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_users_nickname ON users(nickname)")
+
+	// ALTER TABLE вместо DROP
 	db.Exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT ''")
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS read BOOLEAN DEFAULT false")
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited BOOLEAN DEFAULT false")
@@ -196,16 +307,35 @@ func createTables() {
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_nick TEXT DEFAULT ''")
 	db.Exec("ALTER TABLE groups_chat ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''")
 	db.Exec("ALTER TABLE groups_chat ADD COLUMN IF NOT EXISTS public BOOLEAN DEFAULT false")
-	log.Println("Таблицы проверены")
+	log.Println("Таблицы и индексы проверены")
 }
 
-func serveHome(w http.ResponseWriter, r *http.Request) { if r.URL.Path != "/" { http.NotFound(w, r); return }; http.ServeFile(w, r, "index.html") }
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	mu.Lock()
+	online := len(onlineUsers)
+	mu.Unlock()
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "ok",
+		"online": online,
+		"time":   time.Now().Format(time.RFC3339),
+	})
+}
+
+func serveHome(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" { http.NotFound(w, r); return }
+	http.ServeFile(w, r, "index.html")
+}
 func serveChat(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "chat.html") }
-func serveUploads(w http.ResponseWriter, r *http.Request) { http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))).ServeHTTP(w, r) }
+func serveUploads(w http.ResponseWriter, r *http.Request) {
+	http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))).ServeHTTP(w, r)
+}
 func getAvatarURL(a string) string { if a == "" { return "" }; return "/uploads/" + a }
 func getNickname(u string) string { var n string; db.QueryRow("SELECT nickname FROM users WHERE username = $1", u).Scan(&n); if n == "" { return u }; return n }
 func getAvatar(u string) string { var a sql.NullString; db.QueryRow("SELECT avatar FROM users WHERE username = $1", u).Scan(&a); return a.String }
-func generateToken(username string, userID int) (string, error) { return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"username": username, "user_id": userID, "exp": time.Now().Add(720 * time.Hour).Unix()}).SignedString(jwtSecret) }
+func generateToken(username string, userID int) (string, error) {
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"username": username, "user_id": userID, "exp": time.Now().Add(720 * time.Hour).Unix()}).SignedString(jwtSecret)
+}
 func getUserFromRequest(r *http.Request) string {
 	tokenString := r.Header.Get("Authorization")
 	if tokenString == "" || !strings.HasPrefix(tokenString, "Bearer ") { return "" }
@@ -218,16 +348,33 @@ func getUserFromRequest(r *http.Request) string {
 }
 func isValidUsername(u string) bool { if len(u) < 6 { return false }; m, _ := regexp.MatchString(`^[a-zA-Z0-9_]+$`, u); return m }
 
+// escapeHTML для защиты от XSS
+func escapeHTML(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	s = strings.ReplaceAll(s, "'", "&#39;")
+	return s
+}
+
 func handleRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" { http.Error(w, "Method not allowed", http.StatusMethodNotAllowed); return }
 	var req AuthRequest; json.NewDecoder(r.Body).Decode(&req)
+	req.Username = strings.TrimSpace(escapeHTML(req.Username))
+	req.Nickname = strings.TrimSpace(escapeHTML(req.Nickname))
 	if req.Username == "" || req.Password == "" || req.Nickname == "" { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Все поля обязательны"}); return }
 	if !isValidUsername(req.Username) { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Юзернейм: от 6 символов, только буквы, цифры и _"}); return }
 	if len(req.Password) < 8 { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Пароль: минимум 8 символов"}); return }
 	var existingID int
 	if db.QueryRow("SELECT id FROM users WHERE username = $1", req.Username).Scan(&existingID) == nil { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Пользователь уже существует"}); return }
+
+	// Хешируем пароль
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Ошибка сервера"}); return }
+
 	var userID int
-	db.QueryRow("INSERT INTO users (username, nickname, password, email, phone) VALUES ($1, $2, $3, $4, $5) RETURNING id", req.Username, req.Nickname, req.Password, req.Email, req.Phone).Scan(&userID)
+	db.QueryRow("INSERT INTO users (username, nickname, password, email, phone) VALUES ($1, $2, $3, $4, $5) RETURNING id", req.Username, req.Nickname, string(hashedPassword), req.Email, req.Phone).Scan(&userID)
 	token, _ := generateToken(req.Username, userID)
 	json.NewEncoder(w).Encode(AuthResponse{Success: true, Token: token, User: &User{ID: userID, Nickname: req.Nickname, Username: req.Username, Email: req.Email}})
 }
@@ -235,8 +382,10 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 func handleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" { http.Error(w, "Method not allowed", http.StatusMethodNotAllowed); return }
 	var req AuthRequest; json.NewDecoder(r.Body).Decode(&req)
-	var user User; var email, about, avatar, phone sql.NullString
-	if db.QueryRow("SELECT id, username, nickname, email, about, avatar, phone FROM users WHERE username = $1 AND password = $2", req.Username, req.Password).Scan(&user.ID, &user.Username, &user.Nickname, &email, &about, &avatar, &phone) != nil { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Неверный логин или пароль"}); return }
+	req.Username = strings.TrimSpace(escapeHTML(req.Username))
+	var user User; var email, about, avatar, phone, hashedPassword sql.NullString
+	if db.QueryRow("SELECT id, username, nickname, password, email, about, avatar, phone FROM users WHERE username = $1", req.Username).Scan(&user.ID, &user.Username, &user.Nickname, &hashedPassword, &email, &about, &avatar, &phone) != nil { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Неверный логин или пароль"}); return }
+	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword.String), []byte(req.Password)); err != nil { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Неверный логин или пароль"}); return }
 	user.Email = email.String; user.About = about.String; user.Avatar = getAvatarURL(avatar.String); user.Phone = phone.String
 	token, _ := generateToken(user.Username, user.ID)
 	json.NewEncoder(w).Encode(AuthResponse{Success: true, Token: token, User: &user})
@@ -246,6 +395,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	q := r.URL.Query().Get("q")
 	if q == "" { json.NewEncoder(w).Encode(SearchResponse{Success: false, Error: "Пустой запрос"}); return }
+	q = strings.TrimSpace(escapeHTML(q))
 	rows, _ := db.Query("SELECT id, username, nickname, email, about, avatar, COALESCE(phone,'') FROM users WHERE username ILIKE $1 OR nickname ILIKE $2 LIMIT 20", "%"+q+"%", "%"+q+"%")
 	defer rows.Close()
 	var users []User
@@ -265,10 +415,18 @@ func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
 	if r.Method == "GET" {
 		chatID := r.URL.Query().Get("chat_id"); if chatID == "" { chatID = "1" }
-		rows, _ := db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false), COALESCE(file_url,''), COALESCE(file_type,''), COALESCE(reply_to,0), COALESCE(reply_text,''), COALESCE(reply_nick,'') FROM messages WHERE chat_id = $1 ORDER BY id ASC LIMIT 500", chatID)
+		before := r.URL.Query().Get("before") // пагинация
+		var rows *sql.Rows
+		if before != "" {
+			rows, _ = db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false), COALESCE(file_url,''), COALESCE(file_type,''), COALESCE(reply_to,0), COALESCE(reply_text,''), COALESCE(reply_nick,'') FROM messages WHERE chat_id = $1 AND id < $2 ORDER BY id DESC LIMIT 50", chatID, before)
+		} else {
+			rows, _ = db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false), COALESCE(file_url,''), COALESCE(file_type,''), COALESCE(reply_to,0), COALESCE(reply_text,''), COALESCE(reply_nick,'') FROM messages WHERE chat_id = $1 ORDER BY id DESC LIMIT 50", chatID)
+		}
 		defer rows.Close()
 		var messages []Message
 		for rows.Next() { var m Message; var avatar sql.NullString; rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &avatar, &m.Read, &m.Edited, &m.FileURL, &m.FileType, &m.ReplyTo, &m.ReplyText, &m.ReplyNick); m.Avatar = getAvatarURL(avatar.String); messages = append(messages, m) }
+		// Разворачиваем порядок
+		for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 { messages[i], messages[j] = messages[j], messages[i] }
 		if messages == nil { messages = []Message{} }
 		json.NewEncoder(w).Encode(messages); return
 	}
@@ -276,6 +434,7 @@ func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 		var req struct { ID int `json:"id"`; Text string `json:"text"` }; json.NewDecoder(r.Body).Decode(&req)
 		var owner string; db.QueryRow("SELECT username FROM messages WHERE id = $1", req.ID).Scan(&owner)
 		if owner != currentUser { http.Error(w, "Forbidden", http.StatusForbidden); return }
+		req.Text = escapeHTML(strings.TrimSpace(req.Text))
 		db.Exec("UPDATE messages SET text = $1, edited = true WHERE id = $2", req.Text, req.ID)
 		json.NewEncoder(w).Encode(map[string]bool{"success": true}); return
 	}
@@ -303,9 +462,9 @@ func handleProfile(w http.ResponseWriter, r *http.Request) {
 		if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
 		var req struct { Nickname string `json:"nickname,omitempty"`; About string `json:"about,omitempty"`; Phone string `json:"phone,omitempty"` }
 		json.NewDecoder(r.Body).Decode(&req)
-		if req.Nickname != "" { db.Exec("UPDATE users SET nickname = $1 WHERE username = $2", req.Nickname, currentUser) }
-		if req.About != "" { db.Exec("UPDATE users SET about = $1 WHERE username = $2", req.About, currentUser) }
-		if req.Phone != "" { db.Exec("UPDATE users SET phone = $1 WHERE username = $2", req.Phone, currentUser) }
+		if req.Nickname != "" { db.Exec("UPDATE users SET nickname = $1 WHERE username = $2", escapeHTML(req.Nickname), currentUser) }
+		if req.About != "" { db.Exec("UPDATE users SET about = $1 WHERE username = $2", escapeHTML(req.About), currentUser) }
+		if req.Phone != "" { db.Exec("UPDATE users SET phone = $1 WHERE username = $2", escapeHTML(req.Phone), currentUser) }
 		json.NewEncoder(w).Encode(map[string]bool{"success": true}); return
 	}
 }
@@ -349,6 +508,7 @@ func handleCreateChat(w http.ResponseWriter, r *http.Request) {
 	currentUser := getUserFromRequest(r)
 	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
 	var req struct { User2 string `json:"user2"` }; json.NewDecoder(r.Body).Decode(&req)
+	req.User2 = escapeHTML(req.User2)
 	if currentUser == req.User2 { http.Error(w, "Нельзя", http.StatusBadRequest); return }
 	u1, u2 := currentUser, req.User2; if u1 > u2 { u1, u2 = u2, u1 }
 	var chatID int
@@ -372,6 +532,7 @@ func handleBlockUser(w http.ResponseWriter, r *http.Request) {
 	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
 	var req struct { Username string `json:"username"`; Block bool `json:"block"` }
 	json.NewDecoder(r.Body).Decode(&req)
+	req.Username = escapeHTML(req.Username)
 	if req.Block {
 		db.Exec("INSERT INTO blocked (username, blocked_username) VALUES ($1, $2) ON CONFLICT DO NOTHING", currentUser, req.Username)
 		mu.Lock(); if blockedUsers[currentUser] == nil { blockedUsers[currentUser] = make(map[string]bool) }; blockedUsers[currentUser][req.Username] = true; mu.Unlock()
@@ -403,7 +564,6 @@ func handleChatList(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(chats)
 }
 
-func handleClearChats(w http.ResponseWriter, r *http.Request) { db.Exec("DELETE FROM chats"); json.NewEncoder(w).Encode(map[string]string{"status": "ok"}) }
 func handleOnlineStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	un := r.URL.Query().Get("username")
@@ -431,6 +591,7 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	currentUser := getUserFromRequest(r)
 	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
 	var req struct { Name string `json:"name"`; Public bool `json:"public"` }; json.NewDecoder(r.Body).Decode(&req)
+	req.Name = escapeHTML(strings.TrimSpace(req.Name))
 	if req.Name == "" { json.NewEncoder(w).Encode(map[string]string{"error": "Название обязательно"}); return }
 	inviteCode := generateInviteCode()
 	var groupID int
@@ -444,6 +605,7 @@ func handleJoinGroup(w http.ResponseWriter, r *http.Request) {
 	currentUser := getUserFromRequest(r)
 	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
 	var req struct { Code string `json:"code"` }; json.NewDecoder(r.Body).Decode(&req)
+	req.Code = escapeHTML(req.Code)
 	var groupID int; var groupName string
 	err := db.QueryRow("SELECT id, name FROM groups_chat WHERE invite_code = $1", req.Code).Scan(&groupID, &groupName)
 	if err != nil { json.NewEncoder(w).Encode(map[string]string{"error": "Группа не найдена"}); return }
@@ -467,8 +629,8 @@ func handleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	var req struct { ID int `json:"id"`; Name string `json:"name,omitempty"`; Description string `json:"description,omitempty"`; Public bool `json:"public,omitempty"` }; json.NewDecoder(r.Body).Decode(&req)
 	var role string; db.QueryRow("SELECT role FROM group_members WHERE group_id = $1 AND username = $2", req.ID, currentUser).Scan(&role)
 	if role != "admin" { http.Error(w, "Forbidden", http.StatusForbidden); return }
-	if req.Name != "" { db.Exec("UPDATE groups_chat SET name = $1 WHERE id = $2", req.Name, req.ID) }
-	if req.Description != "" { db.Exec("UPDATE groups_chat SET description = $1 WHERE id = $2", req.Description, req.ID) }
+	if req.Name != "" { db.Exec("UPDATE groups_chat SET name = $1 WHERE id = $2", escapeHTML(req.Name), req.ID) }
+	if req.Description != "" { db.Exec("UPDATE groups_chat SET description = $1 WHERE id = $2", escapeHTML(req.Description), req.ID) }
 	db.Exec("UPDATE groups_chat SET public = $1 WHERE id = $2", req.Public, req.ID)
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
@@ -507,6 +669,7 @@ func handleStickerPacks(w http.ResponseWriter, r *http.Request) {
 	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
 	if r.Method == "POST" {
 		var req struct { Name string `json:"name"` }; json.NewDecoder(r.Body).Decode(&req)
+		req.Name = escapeHTML(strings.TrimSpace(req.Name))
 		if req.Name == "" { json.NewEncoder(w).Encode(map[string]string{"error": "Название обязательно"}); return }
 		var packID int
 		db.QueryRow("INSERT INTO sticker_packs (name, owner) VALUES ($1, $2) RETURNING id", req.Name, currentUser).Scan(&packID)
@@ -590,6 +753,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		var msg Message
 		if err := ws.ReadJSON(&msg); err != nil { mu.Lock(); delete(clients, ws); delete(onlineUsers, username); mu.Unlock(); broadcastOnlineCount(); break }
 		msg.Username = username; msg.Nickname = nickname; msg.Avatar = getAvatarURL(avatar); msg.Time = time.Now().Format("15:04")
+		msg.Text = escapeHTML(strings.TrimSpace(msg.Text))
 		if msg.ChatID == 0 { msg.ChatID = 1 }
 		if msg.Action == "typing" || msg.Action == "uploading_photo" || msg.Action == "uploading_video" || msg.Action == "uploading_audio" {
 			mu.Lock()
