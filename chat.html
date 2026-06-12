@@ -753,16 +753,23 @@ async function loadStickers() {
     } catch(e) {}
 }
 async function showStickersInPack(pid) {
-    var grid = document.getElementById('emojiGrid'); grid.innerHTML = '';
+    var grid = document.getElementById('emojiGrid');
+    grid.innerHTML = '';
     try {
         var r = await fetch('/api/stickers/list?pack_id=' + pid);
         var stickers = await r.json();
         stickers.forEach(function(s) {
-            var img = document.createElement('img'); img.src = s.url; img.className = 'sticker-item';
+            var img = document.createElement('img');
+            img.src = s.url;
+            img.className = 'sticker-item';
             img.onclick = function() { sendStickerOrGif(s.url); };
             grid.appendChild(img);
         });
-        grid.innerHTML += '<div style="grid-column:1/-1;text-align:center;margin-top:6px;"><label class="custom-file-btn">+ Стикер<input type="file" accept="image/*" onchange="uploadStickerToPack(' + pid + ',this)" style="display:none;"></label></div>';
+        // Кнопка добавления стикера
+        var addBtn = document.createElement('div');
+        addBtn.style.cssText = 'grid-column:1/-1;text-align:center;margin-top:6px;';
+        addBtn.innerHTML = '<label class="custom-file-btn">+ Стикер<input type="file" accept="image/*" onchange="uploadStickerToPack(' + pid + ',this)" style="display:none;"></label>';
+        grid.appendChild(addBtn);
     } catch(e) {}
 }
 function showCreateStickerPack() {
