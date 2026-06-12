@@ -6,127 +6,318 @@
     <title>Crown Messenger</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        /* ====== СВЕТЛАЯ ТЕМА (по умолчанию) ====== */
         :root {
-            --bg: #f0f4f8; --sidebar-bg: #f8fafc; --main-bg: #ffffff; --messages-bg: #f5f7fa;
-            --border: #d0d7de; --text: #1a202c; --text-light: #a0aec0; --msg-other-bg: #ffffff;
-            --input-bg: #f8fafc; --hover: #edf2f7; --active: #e8f0fe; --blue: #3b82f6;
-            --blue-dark: #2563eb; --header-bg: #3b82f6; --shadow: 0 4px 12px rgba(0,0,0,0.08);
-            --radius: 14px; --radius-lg: 18px; --chat-bg-color: #f5f7fa; --chat-bg-image: none;
+            --bg: #f5f5f5;
+            --sidebar-bg: #ebebeb;
+            --main-bg: #ffffff;
+            --messages-bg: #f5f5f5;
+            --border: #d1d5db;
+            --text: #1a1a1a;
+            --text-light: #6b7280;
+            --text-secondary: #9ca3af;
+            --msg-other-bg: #ffffff;
+            --msg-other-border: #e5e7eb;
+            --input-bg: #f9fafb;
+            --hover: #e5e7eb;
+            --active: #dbeafe;
+            --blue: #1a73e8;
+            --blue-dark: #1557b0;
+            --blue-light: #e8f0fe;
+            --green: #2b9a4e;
+            --green-dark: #1f7a38;
+            --header-bg: #1a73e8;
+            --header-gradient: #1a73e8;
+            --shadow: 0 1px 3px rgba(0,0,0,0.08);
+            --shadow-lg: 0 4px 16px rgba(0,0,0,0.1);
+            --radius: 12px;
+            --radius-lg: 16px;
+            --radius-sm: 8px;
+            --chat-bg-color: #f5f5f5;
+            --chat-bg-image: none;
+            --mention-color: #1a73e8;
+            --mention-bg: #e8f0fe;
+            --reaction-bg: #f3f4f6;
+            --reaction-active-bg: #dbeafe;
+            --reaction-active-text: #1a73e8;
         }
+        
+        /* ====== ТЁМНАЯ ТЕМА ====== */
         body.dark {
-            --bg: #0f1117; --sidebar-bg: #16181d; --main-bg: #1a1d23; --messages-bg: #121418;
-            --border: #2d3239; --text: #e4e8ee; --text-light: #8b949e; --msg-other-bg: #1e2128;
-            --input-bg: #1e2128; --hover: #1e2128; --active: #1a2340; --header-bg: #1e3a5f;
-            --shadow: 0 4px 12px rgba(0,0,0,0.4); --chat-bg-color: #121418; --chat-bg-image: none;
+            --bg: #0d1117;
+            --sidebar-bg: #111820;
+            --main-bg: #161b22;
+            --messages-bg: #0d1117;
+            --border: #30363d;
+            --text: #e6edf3;
+            --text-light: #8b949e;
+            --text-secondary: #6e7681;
+            --msg-other-bg: #21262d;
+            --msg-other-border: #30363d;
+            --input-bg: #21262d;
+            --hover: #21262d;
+            --active: #1a2340;
+            --blue: #58a6ff;
+            --blue-dark: #1f6feb;
+            --blue-light: #1a2340;
+            --green: #3fb950;
+            --green-dark: #2ea043;
+            --header-bg: #1a2340;
+            --header-gradient: #1a2340;
+            --shadow: 0 1px 3px rgba(0,0,0,0.3);
+            --shadow-lg: 0 4px 16px rgba(0,0,0,0.4);
+            --chat-bg-color: #0d1117;
+            --chat-bg-image: none;
+            --mention-color: #58a6ff;
+            --mention-bg: #1a2340;
+            --reaction-bg: #21262d;
+            --reaction-active-bg: #1a2340;
+            --reaction-active-text: #58a6ff;
         }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; -webkit-tap-highlight-color: transparent; }
-        ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; } ::-webkit-scrollbar-thumb:hover { background: var(--text-light); }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-light); }
+        
         .app-container { width: 100%; height: 100vh; display: flex; background: var(--main-bg); position: relative; overflow: hidden; }
+        
+        /* Сайдбар */
         .sidebar { width: 330px; min-width: 330px; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; z-index: 20; }
-        .sidebar-header { padding: 12px 16px; background: linear-gradient(135deg, var(--header-bg), var(--blue-dark)); color: white; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-        .sidebar-logo { font-size: 20px; } .sidebar-title { font-size: 15px; font-weight: 700; flex: 1; }
-        .hamburger-btn { background: rgba(255,255,255,0.12); border: none; color: white; font-size: 16px; cursor: pointer; padding: 6px; border-radius: 8px; display: flex; flex-direction: column; gap: 3px; z-index: 10; }
+        .sidebar-header { padding: 14px 16px; background: linear-gradient(135deg, var(--header-bg), var(--blue-dark)); color: white; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .sidebar-logo { font-size: 22px; } .sidebar-title { font-size: 16px; font-weight: 700; flex: 1; letter-spacing: 0.3px; }
+        .hamburger-btn { background: rgba(255,255,255,0.15); border: none; color: white; font-size: 16px; cursor: pointer; padding: 7px; border-radius: 8px; display: flex; flex-direction: column; gap: 3px; z-index: 10; transition: background 0.2s; }
+        .hamburger-btn:hover { background: rgba(255,255,255,0.25); }
         .hamburger-line { width: 16px; height: 2px; background: white; border-radius: 2px; }
-        .menu-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 300; backdrop-filter: blur(3px); }
+        
+        /* Меню */
+        .menu-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 300; backdrop-filter: blur(4px); }
         .menu-overlay.show { display: flex; justify-content: center; align-items: center; padding: 20px; }
-        .menu-panel { background: var(--main-bg); border-radius: var(--radius-lg); width: 100%; max-width: 320px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.3); animation: slideUp 0.3s ease; }
+        .menu-panel { background: var(--main-bg); border-radius: var(--radius-lg); width: 100%; max-width: 320px; overflow: hidden; box-shadow: var(--shadow-lg); animation: slideUp 0.3s ease; }
         @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-        .menu-profile { padding: 22px 20px; text-align: center; background: linear-gradient(135deg, var(--header-bg), var(--blue-dark)); color: white; }
-        .menu-avatar { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid white; display: block; margin: 0 auto 8px; }
-        .menu-avatar-placeholder { width: 60px; height: 60px; border-radius: 50%; background: white; color: var(--blue); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; margin: 0 auto 8px; }
-        .menu-nickname { font-size: 16px; font-weight: 700; } .menu-username { font-size: 12px; opacity: 0.8; }
-        .menu-items { padding: 6px 0; } .menu-item { padding: 10px 20px; cursor: pointer; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 10px; border: none; background: none; width: 100%; text-align: left; } .menu-item:hover { background: var(--hover); }
-        .menu-divider { border: none; border-top: 1px solid var(--border); margin: 4px 0; } .menu-footer { padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; color: var(--text-light); font-size: 11px; }
-        .search-box { padding: 8px 12px; border-bottom: 1px solid var(--border); position: relative; flex-shrink: 0; }
-        .search-box input { width: 100%; padding: 8px 12px; border: 2px solid var(--border); border-radius: 20px; font-size: 12px; outline: none; background: var(--input-bg); color: var(--text); }
-        .search-results { position: absolute; top: 100%; left: 12px; right: 12px; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius); max-height: 200px; overflow-y: auto; z-index: 50; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-        .search-results.show { display: block; } .search-result-item { padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); } .search-result-item:hover { background: var(--hover); }
-        .chat-list { flex: 1; overflow-y: auto; padding: 4px; }
-        .chat-item { padding: 8px 10px; margin: 1px 0; border-radius: var(--radius); cursor: pointer; display: flex; align-items: center; gap: 8px; } .chat-item:hover { background: var(--hover); } .chat-item.active { background: var(--active); border-left: 3px solid var(--blue); }
-        .chat-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
-        .chat-avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
-        .chat-info { flex: 1; min-width: 0; } .chat-name { font-weight: 600; font-size: 13px; color: var(--text); }
-        .chat-last-msg { font-size: 11px; color: var(--text-light); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .chat-badge { background: var(--blue); color: white; font-size: 10px; padding: 2px 6px; border-radius: 8px; font-weight: 600; }
+        .menu-profile { padding: 24px 20px; text-align: center; background: linear-gradient(135deg, var(--header-bg), var(--blue-dark)); color: white; }
+        .menu-avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 3px solid rgba(255,255,255,0.3); display: block; margin: 0 auto 10px; }
+        .menu-avatar-placeholder { width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,0.2); color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; margin: 0 auto 10px; }
+        .menu-nickname { font-size: 17px; font-weight: 700; } .menu-username { font-size: 13px; opacity: 0.8; margin-top: 2px; }
+        .menu-items { padding: 8px 0; }
+        .menu-item { padding: 11px 20px; cursor: pointer; font-size: 14px; color: var(--text); display: flex; align-items: center; gap: 12px; border: none; background: none; width: 100%; text-align: left; transition: background 0.15s; }
+        .menu-item:hover { background: var(--hover); }
+        .menu-divider { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+        .menu-footer { padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; color: var(--text-light); font-size: 12px; }
+        
+        /* Поиск */
+        .search-box { padding: 10px 14px; border-bottom: 1px solid var(--border); position: relative; flex-shrink: 0; }
+        .search-box input { width: 100%; padding: 9px 14px; border: 2px solid var(--border); border-radius: 22px; font-size: 13px; outline: none; background: var(--input-bg); color: var(--text); transition: border-color 0.2s; }
+        .search-box input:focus { border-color: var(--blue); }
+        .search-results { position: absolute; top: 100%; left: 14px; right: 14px; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius); max-height: 220px; overflow-y: auto; z-index: 50; display: none; box-shadow: var(--shadow-lg); }
+        .search-results.show { display: block; }
+        .search-result-item { padding: 10px 14px; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text); transition: background 0.15s; }
+        .search-result-item:hover { background: var(--hover); }
+        
+        /* Список чатов */
+        .chat-list { flex: 1; overflow-y: auto; padding: 6px; }
+        .chat-item { padding: 10px 12px; margin: 1px 0; border-radius: var(--radius); cursor: pointer; display: flex; align-items: center; gap: 10px; transition: background 0.15s; }
+        .chat-item:hover { background: var(--hover); }
+        .chat-item.active { background: var(--active); border-left: 3px solid var(--blue); }
+        .chat-avatar { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+        .chat-avatar-placeholder { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; flex-shrink: 0; }
+        .chat-info { flex: 1; min-width: 0; }
+        .chat-name { font-weight: 600; font-size: 14px; color: var(--text); }
+        .chat-last-msg { font-size: 12px; color: var(--text-light); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .chat-badge { background: var(--blue); color: white; font-size: 11px; padding: 3px 7px; border-radius: 10px; font-weight: 600; }
+        
+        /* Основная область */
         .main-area { flex: 1; display: flex; flex-direction: column; height: 100vh; background: var(--main-bg); min-width: 0; }
-        .chat-header { padding: 10px 14px; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: 8px; flex-shrink: 0; cursor: pointer; }
-        .chat-header-avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; }
-        .chat-header-info h3 { font-size: 14px; font-weight: 600; color: var(--text); } .chat-header-info span { font-size: 10px; color: var(--text-light); }
-        .msg-search-bar { display: none; padding: 6px 12px; background: var(--main-bg); border-bottom: 1px solid var(--border); align-items: center; gap: 6px; }
-        .msg-search-bar.show { display: flex; } .msg-search-bar input { flex: 1; padding: 6px 10px; border: 2px solid var(--border); border-radius: 16px; font-size: 12px; outline: none; background: var(--input-bg); color: var(--text); }
-        .msg-search-bar .search-nav button { background: var(--hover); border: none; cursor: pointer; padding: 4px 8px; border-radius: 50%; font-size: 12px; color: var(--text); }
-        .msg-search-count { font-size: 10px; color: var(--text-light); white-space: nowrap; } .msg-highlight { background: rgba(255, 200, 0, 0.4); border-radius: 3px; }
-        .pinned-bar { display: none; padding: 6px 12px; background: var(--main-bg); border-bottom: 1px solid var(--border); align-items: center; gap: 8px; font-size: 12px; cursor: pointer; } .pinned-bar.show { display: flex; } .pinned-bar .pinned-close { cursor: pointer; font-size: 14px; color: var(--text-light); }
-        .scroll-bottom-btn { display: none; position: absolute; bottom: 70px; right: 16px; width: 36px; height: 36px; border-radius: 50%; background: var(--blue); color: white; border: none; cursor: pointer; font-size: 16px; z-index: 10; box-shadow: var(--shadow); animation: bounceIn 0.3s ease; } .scroll-bottom-btn.show { display: flex; align-items: center; justify-content: center; }
-        @keyframes bounceIn { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
-        .messages-area { flex: 1; overflow-y: auto; padding: 8px 12px; background-color: var(--chat-bg-color); background-image: var(--chat-bg-image); background-size: cover; background-position: center; background-repeat: no-repeat; display: flex; flex-direction: column; gap: 2px; -webkit-overflow-scrolling: touch; position: relative; }
-        .date-divider { text-align: center; padding: 8px 0; font-size: 11px; color: var(--text-light); font-weight: 500; }
-        .message { display: flex; gap: 6px; max-width: 80%; animation: messageIn 0.25s ease; align-items: flex-end; }
-        @keyframes messageIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .chat-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; cursor: pointer; background: var(--main-bg); }
+        .chat-header-avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+        .chat-header-info h3 { font-size: 15px; font-weight: 600; color: var(--text); }
+        .chat-header-info span { font-size: 11px; color: var(--text-light); }
+        
+        /* Поиск по сообщениям */
+        .msg-search-bar { display: none; padding: 8px 14px; background: var(--main-bg); border-bottom: 1px solid var(--border); align-items: center; gap: 8px; }
+        .msg-search-bar.show { display: flex; }
+        .msg-search-bar input { flex: 1; padding: 7px 12px; border: 2px solid var(--border); border-radius: 18px; font-size: 13px; outline: none; background: var(--input-bg); color: var(--text); }
+        .msg-search-bar .search-nav button { background: var(--hover); border: none; cursor: pointer; padding: 5px 9px; border-radius: 50%; font-size: 12px; color: var(--text); transition: background 0.2s; }
+        .msg-search-bar .search-nav button:hover { background: var(--border); }
+        .msg-search-count { font-size: 11px; color: var(--text-light); white-space: nowrap; }
+        .msg-highlight { background: rgba(255, 200, 0, 0.35); border-radius: 3px; padding: 1px 2px; }
+        
+        /* Закреплённые */
+        .pinned-bar { display: none; padding: 8px 14px; background: var(--blue-light); border-bottom: 1px solid var(--border); align-items: center; gap: 10px; font-size: 12px; cursor: pointer; color: var(--blue); }
+        .pinned-bar.show { display: flex; }
+        .pinned-bar .pinned-close { cursor: pointer; font-size: 15px; color: var(--text-light); padding: 2px 6px; }
+        
+        /* Кнопка "вниз" */
+        .scroll-bottom-btn { display: none; position: absolute; bottom: 80px; right: 20px; width: 40px; height: 40px; border-radius: 50%; background: var(--main-bg); color: var(--text); border: 1px solid var(--border); cursor: pointer; font-size: 16px; z-index: 10; box-shadow: var(--shadow); animation: bounceIn 0.3s ease; }
+        .scroll-bottom-btn.show { display: flex; align-items: center; justify-content: center; }
+        @keyframes bounceIn { 0% { transform: scale(0); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
+        
+        /* Сообщения */
+        .messages-area { flex: 1; overflow-y: auto; padding: 12px 16px; background-color: var(--chat-bg-color); background-image: var(--chat-bg-image); background-size: cover; background-position: center; background-repeat: no-repeat; display: flex; flex-direction: column; gap: 3px; -webkit-overflow-scrolling: touch; position: relative; }
+        .date-divider { text-align: center; padding: 10px 0; font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+        .message { display: flex; gap: 8px; max-width: 75%; animation: messageIn 0.2s ease; align-items: flex-end; }
+        @keyframes messageIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         .message.mine { align-self: flex-end; flex-direction: row-reverse; }
-        .message-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex-shrink: 0; cursor: pointer; }
-        .message-avatar-placeholder { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 9px; flex-shrink: 0; cursor: pointer; }
-        .message-bubble { padding: 6px 10px; border-radius: var(--radius); font-size: 13px; line-height: 1.4; word-break: break-word; max-width: 100%; overflow: hidden; position: relative; }
-        .message-bubble img, .message-bubble video { max-width: 100%; max-height: 300px; border-radius: 8px; cursor: pointer; display: block; }
-        .message-bubble audio { max-width: 220px; display: block; }
-        .message.other .message-bubble { background: var(--msg-other-bg); border-bottom-left-radius: 4px; color: var(--text); }
-        .message.mine .message-bubble { background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; border-bottom-right-radius: 4px; }
-        .message-username { font-weight: 600; font-size: 10px; margin-bottom: 1px; opacity: 0.8; cursor: pointer; }
-        .message-time { font-size: 9px; opacity: 0.55; margin-top: 2px; }
-        .message-read { font-size: 9px; margin-top: 1px; text-align: right; cursor: pointer; }
-        .message-edited { font-size: 9px; opacity: 0.7; }
-        .reply-preview { background: var(--hover); border-left: 2px solid var(--blue); padding: 5px 8px; border-radius: 4px; margin-bottom: 4px; font-size: 11px; cursor: pointer; color: var(--text); } .reply-preview b { color: var(--blue); }
-        .reactions-bar { display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
-        .reaction-badge { background: var(--hover); padding: 2px 6px; border-radius: 8px; font-size: 10px; cursor: pointer; display: flex; align-items: center; gap: 2px; }
-        .reaction-badge.active { background: var(--blue); color: white; }
-        .reaction-picker { display: none; position: absolute; background: var(--main-bg); border: 1px solid var(--border); border-radius: 20px; padding: 4px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 450; gap: 4px; }
+        .message-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; cursor: pointer; }
+        .message-avatar-placeholder { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 10px; flex-shrink: 0; cursor: pointer; }
+        .message-bubble { padding: 8px 12px; border-radius: var(--radius); font-size: 14px; line-height: 1.45; word-break: break-word; max-width: 100%; overflow: hidden; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+        .message-bubble img, .message-bubble video { max-width: 100%; max-height: 320px; border-radius: var(--radius-sm); cursor: pointer; display: block; }
+        .message-bubble audio { max-width: 240px; display: block; }
+        .message.other .message-bubble { background: var(--msg-other-bg); border: 1px solid var(--msg-other-border); border-bottom-left-radius: 4px; color: var(--text); }
+        .message.mine .message-bubble { background: var(--green); color: white; border-bottom-right-radius: 4px; }
+        .message-username { font-weight: 600; font-size: 11px; margin-bottom: 2px; opacity: 0.85; cursor: pointer; }
+        .message.mine .message-username { color: rgba(255,255,255,0.9); }
+        .message-time { font-size: 10px; opacity: 0.6; margin-top: 3px; }
+        .message.mine .message-time { opacity: 0.8; }
+        .message-read { font-size: 10px; margin-top: 2px; text-align: right; cursor: pointer; }
+        .message.mine .message-read { color: rgba(255,255,255,0.7); }
+        .message-edited { font-size: 10px; opacity: 0.6; }
+        .message.mine .message-edited { opacity: 0.8; }
+        
+        /* Ответы */
+        .reply-preview { background: var(--hover); border-left: 3px solid var(--blue); padding: 6px 10px; border-radius: 4px; margin-bottom: 5px; font-size: 12px; cursor: pointer; color: var(--text); }
+        .reply-preview b { color: var(--blue); }
+        
+        /* Реакции */
+        .reactions-bar { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+        .reaction-badge { background: var(--reaction-bg); padding: 3px 7px; border-radius: 10px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 3px; border: 1px solid var(--border); transition: all 0.15s; }
+        .reaction-badge:hover { background: var(--reaction-active-bg); }
+        .reaction-badge.active { background: var(--reaction-active-bg); border-color: var(--blue); color: var(--reaction-active-text); }
+        .reaction-picker { display: none; position: fixed; background: var(--main-bg); border: 1px solid var(--border); border-radius: 24px; padding: 6px 10px; box-shadow: var(--shadow-lg); z-index: 450; gap: 4px; }
         .reaction-picker.show { display: flex; }
-        .reaction-emoji { font-size: 20px; cursor: pointer; padding: 4px; border-radius: 8px; transition: transform 0.15s; }
+        .reaction-emoji { font-size: 22px; cursor: pointer; padding: 5px; border-radius: 10px; transition: transform 0.15s, background 0.15s; }
         .reaction-emoji:hover { transform: scale(1.3); background: var(--hover); }
-        .typing-indicator { font-size: 11px; color: var(--blue); padding: 3px 12px; display: flex; align-items: center; gap: 4px; }
-        .typing-dots { display: flex; gap: 2px; } .typing-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--blue); animation: typingBounce 1.4s infinite; } .typing-dot:nth-child(2) { animation-delay: 0.2s; } .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        
+        /* Индикатор печати */
+        .typing-indicator { font-size: 12px; color: var(--text-light); padding: 4px 14px; display: flex; align-items: center; gap: 6px; }
+        .typing-dots { display: flex; gap: 3px; }
+        .typing-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--text-light); animation: typingBounce 1.4s infinite; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
         @keyframes typingBounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
-        .context-menu { display: none; position: fixed; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 400; padding: 4px 0; min-width: 160px; } .context-menu.show { display: block; }
-        .context-item { padding: 8px 14px; cursor: pointer; font-size: 12px; color: var(--text); display: flex; align-items: center; gap: 6px; border: none; background: none; width: 100%; text-align: left; } .context-item:hover { background: var(--hover); } .context-item.danger { color: #e53e3e; }
-        .input-area { padding: 8px 12px; padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)); background: var(--main-bg); border-top: 2px solid var(--border); display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
-        .input-area input { flex: 1; padding: 8px 14px; border: 2px solid var(--border); border-radius: 18px; font-size: 13px; outline: none; background: var(--input-bg); color: var(--text); transition: border-color 0.2s; } .input-area input:focus { border-color: var(--blue); }
-        .input-btn { width: 36px; height: 36px; border-radius: 50%; background: var(--hover); border: none; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; color: var(--text); transition: background 0.2s; } .input-btn:hover { background: var(--border); }
-        .send-btn { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; border: none; cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center; transition: transform 0.15s, box-shadow 0.15s; } .send-btn:hover { transform: scale(1.08); box-shadow: 0 4px 14px rgba(59,130,246,0.4); } .send-btn:active { transform: scale(0.95); }
-        .voice-btn { background: var(--blue); color: white; }
+        
+        /* Контекстное меню */
+        .context-menu { display: none; position: fixed; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); z-index: 400; padding: 6px 0; min-width: 180px; }
+        .context-menu.show { display: block; }
+        .context-item { padding: 10px 16px; cursor: pointer; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 10px; border: none; background: none; width: 100%; text-align: left; transition: background 0.15s; }
+        .context-item:hover { background: var(--hover); }
+        .context-item.danger { color: #dc2626; }
+        
+        /* Поле ввода */
+        .input-area { padding: 10px 14px; padding-bottom: max(18px, env(safe-area-inset-bottom, 18px)); background: var(--main-bg); border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+        .input-area input { flex: 1; padding: 10px 16px; border: 2px solid var(--border); border-radius: 20px; font-size: 14px; outline: none; background: var(--input-bg); color: var(--text); transition: border-color 0.2s; }
+        .input-area input:focus { border-color: var(--blue); }
+        .input-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--hover); border: none; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; color: var(--text); transition: all 0.2s; }
+        .input-btn:hover { background: var(--border); }
+        .send-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--blue); color: white; border: none; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: transform 0.15s, background 0.2s; }
+        .send-btn:hover { background: var(--blue-dark); transform: scale(1.05); }
+        .send-btn:active { transform: scale(0.95); }
+        .voice-btn { background: var(--green); }
+        .voice-btn:hover { background: var(--green-dark); }
         .voice-recording { animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 70% { box-shadow: 0 0 0 10px rgba(59,130,246,0); } 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); } }
-        .emoji-panel { display: none; position: absolute; bottom: 70px; left: 12px; right: 12px; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 50; max-height: 280px; overflow-y: auto; padding: 8px; } .emoji-panel.show { display: block; }
-        .emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; } .emoji-item { font-size: 22px; cursor: pointer; padding: 4px; text-align: center; border-radius: 6px; transition: background 0.15s; } .emoji-item:hover { background: var(--hover); }
-        .emoji-tabs { display: flex; gap: 3px; margin-bottom: 8px; } .emoji-tab { padding: 6px 10px; cursor: pointer; border-radius: 6px; font-size: 12px; border: none; background: none; color: var(--text-light); } .emoji-tab.active { background: var(--blue); color: white; }
-        .sticker-item, .gif-item { width: 70px; height: 70px; object-fit: contain; cursor: pointer; border-radius: 6px; transition: background 0.15s; } .sticker-item:hover, .gif-item:hover { background: var(--hover); }
-        .mention-suggestions { display: none; position: absolute; bottom: 100%; left: 0; right: 0; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius); max-height: 150px; overflow-y: auto; z-index: 60; margin-bottom: 4px; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(43,154,78,0.4); } 70% { box-shadow: 0 0 0 12px rgba(43,154,78,0); } 100% { box-shadow: 0 0 0 0 rgba(43,154,78,0); } }
+        
+        /* Панель эмодзи */
+        .emoji-panel { display: none; position: absolute; bottom: 70px; left: 14px; right: 14px; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 50; max-height: 300px; overflow-y: auto; padding: 10px; }
+        .emoji-panel.show { display: block; }
+        .emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+        .emoji-item { font-size: 24px; cursor: pointer; padding: 5px; text-align: center; border-radius: 8px; transition: background 0.15s; }
+        .emoji-item:hover { background: var(--hover); }
+        .emoji-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+        .emoji-tab { padding: 7px 12px; cursor: pointer; border-radius: 8px; font-size: 13px; border: none; background: none; color: var(--text-light); transition: all 0.15s; }
+        .emoji-tab.active { background: var(--blue); color: white; }
+        .sticker-item, .gif-item { width: 75px; height: 75px; object-fit: contain; cursor: pointer; border-radius: 8px; transition: background 0.15s; }
+        .sticker-item:hover, .gif-item:hover { background: var(--hover); }
+        
+        /* Упоминания */
+        .mention-suggestions { display: none; position: absolute; bottom: 100%; left: 0; right: 0; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius); max-height: 160px; overflow-y: auto; z-index: 60; margin-bottom: 6px; box-shadow: var(--shadow); }
         .mention-suggestions.show { display: block; }
-        .mention-item { padding: 8px 12px; cursor: pointer; font-size: 12px; color: var(--text); display: flex; align-items: center; gap: 8px; } .mention-item:hover { background: var(--hover); }
-        .reply-bar { display: none; padding: 6px 12px; background: var(--main-bg); border-top: 1px solid var(--border); align-items: center; gap: 8px; font-size: 12px; animation: slideUp 0.2s ease; } .reply-bar.show { display: flex; } .reply-bar .reply-close { cursor: pointer; font-size: 16px; color: var(--text-light); padding: 2px 6px; }
-        .lightbox { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.92); z-index: 500; justify-content: center; align-items: center; } .lightbox.show { display: flex; } .lightbox img, .lightbox video { max-width: 95%; max-height: 95%; border-radius: 10px; object-fit: contain; } .lightbox-close { position: absolute; top: 16px; right: 16px; font-size: 28px; color: white; cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); border-radius: 50%; }
-        .overlay { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.35); z-index: 15; } .overlay.show { display: block; } .back-btn { display: none; background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 2px 6px; margin-right: 6px; }
-        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.45); z-index: 200; justify-content: center; align-items: center; padding: 16px; } .modal.show { display: flex; } .modal-content { background: var(--main-bg); border-radius: var(--radius-lg); padding: 24px; max-width: 400px; width: 100%; position: relative; max-height: 80vh; overflow-y: auto; } .modal-close { position: absolute; top: 10px; right: 14px; background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-light); }
-        .profile-avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; cursor: pointer; display: block; margin: 0 auto 14px; } .profile-avatar-placeholder { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; margin: 0 auto 14px; cursor: pointer; }
-        .profile-field { margin-bottom: 12px; } .profile-field label { display: block; font-size: 10px; color: var(--text-light); text-transform: uppercase; margin-bottom: 4px; } .profile-field input, .profile-field textarea { width: 100%; padding: 9px 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 13px; background: var(--input-bg); color: var(--text); outline: none; }
-        .btn { padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; width: 100%; } .btn-primary { background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; margin-top: 6px; } .btn-danger { background: #e53e3e; color: white; margin-top: 6px; } .btn-sm { width: auto; padding: 6px 12px; font-size: 11px; }
-        .custom-file-btn { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; color: var(--blue); font-size: 12px; padding: 6px 12px; border-radius: 6px; background: var(--hover); border: none; } .custom-file-btn:hover { background: var(--border); }
-        .switch { position: relative; width: 40px; height: 22px; display: inline-block; } .switch input { opacity: 0; width: 0; height: 0; } .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; border-radius: 22px; } .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; } input:checked + .slider { background: var(--blue); } input:checked + .slider:before { transform: translateX(18px); }
-        .settings-tabs { display: flex; gap: 3px; margin-bottom: 14px; flex-wrap: wrap; } .settings-tab { padding: 6px 12px; cursor: pointer; border-radius: 6px; font-size: 11px; border: none; background: var(--hover); color: var(--text); } .settings-tab.active { background: var(--blue); color: white; }
-        .wallpaper-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; } .wallpaper-color { width: 100%; aspect-ratio: 1; border-radius: 8px; cursor: pointer; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; font-size: 10px; transition: border-color 0.2s; } .wallpaper-color:hover { border-color: var(--blue); }
-        @media (max-width: 768px) { .sidebar { position: absolute; left: -100%; top: 0; bottom: 0; width: 260px; min-width: 260px; transition: left 0.3s; box-shadow: 4px 0 30px rgba(0,0,0,0.25); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; } .sidebar.open { left: 0; } .back-btn { display: flex; } .main-area { width: 100%; } .message { max-width: 88%; } .input-area { padding: 8px 10px; padding-bottom: max(20px, env(safe-area-inset-bottom, 20px)); } .emoji-grid { grid-template-columns: repeat(6, 1fr); } }
+        .mention-item { padding: 9px 14px; cursor: pointer; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 10px; transition: background 0.15s; }
+        .mention-item:hover { background: var(--hover); }
+        .mention-highlight { color: var(--mention-color); font-weight: 600; background: var(--mention-bg); padding: 1px 4px; border-radius: 3px; }
+        
+        /* Бар ответа */
+        .reply-bar { display: none; padding: 8px 14px; background: var(--main-bg); border-top: 1px solid var(--border); align-items: center; gap: 10px; font-size: 13px; animation: slideUp 0.2s ease; }
+        .reply-bar.show { display: flex; }
+        .reply-bar .reply-close { cursor: pointer; font-size: 18px; color: var(--text-light); padding: 3px 8px; border-radius: 6px; transition: background 0.15s; }
+        .reply-bar .reply-close:hover { background: var(--hover); }
+        
+        /* Лайтбокс */
+        .lightbox { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); z-index: 500; justify-content: center; align-items: center; }
+        .lightbox.show { display: flex; }
+        .lightbox img, .lightbox video { max-width: 95%; max-height: 95%; border-radius: 12px; object-fit: contain; }
+        .lightbox-close { position: absolute; top: 20px; right: 20px; font-size: 30px; color: white; cursor: pointer; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); border-radius: 50%; transition: background 0.2s; }
+        .lightbox-close:hover { background: rgba(255,255,255,0.2); }
+        
+        /* Оверлей и кнопка назад */
+        .overlay { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 15; }
+        .overlay.show { display: block; }
+        .back-btn { display: none; background: none; border: none; color: white; font-size: 22px; cursor: pointer; padding: 4px 8px; margin-right: 8px; }
+        
+        /* Модальные окна */
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(2px); }
+        .modal.show { display: flex; }
+        .modal-content { background: var(--main-bg); border-radius: var(--radius-lg); padding: 28px; max-width: 420px; width: 100%; position: relative; max-height: 80vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+        .modal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-light); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; transition: background 0.15s; }
+        .modal-close:hover { background: var(--hover); }
+        .profile-avatar { width: 88px; height: 88px; border-radius: 50%; object-fit: cover; cursor: pointer; display: block; margin: 0 auto 16px; border: 3px solid var(--border); }
+        .profile-avatar-placeholder { width: 88px; height: 88px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; margin: 0 auto 16px; cursor: pointer; }
+        .profile-field { margin-bottom: 14px; }
+        .profile-field label { display: block; font-size: 11px; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; font-weight: 600; }
+        .profile-field input, .profile-field textarea { width: 100%; padding: 10px 14px; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; background: var(--input-bg); color: var(--text); outline: none; transition: border-color 0.2s; }
+        .profile-field input:focus, .profile-field textarea:focus { border-color: var(--blue); }
+        .btn { padding: 10px 20px; border-radius: var(--radius-sm); border: none; cursor: pointer; font-size: 14px; font-weight: 600; width: 100%; transition: all 0.2s; }
+        .btn-primary { background: var(--blue); color: white; margin-top: 8px; }
+        .btn-primary:hover { background: var(--blue-dark); }
+        .btn-danger { background: #dc2626; color: white; margin-top: 8px; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-sm { width: auto; padding: 7px 14px; font-size: 12px; }
+        .custom-file-btn { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--blue); font-size: 13px; padding: 8px 16px; border-radius: var(--radius-sm); background: var(--hover); border: none; transition: background 0.15s; }
+        .custom-file-btn:hover { background: var(--border); }
+        .switch { position: relative; width: 44px; height: 24px; display: inline-block; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #d1d5db; border-radius: 24px; transition: 0.3s; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+        input:checked + .slider { background: var(--blue); }
+        input:checked + .slider:before { transform: translateX(20px); }
+        .settings-tabs { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+        .settings-tab { padding: 7px 14px; cursor: pointer; border-radius: var(--radius-sm); font-size: 12px; border: none; background: var(--hover); color: var(--text); transition: all 0.15s; }
+        .settings-tab.active { background: var(--blue); color: white; }
+        .wallpaper-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .wallpaper-color { width: 100%; aspect-ratio: 1; border-radius: var(--radius-sm); cursor: pointer; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; font-size: 11px; transition: all 0.2s; }
+        .wallpaper-color:hover { border-color: var(--blue); }
+        
+        @media (max-width: 768px) {
+            .sidebar { position: absolute; left: -100%; top: 0; bottom: 0; width: 280px; min-width: 280px; transition: left 0.3s; box-shadow: 4px 0 30px rgba(0,0,0,0.2); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
+            .sidebar.open { left: 0; }
+            .back-btn { display: flex; }
+            .main-area { width: 100%; }
+            .message { max-width: 85%; }
+            .input-area { padding: 10px 12px; padding-bottom: max(22px, env(safe-area-inset-bottom, 22px)); }
+            .emoji-grid { grid-template-columns: repeat(6, 1fr); }
+        }
     </style>
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#3b82f6">
+    <meta name="theme-color" content="#1a73e8">
 </head>
 <body>
 <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').then(function(reg) {
         console.log('SW registered');
-        // Запрашиваем разрешение на уведомления
-        if (Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
+        if (Notification.permission === 'default') { Notification.requestPermission(); }
     }).catch(function(err) { console.log('SW error:', err); });
 }
 </script>
@@ -140,48 +331,29 @@ if ('serviceWorker' in navigator) {
     </div>
     <div class="main-area">
         <div class="chat-header" id="chatHeader"><button class="back-btn" onclick="openSidebar()">☰</button><div class="chat-header-avatar-placeholder" id="chatHeaderIcon">💬</div><div class="chat-header-info"><h3 id="chatTitle">Общий чат</h3><span id="onlineStatus">Загрузка...</span></div></div>
-        <div class="msg-search-bar" id="msgSearchBar"><input type="text" id="msgSearchInput" placeholder="Поиск в чате..." oninput="searchInMessages()"><div class="search-nav"><button onclick="prevSearchResult()">▲</button><button onclick="nextSearchResult()">▼</button></div><span class="msg-search-count" id="msgSearchCount"></span><button class="input-btn" onclick="closeMsgSearch()" style="width:28px;height:28px;font-size:12px;">✕</button></div>
+        <div class="msg-search-bar" id="msgSearchBar"><input type="text" id="msgSearchInput" placeholder="Поиск в чате..." oninput="searchInMessages()"><div class="search-nav"><button onclick="prevSearchResult()">▲</button><button onclick="nextSearchResult()">▼</button></div><span class="msg-search-count" id="msgSearchCount"></span><button class="input-btn" onclick="closeMsgSearch()" style="width:30px;height:30px;font-size:12px;">✕</button></div>
         <div class="pinned-bar" id="pinnedBar" onclick="scrollToMessage(currentPinnedId)"><span>📌</span><span id="pinnedText"></span><span class="pinned-close" onclick="event.stopPropagation();unpinMessage()">✕</span></div>
         <div class="reply-bar" id="replyBar"><span id="replyText">↩ Ответ</span><span class="reply-close" onclick="cancelReply()">✕</span></div>
         <div class="messages-area" id="messagesArea"><div style="text-align:center;color:var(--text-light);padding:40px;">Загрузка...</div><button class="scroll-bottom-btn" id="scrollBottomBtn" onclick="scrollToBottom()">↓</button></div>
         <div class="input-area" style="position:relative;">
-            <label class="input-btn" for="fileInput">📎</label>
-            <input type="file" id="fileInput" accept="image/*,video/*,audio/*" style="display:none;" onchange="uploadFile()">
-            <label class="input-btn voice-btn" id="voiceBtn" for="voiceInput" title="Голосовое сообщение">🎤</label>
-            <input type="file" id="voiceInput" accept="audio/*" style="display:none;" onchange="uploadVoice()">
+            <label class="input-btn" for="fileInput">📎</label><input type="file" id="fileInput" accept="image/*,video/*,audio/*" style="display:none;" onchange="uploadFile()">
+            <label class="input-btn voice-btn" id="voiceBtn" for="voiceInput" title="Голосовое сообщение">🎤</label><input type="file" id="voiceInput" accept="audio/*" style="display:none;" onchange="uploadVoice()">
             <div class="mention-suggestions" id="mentionSuggestions"></div>
             <input type="text" id="messageInput" placeholder="Сообщение..." onkeypress="if(event.key==='Enter')sendMessage()" oninput="handleInput()">
             <button class="input-btn" onclick="toggleEmoji()">😊</button>
             <button class="send-btn" onclick="sendMessage()">➤</button>
-            <div class="emoji-panel" id="emojiPanel">
-                <div class="emoji-tabs"><button class="emoji-tab active" onclick="showEmojiTab('emoji',this)">😊</button><button class="emoji-tab" onclick="showEmojiTab('stickers',this)">🌟</button><button class="emoji-tab" onclick="showEmojiTab('gifs',this)">🎬</button></div>
-                <div class="emoji-grid" id="emojiGrid"></div><div id="stickerPacksList" style="display:none;"></div>
-            </div>
+            <div class="emoji-panel" id="emojiPanel"><div class="emoji-tabs"><button class="emoji-tab active" onclick="showEmojiTab('emoji',this)">😊</button><button class="emoji-tab" onclick="showEmojiTab('stickers',this)">🌟</button><button class="emoji-tab" onclick="showEmojiTab('gifs',this)">🎬</button></div><div class="emoji-grid" id="emojiGrid"></div><div id="stickerPacksList" style="display:none;"></div></div>
         </div>
     </div>
 </div>
 <div class="lightbox" id="lightbox" onclick="closeLightbox()"><span class="lightbox-close">✕</span><div id="lightboxContent" onclick="event.stopPropagation()"></div></div>
-<div class="reaction-picker" id="reactionPicker">
-    <span class="reaction-emoji" onclick="addReaction('👍')">👍</span>
-    <span class="reaction-emoji" onclick="addReaction('❤️')">❤️</span>
-    <span class="reaction-emoji" onclick="addReaction('😂')">😂</span>
-    <span class="reaction-emoji" onclick="addReaction('🔥')">🔥</span>
-    <span class="reaction-emoji" onclick="addReaction('👎')">👎</span>
-    <span class="reaction-emoji" onclick="addReaction('😢')">😢</span>
-</div>
-<div class="context-menu" id="contextMenu">
-    <button class="context-item" id="ctxReply">↩️ Ответить</button>
-    <button class="context-item" id="ctxReact">😊 Реакция</button>
-    <button class="context-item" id="ctxCopy">📋 Копировать</button>
-    <button class="context-item" id="ctxPin">📌 Закрепить</button>
-    <button class="context-item" id="ctxEdit">✏️ Редактировать</button>
-    <button class="context-item danger" id="ctxDelete">🗑️ Удалить</button>
-</div>
-<div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"><div class="menu-panel" onclick="event.stopPropagation()"><div class="menu-profile"><img class="menu-avatar" id="menuAvatarImg" style="display:none;"><div class="menu-avatar-placeholder" id="menuAvatarPlaceholder">👤</div><div class="menu-nickname" id="menuNickname">Пользователь</div><div class="menu-username" id="menuUsername">@user</div></div><div class="menu-items"><button class="menu-item" onclick="closeMenu();openProfile(username);">👤 Мой профиль</button><button class="menu-item" onclick="closeMenu();showCreateGroup();">👥 Создать группу</button><button class="menu-item" onclick="closeMenu();showJoinGroup();">🔗 Присоединиться</button><button class="menu-item" onclick="closeMenu();showSettings();">⚙️ Настройки</button><button class="menu-item" onclick="closeMenu();window.open('/about','_blank');">ℹ️ О проекте</button></div><hr class="menu-divider"><div class="menu-footer"><span>🌙 Ночной режим</span><label class="switch"><input type="checkbox" id="menuThemeToggle" onchange="toggleTheme()"><span class="slider"></span></label></div><div class="menu-footer" style="justify-content:center;padding:6px 0;"><a href="/donate" target="_blank" style="color:var(--blue);text-decoration:none;font-size:12px;font-weight:600;">💳 Поддержать проект</a></div><div class="menu-footer" style="justify-content:center;padding-top:0;"><span>Crown Messenger v1.0 (beta)</span></div></div></div>
-<div class="modal" id="profileModal"><div class="modal-content"><button class="modal-close" onclick="closeProfile()">✕</button><div style="text-align:center;"><img class="profile-avatar" id="profileAvatarImg" style="display:none;"><div class="profile-avatar-placeholder" id="profileAvatarPlaceholder">👤</div><label class="custom-file-btn" for="avatarInput" style="margin:0 auto 8px;">📷 Сменить фото</label><input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="uploadAvatar()"></div><div class="profile-field"><label>Никнейм</label><input type="text" id="profileNickname" disabled></div><div class="profile-field"><label>Юзернейм</label><input type="text" id="profileUsername" disabled></div><div class="profile-field"><label>О себе</label><textarea id="profileAbout" rows="3" disabled></textarea></div><button class="btn btn-primary" id="profileSaveBtn" style="display:none;">Сохранить</button><button class="btn btn-primary" id="profileChatBtn" style="display:none;">💬 Написать</button><button class="btn btn-danger" id="profileBlockBtn" style="display:none;">🚫 Заблокировать</button><button class="btn btn-danger" id="profileDeleteChatBtn" style="display:none;">🗑️ Удалить чат</button></div></div>
+<div class="reaction-picker" id="reactionPicker"><span class="reaction-emoji" onclick="addReaction('👍')">👍</span><span class="reaction-emoji" onclick="addReaction('❤️')">❤️</span><span class="reaction-emoji" onclick="addReaction('😂')">😂</span><span class="reaction-emoji" onclick="addReaction('🔥')">🔥</span><span class="reaction-emoji" onclick="addReaction('👎')">👎</span><span class="reaction-emoji" onclick="addReaction('😢')">😢</span></div>
+<div class="context-menu" id="contextMenu"><button class="context-item" id="ctxReply">↩️ Ответить</button><button class="context-item" id="ctxReact">😊 Реакция</button><button class="context-item" id="ctxCopy">📋 Копировать</button><button class="context-item" id="ctxPin">📌 Закрепить</button><button class="context-item" id="ctxEdit">✏️ Редактировать</button><button class="context-item danger" id="ctxDelete">🗑️ Удалить</button></div>
+<div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"><div class="menu-panel" onclick="event.stopPropagation()"><div class="menu-profile"><img class="menu-avatar" id="menuAvatarImg" style="display:none;"><div class="menu-avatar-placeholder" id="menuAvatarPlaceholder">👤</div><div class="menu-nickname" id="menuNickname">Пользователь</div><div class="menu-username" id="menuUsername">@user</div></div><div class="menu-items"><button class="menu-item" onclick="closeMenu();openProfile(username);">👤 Мой профиль</button><button class="menu-item" onclick="closeMenu();showCreateGroup();">👥 Создать группу</button><button class="menu-item" onclick="closeMenu();showJoinGroup();">🔗 Присоединиться</button><button class="menu-item" onclick="closeMenu();showSettings();">⚙️ Настройки</button><button class="menu-item" onclick="closeMenu();window.open('/about','_blank');">ℹ️ О проекте</button></div><hr class="menu-divider"><div class="menu-footer"><span>🌙 Ночной режим</span><label class="switch"><input type="checkbox" id="menuThemeToggle" onchange="toggleTheme()"><span class="slider"></span></label></div><div class="menu-footer" style="justify-content:center;padding:8px 0;"><a href="/donate" target="_blank" style="color:var(--blue);text-decoration:none;font-size:13px;font-weight:600;">💳 Поддержать проект</a></div><div class="menu-footer" style="justify-content:center;padding-top:0;"><span>Crown Messenger v1.0 (beta)</span></div></div></div>
+<div class="modal" id="profileModal"><div class="modal-content"><button class="modal-close" onclick="closeProfile()">✕</button><div style="text-align:center;"><img class="profile-avatar" id="profileAvatarImg" style="display:none;"><div class="profile-avatar-placeholder" id="profileAvatarPlaceholder">👤</div><label class="custom-file-btn" for="avatarInput" style="margin:0 auto 10px;">📷 Сменить фото</label><input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="uploadAvatar()"></div><div class="profile-field"><label>Никнейм</label><input type="text" id="profileNickname" disabled></div><div class="profile-field"><label>Юзернейм</label><input type="text" id="profileUsername" disabled></div><div class="profile-field"><label>О себе</label><textarea id="profileAbout" rows="3" disabled></textarea></div><button class="btn btn-primary" id="profileSaveBtn" style="display:none;">Сохранить</button><button class="btn btn-primary" id="profileChatBtn" style="display:none;">💬 Написать</button><button class="btn btn-danger" id="profileBlockBtn" style="display:none;">🚫 Заблокировать</button><button class="btn btn-danger" id="profileDeleteChatBtn" style="display:none;">🗑️ Удалить чат</button></div></div>
 <div class="modal" id="groupModal"><div class="modal-content"><button class="modal-close" onclick="closeGroupModal()">✕</button><div id="groupModalContent"></div></div></div>
 <div class="modal" id="inviteModal"><div class="modal-content"><button class="modal-close" onclick="closeInviteModal()">✕</button><div id="inviteModalContent"></div></div></div>
-<div class="modal" id="settingsModal"><div class="modal-content" style="max-width:420px;"><button class="modal-close" onclick="closeSettings()">✕</button><div id="settingsContent"></div></div></div>
+<div class="modal" id="settingsModal"><div class="modal-content" style="max-width:440px;"><button class="modal-close" onclick="closeSettings()">✕</button><div id="settingsContent"></div></div></div>
 <div class="modal" id="stickerPackModal"><div class="modal-content"><button class="modal-close" onclick="closeStickerPackModal()">✕</button><div id="stickerPackContent"></div></div></div>
 <div class="modal" id="groupManageModal"><div class="modal-content"><button class="modal-close" onclick="closeGroupManageModal()">✕</button><div id="groupManageContent"></div></div></div>
 
@@ -192,20 +364,19 @@ var originalTitle=document.title,newMsgCount=0;
 var isLoadingMessages=false,allMessagesLoaded=false,oldestMessageId=null;
 var lastDateShown="",reactionMsgId=null;
 
-// ====== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ======
 function getToken(){return localStorage.getItem('token');}
 function escapeHtml(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML;}
 function getInitials(n){if(!n||n.length===0)return'??';var c=n.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g,'');if(c.length===0)c=n.substring(0,2);return c.substring(0,2).toUpperCase();}
 function formatTime(st){try{var p=st.split(':');if(p.length<2)return st;var h=parseInt(p[0]),m=parseInt(p[1]);return h.toString().padStart(2,'0')+':'+m.toString().padStart(2,'0');}catch(e){return st;}}
 function getDateLabel(timeStr){try{var p=timeStr.split(':');if(p.length<2)return'';var h=parseInt(p[0]),m=parseInt(p[1]);var now=new Date();var msgDate=new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,m);var today=new Date(now.getFullYear(),now.getMonth(),now.getDate());var yesterday=new Date(today.getTime()-86400000);var msgDay=new Date(msgDate.getFullYear(),msgDate.getMonth(),msgDate.getDate());if(msgDay.getTime()===today.getTime())return'Сегодня';if(msgDay.getTime()===yesterday.getTime())return'Вчера';return msgDate.getDate().toString().padStart(2,'0')+' '+msgDate.toLocaleString('ru',{month:'long'})+' '+(msgDate.getFullYear()!==now.getFullYear()?msgDate.getFullYear():'');}catch(e){return'';}}
 
-// ====== ТЕМЫ ======
+// Темы
 function loadTheme(){if((localStorage.getItem('theme')||'light')==='dark'){document.body.classList.add('dark');document.getElementById('menuThemeToggle').checked=true;}}
 function toggleTheme(){var d=document.getElementById('menuThemeToggle').checked;document.body.classList.toggle('dark',d);localStorage.setItem('theme',d?'dark':'light');}
 function loadThemeCustom(){var t=localStorage.getItem('custom_theme');if(t)applyThemeFromSaved(JSON.parse(t));var bg=localStorage.getItem('custom_chat_bg');if(bg)document.documentElement.style.setProperty('--chat-bg-color',bg);var img=localStorage.getItem('custom_wallpaper_img');if(img){document.documentElement.style.setProperty('--chat-bg-image','url('+img+')');document.documentElement.style.setProperty('--chat-bg-color','transparent');}}
 function applyThemeFromSaved(t){var r=document.documentElement.style;r.setProperty('--bg',t.bg);r.setProperty('--sidebar-bg',t.sidebar);r.setProperty('--main-bg',t.main);r.setProperty('--messages-bg',t.msgBg);r.setProperty('--input-bg',t.input);r.setProperty('--msg-other-bg',t.other);r.setProperty('--text',t.text);r.setProperty('--text-light',t.light);r.setProperty('--border',t.border);r.setProperty('--hover',t.hover);r.setProperty('--active',t.active);r.setProperty('--shadow',t.shadow);r.setProperty('--chat-bg-color',t.chatBg);if(t.headerBg)r.setProperty('--header-bg',t.headerBg);}
 
-// ====== МЕНЮ ======
+// Меню
 function openMenu(){document.getElementById('menuNickname').textContent=nickname||'Пользователь';document.getElementById('menuUsername').textContent='@'+(username||'user');if(myAvatar){document.getElementById('menuAvatarImg').src=myAvatar;document.getElementById('menuAvatarImg').style.display='block';document.getElementById('menuAvatarPlaceholder').style.display='none';}else{document.getElementById('menuAvatarImg').style.display='none';document.getElementById('menuAvatarPlaceholder').style.display='flex';document.getElementById('menuAvatarPlaceholder').textContent=getInitials(nickname);}document.getElementById('menuOverlay').classList.add('show');}
 function closeMenu(){document.getElementById('menuOverlay').classList.remove('show');}
 document.getElementById('hamburgerBtn').onclick=function(e){e.stopPropagation();openMenu();};document.getElementById('menuThemeToggle').onchange=toggleTheme;
@@ -215,7 +386,7 @@ function closeSidebar(){document.getElementById('sidebar').classList.remove('ope
 if(window.innerWidth<=768)setTimeout(function(){openSidebar();},300);
 var touchStartX=0;document.addEventListener('touchstart',function(e){touchStartX=e.touches[0].clientX;});document.addEventListener('touchend',function(e){var d=e.changedTouches[0].clientX-touchStartX;if(d>80&&touchStartX<30)openSidebar();if(d<-80&&document.getElementById('sidebar').classList.contains('open'))closeSidebar();});
 
-// ====== ПОИСК ======
+// Поиск
 document.getElementById('searchInput').oninput=function(){clearTimeout(searchTimeout);var q=this.value.trim(),rd=document.getElementById('searchResults');if(q.length<1){rd.classList.remove('show');return;}searchTimeout=setTimeout(async function(){try{var r=await fetch('/api/search?q='+encodeURIComponent(q));var data=await r.json();rd.innerHTML='';if(data.success){if(data.users)data.users.forEach(function(u){var d=document.createElement('div');d.className='search-result-item';d.innerHTML=(u.avatar?'<img class="chat-avatar" src="'+u.avatar+'">':'<div class="chat-avatar-placeholder">'+getInitials(u.nickname)+'</div>')+'<span><b>'+u.nickname+'</b> <span style="color:var(--text-light);">@'+u.username+'</span></span>';d.onclick=function(){rd.classList.remove('show');document.getElementById('searchInput').value='';openProfile(u.username);};rd.appendChild(d);});if(data.groups)data.groups.forEach(function(g){var d=document.createElement('div');d.className='search-result-item';d.innerHTML='<div class="chat-avatar-placeholder">'+getInitials(g.name)+'</div><span><b>'+g.name+'</b> <span style="color:var(--text-light);">👥</span></span>';d.onclick=function(){rd.classList.remove('show');document.getElementById('searchInput').value='';switchToChat(g.id,g.name,true);};rd.appendChild(d);});}rd.classList.add('show');}catch(e){}},300);};
 function openMsgSearch(){document.getElementById('msgSearchBar').classList.add('show');document.getElementById('msgSearchInput').focus();}
 function closeMsgSearch(){document.getElementById('msgSearchBar').classList.remove('show');document.getElementById('msgSearchInput').value='';clearHighlights();}
@@ -226,7 +397,7 @@ function nextSearchResult(){if(searchResults.length===0)return;currentSearchIdx=
 function prevSearchResult(){if(searchResults.length===0)return;currentSearchIdx=(currentSearchIdx-1+searchResults.length)%searchResults.length;searchResults[currentSearchIdx].scrollIntoView({behavior:'smooth',block:'center'});}
 document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='f'){e.preventDefault();openMsgSearch();}if(e.key==='Escape'){cancelReply();closeMsgSearch();closeLightbox();document.getElementById('reactionPicker').classList.remove('show');}});
 
-// ====== ЗАКРЕПЛЁННЫЕ ======
+// Закреплённые
 function pinMessage(id){currentPinnedId=id;var el=document.querySelector('[data-msg-id="'+id+'"]');if(!el)return;var text=el.querySelector('.message-bubble')?.textContent?.replace('(ред.)','').trim()||'';document.getElementById('pinnedText').textContent=text.substring(0,80);document.getElementById('pinnedBar').classList.add('show');localStorage.setItem('pinned_'+currentChatId,JSON.stringify({id:id,text:text}));}
 function unpinMessage(){currentPinnedId=null;document.getElementById('pinnedBar').classList.remove('show');localStorage.removeItem('pinned_'+currentChatId);}
 function loadPinned(){var p=localStorage.getItem('pinned_'+currentChatId);if(p){var d=JSON.parse(p);currentPinnedId=d.id;document.getElementById('pinnedText').textContent=d.text.substring(0,80);document.getElementById('pinnedBar').classList.add('show');}else{unpinMessage();}}
@@ -235,13 +406,13 @@ function scrollToBottom(){var area=document.getElementById('messagesArea');area.
 var messagesAreaEl=document.getElementById('messagesArea');
 messagesAreaEl.addEventListener('scroll',function(){checkScrollBottom();if(messagesAreaEl.scrollTop<100&&!allMessagesLoaded&&!isLoadingMessages&&oldestMessageId){loadMessages(currentChatId,oldestMessageId);}});
 
-// ====== ЗВУКИ ======
-function playNotificationSound(){if(localStorage.getItem('notif_sound')==='false')return;try{var ctx=new(window.AudioContext||window.webkitAudioContext)();var osc=ctx.createOscillator();var gain=ctx.createGain();osc.connect(gain);gain.connect(ctx.destination);osc.frequency.value=800;osc.type='sine';gain.gain.value=0.1;osc.start();gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.3);osc.stop(ctx.currentTime+0.3);}catch(e){}}
-function playSendSound(){if(localStorage.getItem('notif_sound')==='false')return;try{var ctx=new(window.AudioContext||window.webkitAudioContext)();var osc=ctx.createOscillator();var gain=ctx.createGain();osc.connect(gain);gain.connect(ctx.destination);osc.frequency.value=600;osc.type='sine';gain.gain.value=0.05;osc.start();gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.15);osc.stop(ctx.currentTime+0.15);}catch(e){}}
+// Звуки
+function playNotificationSound(){if(localStorage.getItem('notif_sound')==='false')return;try{var ctx=new(window.AudioContext||window.webkitAudioContext)();var osc=ctx.createOscillator();var gain=ctx.createGain();osc.connect(gain);gain.connect(ctx.destination);osc.frequency.value=800;osc.type='sine';gain.gain.value=0.08;osc.start();gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.25);osc.stop(ctx.currentTime+0.25);}catch(e){}}
+function playSendSound(){if(localStorage.getItem('notif_sound')==='false')return;try{var ctx=new(window.AudioContext||window.webkitAudioContext)();var osc=ctx.createOscillator();var gain=ctx.createGain();osc.connect(gain);gain.connect(ctx.destination);osc.frequency.value=600;osc.type='sine';gain.gain.value=0.04;osc.start();gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.1);osc.stop(ctx.currentTime+0.1);}catch(e){}}
 function flashTitle(){if(document.hasFocus()){newMsgCount=0;document.title=originalTitle;return;}newMsgCount++;document.title='('+newMsgCount+') Новое сообщение — Crown';setTimeout(function(){if(!document.hasFocus())document.title=originalTitle;},2000);}
 window.addEventListener('focus',function(){newMsgCount=0;document.title=originalTitle;});
 
-// ====== ПРОФИЛЬ ======
+// Профиль
 async function openProfile(u){viewingProfile=u;var isMe=(u===username);try{var r=await fetch('/api/profile?username='+u);if(!r.ok)return;var user=await r.json();document.getElementById('profileNickname').value=user.nickname||'';document.getElementById('profileUsername').value=user.username||'';document.getElementById('profileAbout').value=user.about||'';var img=document.getElementById('profileAvatarImg'),ph=document.getElementById('profileAvatarPlaceholder');if(user.avatar){img.src=user.avatar;img.style.display='block';ph.style.display='none';}else{img.style.display='none';ph.style.display='flex';ph.textContent=getInitials(user.nickname);}document.getElementById('profileSaveBtn').style.display=isMe?'block':'none';document.getElementById('profileChatBtn').style.display=isMe?'none':'block';document.getElementById('profileBlockBtn').style.display=isMe?'none':'block';document.getElementById('profileDeleteChatBtn').style.display=isMe?'none':'block';document.getElementById('profileNickname').disabled=!isMe;document.getElementById('profileAbout').disabled=!isMe;document.getElementById('profileModal').classList.add('show');}catch(e){}}
 function closeProfile(){document.getElementById('profileModal').classList.remove('show');}
 document.getElementById('profileSaveBtn').onclick=async function(){var nick=document.getElementById('profileNickname').value.trim(),about=document.getElementById('profileAbout').value.trim();await fetch('/api/profile',{method:'PUT',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({nickname:nick,about:about})});nickname=nick||nickname;closeProfile();};
@@ -250,7 +421,7 @@ document.getElementById('profileChatBtn').onclick=async function(){if(!viewingPr
 document.getElementById('profileBlockBtn').onclick=function(){if(confirm('Заблокировать '+viewingProfile+'?')){fetch('/api/block',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({username:viewingProfile,block:true})}).then(function(){closeProfile();});}};
 document.getElementById('profileDeleteChatBtn').onclick=function(){if(confirm('Удалить чат?')){fetch('/api/chat/delete',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({chat_id:currentChatId})}).then(function(){closeProfile();switchToChat(1,'',false);});}};
 
-// ====== СТАТУСЫ ======
+// Статусы
 function handleTyping(){if(!ws||ws.readyState!==WebSocket.OPEN)return;if(!typingSent){ws.send(JSON.stringify({action:'typing',chat_id:currentChatId}));typingSent=true;}clearTimeout(typingTimeout);typingTimeout=setTimeout(function(){typingSent=false;},2000);}
 function handleInput(){handleTyping();checkMention();}
 function sendUploadStatus(type){if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({action:'uploading_'+type,chat_id:currentChatId}));}
@@ -259,23 +430,23 @@ function updateTypingIndicator(){removeTypingIndicator();var users=typingUsers[c
 function removeTypingIndicator(){var el=document.getElementById('typingIndicator');if(el)el.remove();}
 setInterval(function(){updateTypingIndicator();},2000);
 
-// ====== УПОМИНАНИЯ @ ======
+// Упоминания
 function checkMention(){var input=document.getElementById('messageInput');var text=input.value;var cursorPos=input.selectionStart;var lastAt=text.lastIndexOf('@',cursorPos-1);if(lastAt!==-1){var afterAt=text.substring(lastAt+1,cursorPos);if(!afterAt.includes(' ')){loadMentionSuggestions(afterAt);return;}}document.getElementById('mentionSuggestions').classList.remove('show');}
-async function loadMentionSuggestions(query){var ms=document.getElementById('mentionSuggestions');if(query.length<1){ms.classList.remove('show');return;}try{var r=await fetch('/api/search?q='+query);var data=await r.json();ms.innerHTML='';if(data.users&&data.users.length>0){data.users.forEach(function(u){var d=document.createElement('div');d.className='mention-item';d.innerHTML='<div class="chat-avatar-placeholder" style="width:24px;height:24px;font-size:9px;">'+getInitials(u.nickname)+'</div><span>'+u.nickname+'</span>';d.onclick=function(){insertMention(u.username);ms.classList.remove('show');};ms.appendChild(d);});ms.classList.add('show');}else{ms.classList.remove('show');}}catch(e){}}
+async function loadMentionSuggestions(query){var ms=document.getElementById('mentionSuggestions');if(query.length<1){ms.classList.remove('show');return;}try{var r=await fetch('/api/search?q='+query);var data=await r.json();ms.innerHTML='';if(data.users&&data.users.length>0){data.users.forEach(function(u){var d=document.createElement('div');d.className='mention-item';d.innerHTML='<div class="chat-avatar-placeholder" style="width:26px;height:26px;font-size:10px;">'+getInitials(u.nickname)+'</div><span>'+u.nickname+'</span>';d.onclick=function(){insertMention(u.username);ms.classList.remove('show');};ms.appendChild(d);});ms.classList.add('show');}else{ms.classList.remove('show');}}catch(e){}}
 function insertMention(un){var input=document.getElementById('messageInput');var text=input.value;var cursorPos=input.selectionStart;var lastAt=text.lastIndexOf('@',cursorPos-1);if(lastAt!==-1){var before=text.substring(0,lastAt);var after=text.substring(cursorPos);input.value=before+'@'+un+' '+after;input.focus();}}
 
-// ====== ОТВЕТЫ ======
+// Ответы
 function setReply(id,text,nick){replyToId=id;replyToText=text;replyToNick=nick;document.getElementById('replyText').innerHTML='↩ <b>'+escapeHtml(nick)+'</b>: '+escapeHtml((text||'').substring(0,60));document.getElementById('replyBar').classList.add('show');document.getElementById('messageInput').focus();}
 function cancelReply(){replyToId=null;replyToText=null;replyToNick=null;document.getElementById('replyBar').classList.remove('show');}
 
-// ====== ФАЙЛЫ ======
+// Файлы
 async function uploadFile(){var f=document.getElementById('fileInput').files[0];if(!f)return;var isPhoto=f.type.startsWith('image/'),isVideo=f.type.startsWith('video/'),isAudio=f.type.startsWith('audio/');if(isPhoto)sendUploadStatus('photo');else if(isVideo)sendUploadStatus('video');else if(isAudio)sendUploadStatus('audio');var fd=new FormData();fd.append('file',f);try{var r=await fetch('/api/upload-file',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});var d=await r.json();if(d.file_url)sendFileMessage(d.file_url,d.file_type);}catch(e){alert('Ошибка');}document.getElementById('fileInput').value='';}
 function sendFileMessage(url,type){if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:'',chat_id:currentChatId,file_url:url,file_type:type,reply_to:replyToId||0,reply_text:replyToText||'',reply_nick:replyToNick||''}));cancelReply();}}
 
-// ====== ГОЛОСОВЫЕ СООБЩЕНИЯ ======
+// Голосовые
 async function uploadVoice(){var f=document.getElementById('voiceInput').files[0];if(!f)return;var fd=new FormData();fd.append('voice',f);try{var r=await fetch('/api/upload-voice',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});var d=await r.json();if(d.file_url)sendFileMessage(d.file_url,'audio');}catch(e){alert('Ошибка загрузки голосового сообщения');}document.getElementById('voiceInput').value='';}
 
-// ====== ЭМОДЗИ, СТИКЕРЫ, ГИФКИ ======
+// Эмодзи, стикеры, гифки
 var emojis=['😀','😂','😍','🥰','😎','🤩','😇','🤗','😋','😜','🤔','😐','😢','😡','👍','👎','👏','🙌','💪','🤝','❤️','💔','🔥','⭐','🎉','🎂','🍕','☕','🚀','💻','📱','💡','🎵','🌈','🦊','🐱','🐶','🦄','🌺','🍀'];
 function toggleEmoji(){var p=document.getElementById('emojiPanel');p.classList.toggle('show');if(p.classList.contains('show'))showEmojiTab('emoji',document.querySelector('.emoji-tab.active')||document.querySelector('.emoji-tab'));}
 function showEmojiTab(tab,btn){document.querySelectorAll('.emoji-tab').forEach(function(e){e.classList.remove('active');});btn.classList.add('active');var grid=document.getElementById('emojiGrid'),packs=document.getElementById('stickerPacksList');grid.style.display='';packs.style.display='none';grid.innerHTML='';if(tab==='emoji'){emojis.forEach(function(e){var d=document.createElement('div');d.className='emoji-item';d.textContent=e;d.onclick=function(){insertEmoji(e);};grid.appendChild(d);});}else if(tab==='stickers'){loadStickers();}else if(tab==='gifs'){loadGifs();}}
@@ -290,17 +461,17 @@ function sendStickerOrGif(url){if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JS
 async function loadGifs(){var grid=document.getElementById('emojiGrid');grid.innerHTML='';try{var r=await fetch('/api/gifs/list');var gifs=await r.json();gifs.forEach(function(g){var img=document.createElement('img');img.src=g.url;img.className='gif-item';img.onclick=function(){sendStickerOrGif(g.url);};grid.appendChild(img);});grid.innerHTML+='<div style="grid-column:1/-1;text-align:center;margin-top:6px;"><label class="custom-file-btn">+ Гиф<input type="file" accept="image/*,video/*" onchange="uploadGif(this)" style="display:none;"></label></div>';}catch(e){}}
 async function uploadGif(input){var f=input.files[0];if(!f)return;var fd=new FormData();fd.append('gif',f);await fetch('/api/gifs/upload',{method:'POST',headers:{'Authorization':'Bearer '+getToken()},body:fd});loadGifs();}
 
-// ====== РЕАКЦИИ ======
-function showReactionPicker(e,msgId){e.preventDefault();e.stopPropagation();reactionMsgId=msgId;var picker=document.getElementById('reactionPicker');document.getElementById('contextMenu').classList.remove('show');var x=e.pageX||(e.touches&&e.touches[0]?e.touches[0].pageX:100),y=e.pageY||(e.touches&&e.touches[0]?e.touches[0].pageY:200);picker.style.left=x+'px';picker.style.top=(y-50)+'px';picker.classList.add('show');}
+// Реакции
+function showReactionPicker(e,msgId){e.preventDefault();e.stopPropagation();reactionMsgId=msgId;var picker=document.getElementById('reactionPicker');document.getElementById('contextMenu').classList.remove('show');var x=e.pageX||(e.touches&&e.touches[0]?e.touches[0].pageX:100),y=e.pageY||(e.touches&&e.touches[0]?e.touches[0].pageY:200);picker.style.left=x+'px';picker.style.top=(y-55)+'px';picker.classList.add('show');}
 async function addReaction(emoji){document.getElementById('reactionPicker').classList.remove('show');if(!reactionMsgId)return;try{var r=await fetch('/api/reactions',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({message_id:reactionMsgId,emoji:emoji})});await r.json();loadReactions(reactionMsgId);}catch(e){}}
 async function loadReactions(msgId){var el=document.querySelector('[data-msg-id="'+msgId+'"]');if(!el)return;var bar=el.querySelector('.reactions-bar');if(!bar){bar=document.createElement('div');bar.className='reactions-bar';el.querySelector('.message-bubble').appendChild(bar);}try{var r=await fetch('/api/reactions?message_id='+msgId);var reactions=await r.json();var counts={};reactions.forEach(function(r){counts[r.emoji]=(counts[r.emoji]||0)+1;});bar.innerHTML='';for(var emoji in counts){var badge=document.createElement('span');badge.className='reaction-badge';badge.textContent=emoji+' '+counts[emoji];badge.onclick=function(e){e.stopPropagation();addReaction(emoji);};bar.appendChild(badge);}}catch(e){}}
 
-// ====== ЛАЙТБОКС ======
+// Лайтбокс
 function openLightbox(url,type){var lc=document.getElementById('lightboxContent');lc.innerHTML='';if(type==='photo'){var img=document.createElement('img');img.src=url;lc.appendChild(img);}else{var v=document.createElement('video');v.src=url;v.controls=true;v.autoplay=true;v.style.cssText='max-width:95%;max-height:95%;border-radius:10px;';lc.appendChild(v);}document.getElementById('lightbox').classList.add('show');}
 function closeLightbox(){document.getElementById('lightbox').classList.remove('show');document.getElementById('lightboxContent').innerHTML='';}
 
-// ====== КОНТЕКСТНОЕ МЕНЮ ======
-function showContextMenu(e,msgId,text,sender,isMine){contextMsgId=msgId;var m=document.getElementById('contextMenu');m.classList.remove('show');document.getElementById('ctxReply').style.display='';document.getElementById('ctxReact').style.display='';document.getElementById('ctxCopy').style.display='';document.getElementById('ctxPin').style.display='';document.getElementById('ctxEdit').style.display=isMine?'':'none';document.getElementById('ctxDelete').style.display=isMine?'':'none';var x=e.pageX||(e.touches&&e.touches[0]?e.touches[0].pageX:100),y=e.pageY||(e.touches&&e.touches[0]?e.touches[0].pageY:200);var mw=160,ww=window.innerWidth,wh=window.innerHeight;if(x+mw>ww)x=ww-mw-10;if(y+200>wh)y=y-200;if(x<10)x=10;if(y<10)y=10;m.style.left=x+'px';m.style.top=y+'px';setTimeout(function(){m.classList.add('show');},10);}
+// Контекстное меню
+function showContextMenu(e,msgId,text,sender,isMine){contextMsgId=msgId;var m=document.getElementById('contextMenu');m.classList.remove('show');document.getElementById('ctxReply').style.display='';document.getElementById('ctxReact').style.display='';document.getElementById('ctxCopy').style.display='';document.getElementById('ctxPin').style.display='';document.getElementById('ctxEdit').style.display=isMine?'':'none';document.getElementById('ctxDelete').style.display=isMine?'':'none';var x=e.pageX||(e.touches&&e.touches[0]?e.touches[0].pageX:100),y=e.pageY||(e.touches&&e.touches[0]?e.touches[0].pageY:200);var mw=180,ww=window.innerWidth,wh=window.innerHeight;if(x+mw>ww)x=ww-mw-10;if(y+220>wh)y=y-220;if(x<10)x=10;if(y<10)y=10;m.style.left=x+'px';m.style.top=y+'px';setTimeout(function(){m.classList.add('show');},10);}
 document.getElementById('ctxReply').onclick=function(){document.getElementById('contextMenu').classList.remove('show');var el=document.querySelector('[data-msg-id="'+contextMsgId+'"]');var bubble=el?.querySelector('.message-bubble');var text=bubble?.textContent?.replace('(ред.)','').trim()||'';var nickEl=el?.querySelector('.message-username');var nick=nickEl?nickEl.textContent:(el?.classList.contains('mine')?'Вы':'Пользователь');setReply(contextMsgId,text,nick);};
 document.getElementById('ctxReact').onclick=function(e){showReactionPicker(e,contextMsgId);};
 document.getElementById('ctxCopy').onclick=function(){document.getElementById('contextMenu').classList.remove('show');var text=document.querySelector('[data-msg-id="'+contextMsgId+'"] .message-bubble')?.textContent?.replace('(ред.)','').trim()||'';navigator.clipboard.writeText(text);alert('Скопировано!');};
@@ -308,16 +479,16 @@ document.getElementById('ctxPin').onclick=function(){document.getElementById('co
 document.getElementById('ctxEdit').onclick=function(){document.getElementById('contextMenu').classList.remove('show');var txt=prompt('Редактировать:',document.querySelector('[data-msg-id="'+contextMsgId+'"] .message-bubble')?.textContent?.replace('(ред.)','').trim()||'');if(txt&&txt.trim()){fetch('/api/messages',{method:'PUT',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({id:contextMsgId,text:txt.trim()})}).then(function(){switchToChat(currentChatId,currentPeer,currentIsGroup);});}};
 document.getElementById('ctxDelete').onclick=function(){document.getElementById('contextMenu').classList.remove('show');if(confirm('Удалить?')){fetch('/api/messages',{method:'DELETE',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({id:contextMsgId})}).then(function(){switchToChat(currentChatId,currentPeer,currentIsGroup);});}};
 
-// ====== СВАЙП ДЛЯ ОТВЕТА ======
+// Свайп
 var swipeStartX2=0,swipeMsgId=null;
 document.addEventListener('touchstart',function(e){var msg=e.target.closest('.message');if(msg){swipeStartX2=e.touches[0].clientX;swipeMsgId=msg.getAttribute('data-msg-id');}});
 document.addEventListener('touchend',function(e){if(!swipeMsgId)return;var diff=e.changedTouches[0].clientX-swipeStartX2;if(diff>80){var el=document.querySelector('[data-msg-id="'+swipeMsgId+'"]');if(el){var bubble=el.querySelector('.message-bubble');var text=bubble?.textContent?.replace('(ред.)','').trim()||'';var nickEl=el.querySelector('.message-username');var nick=nickEl?nickEl.textContent:'Пользователь';setReply(swipeMsgId,text,nick);}}swipeMsgId=null;});
 
-// ====== ТЕМЫ ======
-var wallpaperPresets=[{name:'Классика',bg:'#f0f4f8',sidebar:'#f8fafc',main:'#ffffff',msgBg:'#f5f7fa',input:'#f8fafc',other:'#ffffff',text:'#1a202c',light:'#a0aec0',border:'#d0d7de',hover:'#edf2f7',active:'#e8f0fe',shadow:'0 4px 12px rgba(0,0,0,0.08)',chatBg:'#f5f7fa',headerBg:'#3b82f6'},{name:'Дневная',bg:'#e8eaed',sidebar:'#f1f3f4',main:'#ffffff',msgBg:'#e8eaed',input:'#f1f3f4',other:'#ffffff',text:'#202124',light:'#5f6368',border:'#dadce0',hover:'#e8eaed',active:'#d2e3fc',shadow:'0 2px 8px rgba(0,0,0,0.06)',chatBg:'#e8eaed',headerBg:'#5f6368'},{name:'Цветная',bg:'#f3e5f5',sidebar:'#ede7f6',main:'#ffffff',msgBg:'#fce4ec',input:'#f3e5f5',other:'#ffffff',text:'#4a148c',light:'#7b1fa2',border:'#ce93d8',hover:'#e1bee7',active:'#f8bbd0',shadow:'0 4px 12px rgba(156,39,176,0.1)',chatBg:'#fce4ec',headerBg:'#9c27b0'},{name:'Ночная',bg:'#0f1117',sidebar:'#16181d',main:'#1a1d23',msgBg:'#121418',input:'#1e2128',other:'#1e2128',text:'#e4e8ee',light:'#8b949e',border:'#2d3239',hover:'#1e2128',active:'#1a2340',shadow:'0 4px 12px rgba(0,0,0,0.4)',chatBg:'#121418',headerBg:'#1e3a5f'}];
+// Темы
+var wallpaperPresets=[{name:'Классика',bg:'#f5f5f5',sidebar:'#ebebeb',main:'#ffffff',msgBg:'#f5f5f5',input:'#f9fafb',other:'#ffffff',text:'#1a1a1a',light:'#6b7280',border:'#d1d5db',hover:'#e5e7eb',active:'#dbeafe',shadow:'0 1px 3px rgba(0,0,0,0.08)',chatBg:'#f5f5f5',headerBg:'#1a73e8'},{name:'Дневная',bg:'#e8eaed',sidebar:'#f1f3f4',main:'#ffffff',msgBg:'#e8eaed',input:'#f9fafb',other:'#ffffff',text:'#202124',light:'#5f6368',border:'#dadce0',hover:'#e8eaed',active:'#d2e3fc',shadow:'0 1px 3px rgba(0,0,0,0.06)',chatBg:'#e8eaed',headerBg:'#5f6368'},{name:'Цветная',bg:'#f5f0fa',sidebar:'#ede7f6',main:'#ffffff',msgBg:'#fef5f9',input:'#faf5fc',other:'#ffffff',text:'#4a148c',light:'#7b1fa2',border:'#e1bee7',hover:'#f3e5f5',active:'#f8bbd0',shadow:'0 1px 3px rgba(156,39,176,0.1)',chatBg:'#fef5f9',headerBg:'#9c27b0'},{name:'Ночная',bg:'#0d1117',sidebar:'#111820',main:'#161b22',msgBg:'#0d1117',input:'#21262d',other:'#21262d',text:'#e6edf3',light:'#8b949e',border:'#30363d',hover:'#21262d',active:'#1a2340',shadow:'0 1px 3px rgba(0,0,0,0.3)',chatBg:'#0d1117',headerBg:'#1e3a5f'}];
 function showSettings(){closeMenu();var c=document.getElementById('settingsContent');c.innerHTML='<h3>⚙️ Настройки</h3><div class="settings-tabs"><button class="settings-tab active" onclick="showSettingsTab(\'wallpaper\',this)">🎨 Тема</button><button class="settings-tab" onclick="showSettingsTab(\'language\',this)">🌐 Язык</button><button class="settings-tab" onclick="showSettingsTab(\'privacy\',this)">🔒 Конфиденциальность</button><button class="settings-tab" onclick="showSettingsTab(\'notifications\',this)">🔔 Уведомления</button></div><div id="settingsTabContent"></div>';document.getElementById('settingsModal').classList.add('show');showSettingsTab('wallpaper',document.querySelector('.settings-tab.active'));}
 function closeSettings(){document.getElementById('settingsModal').classList.remove('show');}
-function showSettingsTab(tab,btn){document.querySelectorAll('.settings-tab').forEach(function(e){e.classList.remove('active');});btn.classList.add('active');var tc=document.getElementById('settingsTabContent');if(tab==='wallpaper'){tc.innerHTML='<p style="font-size:12px;color:var(--text-light);margin-bottom:8px;">Основные темы</p><div class="wallpaper-grid">'+wallpaperPresets.map(function(p,i){return '<div class="wallpaper-color" style="background:'+p.chatBg+';" onclick="applyTheme('+i+')" title="'+p.name+'"><span style="font-size:9px;color:'+p.text+';">'+p.name+'</span></div>';}).join('')+'</div><div class="color-picker-wrapper" style="margin-top:12px;"><span style="font-size:12px;">Свой цвет:</span><input type="color" id="customColor" value="#f5f7fa" onchange="setCustomChatBg(this.value)"></div><p style="font-size:12px;color:var(--text-light);margin:12px 0 8px;">🖼️ Своё фото</p><label class="custom-file-btn" for="customWallpaper">📷 Выбрать фото</label><input type="file" id="customWallpaper" accept="image/*" style="display:none;" onchange="uploadCustomWallpaper()"><button class="btn btn-primary btn-sm" onclick="resetWallpaper()" style="margin-top:6px;">🔄 Сбросить</button>';}else if(tab==='language'){tc.innerHTML='<button class="btn btn-primary" onclick="setLanguage(\'ru\')" style="margin-bottom:6px;">🇷🇺 Русский</button><button class="btn btn-primary" onclick="setLanguage(\'en\')">🇬🇧 English</button>';}else if(tab==='privacy'){var ls=localStorage.getItem('privacy_lastseen')!=='false';tc.innerHTML='<div class="profile-field"><div style="display:flex;align-items:center;justify-content:space-between;"><span>Показывать онлайн</span><label class="switch"><input type="checkbox" id="privacyLastSeen" '+(ls?'checked':'')+' onchange="savePrivacy()"><span class="slider"></span></label></div></div>';}else{var snd=localStorage.getItem('notif_sound')!=='false',vib=localStorage.getItem('notif_vibro')!=='false';tc.innerHTML='<div class="profile-field"><div style="display:flex;align-items:center;justify-content:space-between;"><span>Звук</span><label class="switch"><input type="checkbox" id="notifSound" '+(snd?'checked':'')+' onchange="saveNotifications()"><span class="slider"></span></label></div></div><div class="profile-field"><div style="display:flex;align-items:center;justify-content:space-between;"><span>Вибрация</span><label class="switch"><input type="checkbox" id="notifVibro" '+(vib?'checked':'')+' onchange="saveNotifications()"><span class="slider"></span></label></div></div>';}}
+function showSettingsTab(tab,btn){document.querySelectorAll('.settings-tab').forEach(function(e){e.classList.remove('active');});btn.classList.add('active');var tc=document.getElementById('settingsTabContent');if(tab==='wallpaper'){tc.innerHTML='<p style="font-size:12px;color:var(--text-light);margin-bottom:8px;">Основные темы</p><div class="wallpaper-grid">'+wallpaperPresets.map(function(p,i){return '<div class="wallpaper-color" style="background:'+p.chatBg+';" onclick="applyTheme('+i+')" title="'+p.name+'"><span style="font-size:9px;color:'+p.text+';">'+p.name+'</span></div>';}).join('')+'</div><div class="color-picker-wrapper" style="margin-top:12px;"><span style="font-size:12px;">Свой цвет:</span><input type="color" id="customColor" value="#f5f5f5" onchange="setCustomChatBg(this.value)"></div><p style="font-size:12px;color:var(--text-light);margin:12px 0 8px;">🖼️ Своё фото</p><label class="custom-file-btn" for="customWallpaper">📷 Выбрать фото</label><input type="file" id="customWallpaper" accept="image/*" style="display:none;" onchange="uploadCustomWallpaper()"><button class="btn btn-primary btn-sm" onclick="resetWallpaper()" style="margin-top:6px;">🔄 Сбросить</button>';}else if(tab==='language'){tc.innerHTML='<button class="btn btn-primary" onclick="setLanguage(\'ru\')" style="margin-bottom:6px;">🇷🇺 Русский</button><button class="btn btn-primary" onclick="setLanguage(\'en\')">🇬🇧 English</button>';}else if(tab==='privacy'){var ls=localStorage.getItem('privacy_lastseen')!=='false';tc.innerHTML='<div class="profile-field"><div style="display:flex;align-items:center;justify-content:space-between;"><span>Показывать онлайн</span><label class="switch"><input type="checkbox" id="privacyLastSeen" '+(ls?'checked':'')+' onchange="savePrivacy()"><span class="slider"></span></label></div></div>';}else{var snd=localStorage.getItem('notif_sound')!=='false',vib=localStorage.getItem('notif_vibro')!=='false';tc.innerHTML='<div class="profile-field"><div style="display:flex;align-items:center;justify-content:space-between;"><span>Звук</span><label class="switch"><input type="checkbox" id="notifSound" '+(snd?'checked':'')+' onchange="saveNotifications()"><span class="slider"></span></label></div></div><div class="profile-field"><div style="display:flex;align-items:center;justify-content:space-between;"><span>Вибрация</span><label class="switch"><input type="checkbox" id="notifVibro" '+(vib?'checked':'')+' onchange="saveNotifications()"><span class="slider"></span></label></div></div>';}}
 function applyTheme(idx){var t=wallpaperPresets[idx],r=document.documentElement.style;r.setProperty('--bg',t.bg);r.setProperty('--sidebar-bg',t.sidebar);r.setProperty('--main-bg',t.main);r.setProperty('--messages-bg',t.msgBg);r.setProperty('--input-bg',t.input);r.setProperty('--msg-other-bg',t.other);r.setProperty('--text',t.text);r.setProperty('--text-light',t.light);r.setProperty('--border',t.border);r.setProperty('--hover',t.hover);r.setProperty('--active',t.active);r.setProperty('--shadow',t.shadow);r.setProperty('--chat-bg-color',t.chatBg);r.setProperty('--chat-bg-image','none');if(t.headerBg)r.setProperty('--header-bg',t.headerBg);var h=document.querySelector('.sidebar-header');if(h)h.style.background='linear-gradient(135deg, '+t.headerBg+', var(--blue-dark))';localStorage.setItem('custom_theme',JSON.stringify(t));}
 function setCustomChatBg(c){document.documentElement.style.setProperty('--chat-bg-color',c);document.documentElement.style.setProperty('--chat-bg-image','none');localStorage.setItem('custom_chat_bg',c);}
 function uploadCustomWallpaper(){var f=document.getElementById('customWallpaper').files[0];if(!f)return;var reader=new FileReader();reader.onload=function(e){document.documentElement.style.setProperty('--chat-bg-image','url('+e.target.result+')');document.documentElement.style.setProperty('--chat-bg-color','transparent');localStorage.setItem('custom_wallpaper_img',e.target.result);};reader.readAsDataURL(f);}
@@ -326,7 +497,7 @@ function savePrivacy(){localStorage.setItem('privacy_lastseen',document.getEleme
 function saveNotifications(){localStorage.setItem('notif_sound',document.getElementById('notifSound').checked);localStorage.setItem('notif_vibro',document.getElementById('notifVibro').checked);}
 function setLanguage(l){localStorage.setItem('language',l);location.reload();}
 
-// ====== ГРУППЫ ======
+// Группы
 function showCreateGroup(){var c=document.getElementById('groupModalContent');c.innerHTML='<h3>👥 Создать группу</h3><div class="profile-field"><label>Название</label><input type="text" id="groupName"></div><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span>Публичная</span><label class="switch"><input type="checkbox" id="groupPublic"><span class="slider"></span></label></div><button class="btn btn-primary" onclick="createGroup()">Создать</button>';document.getElementById('groupModal').classList.add('show');}
 async function createGroup(){var n=document.getElementById('groupName').value.trim();if(!n)return;var pub=document.getElementById('groupPublic').checked;var r=await fetch('/api/group/create',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({name:n,public:pub})});var d=await r.json();if(d.group_id){closeGroupModal();addChatToList(d.group_id,d.name,true);switchToChat(d.group_id,d.name,true);showInviteModal(d.group_id,d.name,d.invite_code);}else{alert('Ошибка: '+JSON.stringify(d));}}
 function showJoinGroup(){var c=document.getElementById('groupModalContent');c.innerHTML='<h3>🔗 Присоединиться</h3><div class="profile-field"><label>Код</label><input type="text" id="inviteCode"></div><button class="btn btn-primary" onclick="joinGroup()">Присоединиться</button>';document.getElementById('groupModal').classList.add('show');}
@@ -339,43 +510,21 @@ async function saveGroup(gid){var name=document.getElementById('groupEditName').
 function closeGroupManageModal(){document.getElementById('groupManageModal').classList.remove('show');}
 async function leaveGroup(gid){if(confirm('Выйти из группы?')){await fetch('/api/group/leave',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({group_id:gid})});closeGroupManageModal();switchToChat(1,'',false);}}
 
-// ====== ЧАТЫ ======
+// Чаты
 function addChatToList(id,peer,isGroup){var existing=document.querySelector('.chat-item[data-chat-id="'+id+'"]');if(existing){var last=lastMsgs[id]||'',lastTime=lastTimes[id]||'',unread=unreadCounts[id]||0;var badge=existing.querySelector('.chat-badge'),lastMsg=existing.querySelector('.chat-last-msg');if(badge){if(unread>0){badge.textContent=unread>99?'99+':unread;badge.style.display='';}else{badge.style.display='none';}}if(lastMsg)lastMsg.innerHTML=last+(lastTime?' <span style="font-size:9px;opacity:0.5;">'+lastTime+'</span>':'');return;}var list=document.getElementById('chatList'),div=document.createElement('div');div.className='chat-item';div.setAttribute('data-chat-id',id);div.setAttribute('data-peer',peer||'');div.setAttribute('data-is-group',isGroup?'true':'false');var av=isGroup?getInitials(peer):(peer?getInitials(peer):'💬');var last=lastMsgs[id]||'',lastTime=lastTimes[id]||'',unread=unreadCounts[id]||0;div.innerHTML='<div class="chat-avatar-placeholder">'+av+'</div><div class="chat-info"><div class="chat-name">'+(peer||'Общий чат')+'</div>'+(last?'<div class="chat-last-msg">'+last+(lastTime?' <span style="font-size:9px;opacity:0.5;">'+lastTime+'</span>':'')+'</div>':'')+'</div>'+(unread>0?'<div class="chat-badge">'+(unread>99?'99+':unread)+'</div>':'');div.onclick=function(){unreadCounts[id]=0;switchToChat(id,peer,isGroup);};list.appendChild(div);}
-
 function switchToChat(id,peer,isGroup){currentChatId=parseInt(id);currentPeer=peer||'';currentIsGroup=isGroup||false;unreadCounts[currentChatId]=0;document.getElementById('chatTitle').textContent=peer||'Общий чат';document.getElementById('chatHeaderIcon').textContent=peer?getInitials(peer):'💬';document.querySelectorAll('.chat-item').forEach(function(el){el.classList.remove('active');});var item=document.querySelector('.chat-item[data-chat-id="'+id+'"]');if(item)item.classList.add('active');var badge=item?item.querySelector('.chat-badge'):null;if(badge)badge.style.display='none';updateOnlineStatus();cancelReply();typingUsers={};updateTypingIndicator();closeMsgSearch();unpinMessage();loadPinned();if(!currentIsGroup&&currentChatId!==1)markAsRead(currentChatId);allMessagesLoaded=false;oldestMessageId=null;lastDateShown="";loadMessages(currentChatId,null);}
-
 async function loadMessages(chatId,beforeId){if(isLoadingMessages)return;isLoadingMessages=true;var url='/api/messages?chat_id='+chatId+'&limit=50';if(beforeId)url+='&before='+beforeId;try{var r=await fetch(url,{headers:{'Authorization':'Bearer '+getToken()}});var msgs=await r.json();var area=document.getElementById('messagesArea');if(!msgs||msgs.length===0){if(!beforeId)area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';allMessagesLoaded=true;isLoadingMessages=false;return;}if(msgs.length<50)allMessagesLoaded=true;if(beforeId){var oldScrollHeight=area.scrollHeight;msgs.sort(function(a,b){return a.id-b.id;});var tempDiv=document.createElement('div');msgs.forEach(function(m){appendMessageToDiv(tempDiv,m);});while(tempDiv.firstChild)area.insertBefore(tempDiv.firstChild,area.firstChild);area.scrollTop=area.scrollHeight-oldScrollHeight;}else{area.innerHTML='';lastDateShown="";msgs.sort(function(a,b){return a.id-b.id;});msgs.forEach(function(m){appendMessageToDiv(area,m);});area.scrollTop=area.scrollHeight;}if(msgs.length>0)oldestMessageId=msgs[0].id;}catch(e){if(!beforeId)area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Ошибка загрузки</div>';}isLoadingMessages=false;}
-
-function appendMessageToDiv(parent,m){
-    var dateLabel=getDateLabel(m.time);
-    if(dateLabel&&dateLabel!==lastDateShown){var dateDiv=document.createElement('div');dateDiv.className='date-divider';dateDiv.textContent=dateLabel;document.getElementById('messagesArea').appendChild(dateDiv);lastDateShown=dateLabel;}
-    var div=document.createElement('div');var isMine=m.username===username;
-    div.className='message '+(isMine?'mine':'other');div.setAttribute('data-msg-id',m.id);
-    var avHtml='';if(!isMine){if(m.avatar&&m.avatar!==''){avHtml='<img class="message-avatar" src="'+m.avatar+'" onclick="openProfile(\''+m.username+'\')">';}else{avHtml='<div class="message-avatar-placeholder" onclick="openProfile(\''+m.username+'\')">'+getInitials(m.nickname||m.username)+'</div>';}}
-    var readHtml='';if(currentIsGroup){readHtml='<div class="message-read">✓'+(m.read?'✓':'')+'</div>';}else if(isMine&&currentChatId!==1){readHtml='<div class="message-read">'+(m.read?'✓✓':'✓')+'</div>';}
-    var editedHtml=m.edited?' <span class="message-edited">(ред.)</span>':'';var displayTime=formatTime(m.time);
-    var replyHtml='';if(m.reply_to&&m.reply_text){replyHtml='<div class="reply-preview" onclick="scrollToMessage('+m.reply_to+')"><b>'+escapeHtml(m.reply_nick||'')+'</b>: '+escapeHtml(m.reply_text)+' <span style="font-size:9px;opacity:0.5;">'+displayTime+'</span></div>';}
-    var contentHtml='';if(m.file_url){if(m.file_type==='photo'){contentHtml='<img src="'+m.file_url+'" onclick="openLightbox(\''+m.file_url+'\',\'photo\')" style="max-width:100%;max-height:300px;border-radius:8px;cursor:pointer;display:block;" loading="lazy">';}else if(m.file_type==='video'){contentHtml='<video controls preload="none" src="'+m.file_url+'" onclick="event.stopPropagation();openLightbox(\''+m.file_url+'\',\'video\')" style="max-width:100%;max-height:300px;border-radius:8px;display:block;cursor:pointer;"></video>';}else if(m.file_type==='audio'){contentHtml='<audio controls preload="none" src="'+m.file_url+'" style="max-width:220px;display:block;"></audio>';}else{contentHtml='<a href="'+m.file_url+'" target="_blank">📎 Файл</a>';}}
-    if(m.text){var textWithMentions=escapeHtml(m.text).replace(/@(\w+)/g,'<span style="color:var(--blue);font-weight:600;">@$1</span>');contentHtml+=textWithMentions;}
-    div.innerHTML=avHtml+'<div class="message-bubble">'+replyHtml+(isMine?'':'<div class="message-username" onclick="openProfile(\''+m.username+'\')">'+escapeHtml(m.nickname||m.username)+'</div>')+contentHtml+editedHtml+'<div class="message-time">'+displayTime+'</div>'+readHtml+'<div class="reactions-bar"></div></div>';
-    div.oncontextmenu=function(e){e.preventDefault();var nn=this.querySelector('.message-username');showContextMenu(e,m.id,m.text,nn?nn.textContent:'',isMine);};
-    var longPressTimer;div.addEventListener('touchstart',function(e){var self=this;longPressTimer=setTimeout(function(){var nn=self.querySelector('.message-username');showReactionPicker(e,m.id);},500);});div.addEventListener('touchend',function(){clearTimeout(longPressTimer);});div.addEventListener('touchmove',function(){clearTimeout(longPressTimer);});
-    document.getElementById('messagesArea').appendChild(div);
-    lastMsgs[currentChatId]=(m.nickname||m.username)+': '+(m.text||'[файл]');lastTimes[currentChatId]=formatTime(m.time);
-    if(currentChatId!==parseInt((document.querySelector('.chat-item.active')||{}).getAttribute?.('data-chat-id')||0)){unreadCounts[currentChatId]=(unreadCounts[currentChatId]||0)+1;}
-    // Загружаем реакции
-    loadReactions(m.id);
-}
-
+function appendMessageToDiv(parent,m){var dateLabel=getDateLabel(m.time);if(dateLabel&&dateLabel!==lastDateShown){var dateDiv=document.createElement('div');dateDiv.className='date-divider';dateDiv.textContent=dateLabel;document.getElementById('messagesArea').appendChild(dateDiv);lastDateShown=dateLabel;}var div=document.createElement('div');var isMine=m.username===username;div.className='message '+(isMine?'mine':'other');div.setAttribute('data-msg-id',m.id);var avHtml='';if(!isMine){if(m.avatar&&m.avatar!==''){avHtml='<img class="message-avatar" src="'+m.avatar+'" onclick="openProfile(\''+m.username+'\')">';}else{avHtml='<div class="message-avatar-placeholder" onclick="openProfile(\''+m.username+'\')">'+getInitials(m.nickname||m.username)+'</div>';}}var readHtml='';if(currentIsGroup){readHtml='<div class="message-read">✓'+(m.read?'✓':'')+'</div>';}else if(isMine&&currentChatId!==1){readHtml='<div class="message-read">'+(m.read?'✓✓':'✓')+'</div>';}var editedHtml=m.edited?' <span class="message-edited">(ред.)</span>':'';var displayTime=formatTime(m.time);var replyHtml='';if(m.reply_to&&m.reply_text){replyHtml='<div class="reply-preview" onclick="scrollToMessage('+m.reply_to+')"><b>'+escapeHtml(m.reply_nick||'')+'</b>: '+escapeHtml(m.reply_text)+' <span style="font-size:9px;opacity:0.5;">'+displayTime+'</span></div>';}var contentHtml='';if(m.file_url){if(m.file_type==='photo'){contentHtml='<img src="'+m.file_url+'" onclick="openLightbox(\''+m.file_url+'\',\'photo\')" style="max-width:100%;max-height:320px;border-radius:8px;cursor:pointer;display:block;" loading="lazy">';}else if(m.file_type==='video'){contentHtml='<video controls preload="none" src="'+m.file_url+'" onclick="event.stopPropagation();openLightbox(\''+m.file_url+'\',\'video\')" style="max-width:100%;max-height:320px;border-radius:8px;display:block;cursor:pointer;"></video>';}else if(m.file_type==='audio'){contentHtml='<audio controls preload="none" src="'+m.file_url+'" style="max-width:240px;display:block;"></audio>';}else{contentHtml='<a href="'+m.file_url+'" target="_blank">📎 Файл</a>';}}if(m.text){var textWithMentions=escapeHtml(m.text).replace(/@(\w+)/g,'<span class="mention-highlight">@$1</span>');contentHtml+=textWithMentions;}div.innerHTML=avHtml+'<div class="message-bubble">'+replyHtml+(isMine?'':'<div class="message-username" onclick="openProfile(\''+m.username+'\')">'+escapeHtml(m.nickname||m.username)+'</div>')+contentHtml+editedHtml+'<div class="message-time">'+displayTime+'</div>'+readHtml+'<div class="reactions-bar"></div></div>';div.oncontextmenu=function(e){e.preventDefault();var nn=this.querySelector('.message-username');showContextMenu(e,m.id,m.text,nn?nn.textContent:'',isMine);};var longPressTimer;div.addEventListener('touchstart',function(e){var self=this;longPressTimer=setTimeout(function(){showReactionPicker(e,m.id);},500);});div.addEventListener('touchend',function(){clearTimeout(longPressTimer);});div.addEventListener('touchmove',function(){clearTimeout(longPressTimer);});document.getElementById('messagesArea').appendChild(div);lastMsgs[currentChatId]=(m.nickname||m.username)+': '+(m.text||'[файл]');lastTimes[currentChatId]=formatTime(m.time);if(currentChatId!==parseInt((document.querySelector('.chat-item.active')||{}).getAttribute?.('data-chat-id')||0)){unreadCounts[currentChatId]=(unreadCounts[currentChatId]||0)+1;}loadReactions(m.id);}
 function appendMessage(id,sender,senderNick,text,time,avatar,read,edited,animate,fileUrl,fileType,replyTo,replyText,replyNick){var m={id:id,username:sender,nickname:senderNick,text:text,time:time,avatar:avatar,read:read,edited:edited,file_url:fileUrl,file_type:fileType,reply_to:replyTo,reply_text:replyText,reply_nick:replyNick};var div=document.createElement('div');appendMessageToDiv(div,m);var area=document.getElementById('messagesArea');area.appendChild(div);if(animate!==false)area.scrollTop=area.scrollHeight;checkScrollBottom();}
-
 function updateOnlineStatus(){var s=document.getElementById('onlineStatus');if(currentChatId===1||currentIsGroup||!currentPeer){s.textContent=onlineCount+' участников онлайн';return;}fetch('/api/lastseen?username='+currentPeer).then(function(r){return r.json();}).then(function(d){if(d.online){s.textContent='🟢 Онлайн';}else if(d.last_seen){var lastSeen=new Date(d.last_seen+'Z'),now=new Date(),diffMs=now-lastSeen,diffMin=Math.floor(diffMs/60000),diffHours=Math.floor(diffMs/3600000),diffDays=Math.floor(diffMs/86400000);if(diffMin<1){s.textContent='⚫ Был(а) только что';}else if(diffMin<60){s.textContent='⚫ Был(а) '+diffMin+' мин. назад';}else if(diffHours<24){s.textContent='⚫ Был(а) '+diffHours+' ч. назад';}else if(diffDays<7){s.textContent='⚫ Был(а) '+diffDays+' дн. назад';}else{var dd=lastSeen.getDate().toString().padStart(2,'0'),mm=(lastSeen.getMonth()+1).toString().padStart(2,'0'),yy=lastSeen.getFullYear().toString().slice(2),hh=lastSeen.getHours().toString().padStart(2,'0'),min=lastSeen.getMinutes().toString().padStart(2,'0');s.textContent='⚫ Был(а) '+dd+'.'+mm+'.'+yy+' в '+hh+':'+min;}}else{s.textContent='⚫ Офлайн';}}).catch(function(){s.textContent='';});}
 function markAsRead(chatId){fetch('/api/read',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId})}).catch(function(){});}
 function scrollToMessage(msgId){var el=document.querySelector('[data-msg-id="'+msgId+'"]');if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.background='var(--hover)';setTimeout(function(){el.style.background='';},2000);}}
 
+// Загрузка
 function loadUser(){var code=new URLSearchParams(window.location.search).get('code');if(code){fetch('/api/group/join',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({code:code})}).then(function(r){return r.json();}).then(function(d){if(d.group_id){alert('Вы в группе «'+d.name+'»!');window.history.replaceState({},'','/chat');}});}var token=getToken();if(!token){window.location.href='/';return;}var user=JSON.parse(localStorage.getItem('user')||'{}');username=user.username||'';nickname=user.nickname||'';myAvatar=user.avatar||'';if(!username){window.location.href='/';return;}loadChatList();switchToChat(1,'',false);connectWebSocket(token);}
 async function loadChatList(){document.getElementById('chatList').innerHTML='';addChatToList(1,'',false);try{var r=await fetch('/api/chat/list',{headers:{'Authorization':'Bearer '+getToken()}});var chats=await r.json();chats.forEach(function(c){if(c.chat_id!==1)addChatToList(c.chat_id,c.peer,c.is_group||false);});}catch(e){}}
 
+// WebSocket
 function connectWebSocket(token){var p=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(p+'//'+location.host+'/ws?token='+token);var reconnectDelay=1000,maxReconnectDelay=30000;ws.onopen=function(){console.log('🔌 WebSocket подключён');reconnectDelay=1000;};ws.onmessage=function(e){var msg=JSON.parse(e.data);if(msg.type==='chat_created'){addChatToList(msg.chat_id,msg.peer,false);return;}if(msg.type==='online_count'){onlineCount=parseInt(msg.text)||0;updateOnlineStatus();return;}if(msg.type==='action'){showActionStatus(msg);return;}if(msg.type==='typing_clear'){if(typingUsers[msg.chat_id])delete typingUsers[msg.chat_id][msg.username];updateTypingIndicator();return;}var t=msg.chat_id||1;if(t===currentChatId){removeTypingIndicator();var m={id:msg.id,username:msg.username,nickname:msg.nickname||msg.username,text:msg.text,time:msg.time,avatar:msg.avatar||'',read:msg.read||false,edited:msg.edited||false,file_url:msg.file_url,file_type:msg.file_type,reply_to:msg.reply_to,reply_text:msg.reply_text,reply_nick:msg.reply_nick};var div=document.createElement('div');appendMessageToDiv(div,m);var area=document.getElementById('messagesArea');area.appendChild(div);area.scrollTop=area.scrollHeight;checkScrollBottom();if(!currentIsGroup&&currentChatId!==1)markAsRead(currentChatId);}else{lastMsgs[t]=msg.nickname+': '+(msg.text||'[файл]');if(t!==currentChatId){unreadCounts[t]=(unreadCounts[t]||0)+1;playNotificationSound();flashTitle();}addChatToList(t,msg.peer||'',false);}};ws.onclose=function(){console.log('🔌 WebSocket отключён, переподключение через '+(reconnectDelay/1000)+'с');setTimeout(function(){connectWebSocket(token);reconnectDelay=Math.min(reconnectDelay*2,maxReconnectDelay);},reconnectDelay);};}
 function sendMessage(){var input=document.getElementById('messageInput'),text=input.value.trim();if(!text&&!replyToId)return;if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:text,chat_id:currentChatId,reply_to:replyToId||0,reply_text:replyToText||'',reply_nick:replyToNick||''}));input.value='';cancelReply();typingSent=false;playSendSound();}}
 function logout(){localStorage.removeItem('token');localStorage.removeItem('user');window.location.href='/';}
