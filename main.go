@@ -202,7 +202,6 @@ func uploadToCloudinary(fileBytes []byte, folder string) (string, error) {
 
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
-	w.WriteField("upload_preset", "crown_messenger")
 	w.WriteField("folder", folder)
 	fw, _ := w.CreateFormFile("file", "upload")
 	fw.Write(fileBytes)
