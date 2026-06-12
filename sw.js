@@ -1,4 +1,4 @@
-const CACHE_NAME = 'crown-v1';
+const CACHE_NAME = 'crown-v2';
 const ASSETS = [
     '/',
     '/chat',
@@ -46,13 +46,56 @@ self.addEventListener('fetch', function(event) {
     );
 });
 
+// Push-уведомления
 self.addEventListener('push', function(event) {
-    var data = event.data ? event.data.json() : {};
+    var data = {};
+    if (event.data) {
+        try { data = event.data.json(); } catch(e) { data = { body: event.data.text() }; }
+    }
     var title = data.title || 'Crown Messenger';
     var options = {
         body: data.body || 'Новое сообщение',
         icon: '/icon-192.png',
-        badge: '/icon-192.png'
+        badge: '/icon-192.png',
+        vibrate: [200, 100, 200],
+        data: { url: data.url || '/chat' },
+        actions: [
+            { action: 'open', title: 'Открыть' }
+        ]
     };
     event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', function(event) {
+    event.notification.close();
+    var url = event.notification.data && event.notification.data.url ? event.notification.data.url : '/chat';
+    event.waitUntil(
+        clients.matchAll({ type: 'window' }).then(function(clientList) {
+            for (var i = 0; i < clientList.length; i++) {
+                var client = clientList[i];
+                if (client.url === url && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            if (clients.openWindow) {
+                return clients.openWindow(url);
+            }
+        })
+    );
+});
+
+// Подписка на push
+self.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'subscribe') {
+        self.registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: event.data.publicKey
+        }).then(function(subscription) {
+            if (event.ports && event.ports[0]) {
+                event.ports[0].postMessage({ subscription: subscription });
+            }
+        }).catch(function(err) {
+            console.log('Push subscription error:', err);
+        });
+    }
 });
