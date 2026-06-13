@@ -280,7 +280,7 @@ if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').t
 <div class="lightbox" id="lightbox" onclick="closeLightbox()"><span class="lightbox-close">✕</span><div id="lightboxContent" onclick="event.stopPropagation()"></div></div>
 <div class="reaction-picker" id="reactionPicker"><span class="reaction-emoji" onclick="addReaction('👍')">👍</span><span class="reaction-emoji" onclick="addReaction('❤️')">❤️</span><span class="reaction-emoji" onclick="addReaction('😂')">😂</span><span class="reaction-emoji" onclick="addReaction('🔥')">🔥</span><span class="reaction-emoji" onclick="addReaction('👎')">👎</span><span class="reaction-emoji" onclick="addReaction('😢')">😢</span></div>
 <div class="context-menu" id="contextMenu"><button class="context-item" id="ctxReply">↩️ Ответить</button><button class="context-item" id="ctxReact">😊 Реакция</button><button class="context-item" id="ctxCopy">📋 Копировать</button><button class="context-item" id="ctxPin">📌 Закрепить</button><button class="context-item" id="ctxEdit">✏️ Редактировать</button><button class="context-item danger" id="ctxDelete">🗑️ Удалить</button></div>
-<div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"><div class="menu-panel" onclick="event.stopPropagation()"><div class="menu-profile"><img class="menu-avatar" id="menuAvatarImg" style="display:none;"><div class="menu-avatar-placeholder" id="menuAvatarPlaceholder">👤</div><div class="menu-nickname" id="menuNickname">Пользователь</div><div class="menu-username" id="menuUsername">@user</div></div><div class="menu-items"><button class="menu-item" onclick="closeMenu();openProfile(username);">👤 Мой профиль</button><button class="menu-item" onclick="closeMenu();showCreateGroup();">👥 Создать группу</button><button class="menu-item" onclick="closeMenu();showJoinGroup();">🔗 Присоединиться</button><button class="menu-item" onclick="closeMenu();showSettings();">⚙️ Настройки</button><button class="menu-item" onclick="closeMenu();window.open('/about','_blank');">ℹ️ О проекте</button></div><hr class="menu-divider"><div class="menu-footer"><span>🌙 Ночной режим</span><label class="switch"><input type="checkbox" id="menuThemeToggle" onchange="toggleTheme()"><span class="slider"></span></label></div><div class="menu-footer" style="justify-content:center;padding:8px 0;"><a href="/donate" target="_blank" style="color:var(--blue);text-decoration:none;font-size:13px;font-weight:600;">💳 Поддержать проект</a></div><div class="menu-footer" style="justify-content:center;padding-top:0;"><span>Crown Messenger v1.6</span></div></div></div>
+<div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"><div class="menu-panel" onclick="event.stopPropagation()"><div class="menu-profile"><img class="menu-avatar" id="menuAvatarImg" style="display:none;"><div class="menu-avatar-placeholder" id="menuAvatarPlaceholder">👤</div><div class="menu-nickname" id="menuNickname">Пользователь</div><div class="menu-username" id="menuUsername">@user</div></div><div class="menu-items"><button class="menu-item" onclick="closeMenu();openProfile(username);">👤 Мой профиль</button><button class="menu-item" onclick="closeMenu();showCreateGroup();">👥 Создать группу</button><button class="menu-item" onclick="closeMenu();showJoinGroup();">🔗 Присоединиться</button><button class="menu-item" onclick="closeMenu();showSettings();">⚙️ Настройки</button><button class="menu-item" onclick="closeMenu();window.open('/about','_blank');">ℹ️ О проекте</button></div><hr class="menu-divider"><div class="menu-footer"><span>🌙 Ночной режим</span><label class="switch"><input type="checkbox" id="menuThemeToggle" onchange="toggleTheme()"><span class="slider"></span></label></div><div class="menu-footer" style="justify-content:center;padding:8px 0;"><a href="/donate" target="_blank" style="color:var(--blue);text-decoration:none;font-size:13px;font-weight:600;">💳 Поддержать проект</a></div><div class="menu-footer" style="justify-content:center;padding-top:0;"><span>Crown Messenger v1.7</span></div></div></div>
 <div class="modal" id="profileModal"><div class="modal-content"><button class="modal-close" onclick="closeProfile()">✕</button><div style="text-align:center;"><img class="profile-avatar" id="profileAvatarImg" style="display:none;"><div class="profile-avatar-placeholder" id="profileAvatarPlaceholder">👤</div><label class="custom-file-btn" for="avatarInput" style="margin:0 auto 10px;">📷 Сменить фото</label><input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="uploadAvatar()"></div><div class="profile-field"><label>Никнейм</label><input type="text" id="profileNickname" disabled></div><div class="profile-field"><label>Юзернейм</label><input type="text" id="profileUsername" disabled></div><div class="profile-field"><label>О себе</label><textarea id="profileAbout" rows="3" disabled></textarea></div><div class="profile-field" id="profileBalanceField" style="display:none;"><label>👑 Короны</label><input type="text" id="profileBalance" disabled></div><div class="gifts-section" id="profileGiftsSection" style="display:none;"><h3>🎁 Подарки</h3><div id="profileGiftsList"></div></div><button class="btn btn-primary" id="profileSaveBtn" style="display:none;">Сохранить</button><button class="btn btn-primary" id="profileChatBtn" style="display:none;">💬 Написать</button><button class="btn btn-danger" id="profileBlockBtn" style="display:none;">🚫 Заблокировать</button><button class="btn btn-danger" id="profileDeleteChatBtn" style="display:none;">🗑️ Удалить чат</button></div></div>
 <div class="modal" id="groupModal"><div class="modal-content"><button class="modal-close" onclick="closeGroupModal()">✕</button><div id="groupModalContent"></div></div></div>
 <div class="modal" id="inviteModal"><div class="modal-content"><button class="modal-close" onclick="closeInviteModal()">✕</button><div id="inviteModalContent"></div></div></div>
@@ -349,9 +349,30 @@ function nextSearchResult(){if(searchResults.length===0)return;currentSearchIdx=
 function prevSearchResult(){if(searchResults.length===0)return;currentSearchIdx=(currentSearchIdx-1+searchResults.length)%searchResults.length;searchResults[currentSearchIdx].scrollIntoView({behavior:'smooth',block:'center'})}
 document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='f'){e.preventDefault();openMsgSearch()}if(e.key==='Escape'){cancelReply();closeMsgSearch();closeLightbox();document.getElementById('reactionPicker').classList.remove('show');document.getElementById('chatMenuDropdown').classList.remove('show')}});
 
-function pinMessage(id){currentPinnedId=id;var el=document.querySelector('[data-msg-id="'+id+'"]');if(!el)return;var text=el.querySelector('.message-bubble')?.textContent?.replace('(ред.)','').trim()||'';document.getElementById('pinnedText').textContent=text.substring(0,80);document.getElementById('pinnedBar').classList.add('show');localStorage.setItem('pinned_'+currentChatId,JSON.stringify({id:id,text:text}))}
-function unpinMessage(){currentPinnedId=null;document.getElementById('pinnedBar').classList.remove('show');localStorage.removeItem('pinned_'+currentChatId)}
-function loadPinned(){var p=localStorage.getItem('pinned_'+currentChatId);if(p){var d=JSON.parse(p);currentPinnedId=d.id;document.getElementById('pinnedText').textContent=d.text.substring(0,80);document.getElementById('pinnedBar').classList.add('show')}else{unpinMessage()}}
+// Закреп через API
+async function pinMessage(id) {
+    if (currentChatId === 1) { alert('Нельзя закреплять в общем чате'); return; }
+    var text = document.querySelector('[data-msg-id="'+id+'"] .message-bubble')?.textContent || '';
+    await fetch('/api/pin', {method:'POST', headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'}, body:JSON.stringify({chat_id:currentChatId, message_id:id, text:text.substring(0,80)})});
+    loadPinned();
+}
+async function unpinMessage() {
+    await fetch('/api/unpin', {method:'POST', headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'}, body:JSON.stringify({chat_id:currentChatId})});
+    currentPinnedId = null;
+    document.getElementById('pinnedBar').classList.remove('show');
+}
+async function loadPinned() {
+    var r = await fetch('/api/pinned?chat_id='+currentChatId, {headers:{'Authorization':'Bearer '+getToken()}});
+    var pinned = await r.json();
+    if (pinned.length > 0) {
+        currentPinnedId = pinned[0].id;
+        document.getElementById('pinnedText').textContent = pinned[0].text;
+        document.getElementById('pinnedBar').classList.add('show');
+    } else {
+        unpinMessage();
+    }
+}
+
 function checkScrollBottom(){var area=document.getElementById('messagesArea'),btn=document.getElementById('scrollBottomBtn');if(!area||!btn)return;if(area.scrollHeight-area.scrollTop-area.clientHeight>100){btn.classList.add('show')}else{btn.classList.remove('show')}}
 function scrollToBottom(){var area=document.getElementById('messagesArea');area.scrollTo({top:area.scrollHeight,behavior:'smooth'})}
 var messagesAreaEl=document.getElementById('messagesArea');
@@ -430,9 +451,7 @@ document.getElementById('sellConfirmYes').onclick = async function() {
     var d = await r.json();
     if (d.success) {
         alert('Продано!');
-        // Обновить список подарков
         loadUserGifts(username);
-        // Обновить баланс
         var balField = document.getElementById('profileBalance');
         if(balField) {
             var currentBal = parseInt(balField.value) || 0;
@@ -539,7 +558,7 @@ function showContextMenu(e,msgId,text,sender,isMine){contextMsgId=msgId;var m=do
 document.getElementById('ctxReply').onclick=function(){document.getElementById('contextMenu').classList.remove('show');var el=document.querySelector('[data-msg-id="'+contextMsgId+'"]'),bubble=el?.querySelector('.message-bubble'),text=bubble?.textContent?.replace('(ред.)','').trim()||'',nickEl=el?.querySelector('.message-username'),nick=nickEl?nickEl.textContent:(el?.classList.contains('mine')?'Вы':'Пользователь');setReply(contextMsgId,text,nick)};
 document.getElementById('ctxReact').onclick=function(e){showReactionPicker(e,contextMsgId)};
 document.getElementById('ctxCopy').onclick=function(){document.getElementById('contextMenu').classList.remove('show');var text=document.querySelector('[data-msg-id="'+contextMsgId+'"] .message-bubble')?.textContent?.replace('(ред.)','').trim()||'';navigator.clipboard.writeText(text);alert('Скопировано!')};
-document.getElementById('ctxPin').onclick=function(){document.getElementById('contextMenu').classList.remove('show');pinMessage(contextMsgId)};
+document.getElementById('ctxPin').onclick=function(){document.getElementById('contextMenu').classList.remove('show');if(currentChatId===1){alert('Нельзя закреплять в общем чате');return} pinMessage(contextMsgId)};
 document.getElementById('ctxEdit').onclick=function(){document.getElementById('contextMenu').classList.remove('show');var txt=prompt('Редактировать:',document.querySelector('[data-msg-id="'+contextMsgId+'"] .message-bubble')?.textContent?.replace('(ред.)','').trim()||'');if(txt&&txt.trim()){fetch('/api/messages',{method:'PUT',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({id:contextMsgId,text:txt.trim()})}).then(function(){})}};
 document.getElementById('ctxDelete').onclick=function(){document.getElementById('contextMenu').classList.remove('show');if(confirm('Удалить?')){fetch('/api/messages',{method:'DELETE',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({id:contextMsgId})}).then(function(){})}};
 
@@ -581,7 +600,6 @@ async function createGroup(){
     if(d.group_id){
         closeGroupModal();
         addChatToList(d.group_id,d.name,true);
-        // Явно переключаемся на группу
         currentChatId = d.group_id;
         currentPeer = d.name;
         currentIsGroup = true;
@@ -706,6 +724,7 @@ function connectWebSocket(token){var p=location.protocol==='https:'?'wss:':'ws:'
     if(msg.type==='online_count'){onlineCount=parseInt(msg.text)||0;updateOnlineStatus();return}
     if(msg.type==='action'){showActionStatus(msg);return}
     if(msg.type==='typing_clear'){if(typingUsers[msg.chat_id])delete typingUsers[msg.chat_id][msg.username];updateTypingIndicator();return}
+    if(msg.type==='reaction_update'){loadReactions(msg.id);return}
     if(msg.type==='message_updated'){appendMessageToDiv(null,msg);return}
     if(msg.type==='message_deleted'){appendMessageToDiv(null,msg);return}
     var t=msg.chat_id||1;
