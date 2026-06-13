@@ -490,7 +490,6 @@ func handleReactions(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"action": "added", "emoji": req.Emoji})
 		}
 
-		// Отправляем обновление реакций всем участникам чата
 		go func() {
 			var chatID int
 			db.QueryRow("SELECT chat_id FROM messages WHERE id = $1", req.MessageID).Scan(&chatID)
@@ -982,7 +981,6 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	if users == nil {
 		users = []User{}
 	}
-	// Ищем группы без ограничения public
 	grows, _ := db.Query("SELECT id, name, COALESCE(avatar,''), created_by FROM groups_chat WHERE name ILIKE $1 LIMIT 10", "%"+q+"%")
 	defer grows.Close()
 	var groups []GroupInfo
@@ -1105,7 +1103,6 @@ func handleProfile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Безопасная загрузка профиля: сначала проверим колонку balance
 		var hasBalance bool
 		db.QueryRow("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='balance')").Scan(&hasBalance)
 
@@ -1427,7 +1424,21 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	db.Exec("DELETE FROM group_members WHERE group_id = $1", groupID)
 	db.Exec("INSERT INTO group_members (group_id, username, role) VALUES ($1, $2, 'admin')", groupID, currentUser)
 
-	// НЕ отправляем chat_created никому — создатель сам добавит группу на фронтенде
+	// Отправляем chat_created ТОЛЬКО создателю
+	mu.Lock()
+	for ws, user := range clients {
+		if user == currentUser {
+			ws.WriteJSON(map[string]interface{}{
+				"type":     "chat_created",
+				"chat_id":  groupID,
+				"peer":     req.Name,
+				"is_group": true,
+			})
+			break
+		}
+	}
+	mu.Unlock()
+
 	json.NewEncoder(w).Encode(map[string]interface{}{"group_id": groupID, "invite_code": inviteCode, "name": req.Name})
 }
 
@@ -1780,7 +1791,6 @@ func sendChatNotificationIfNew(username string, chatID int, nickname string) {
 	if chatID == 1 {
 		return
 	}
-	// Пропускаем групповые чаты — они не должны генерировать chat_created
 	var isGroup bool
 	db.QueryRow("SELECT EXISTS(SELECT 1 FROM groups_chat WHERE id = $1)", chatID).Scan(&isGroup)
 	if isGroup {

@@ -590,6 +590,7 @@ function savePrivacy(){localStorage.setItem('privacy_lastseen',document.getEleme
 function saveNotifications(){localStorage.setItem('notif_sound',document.getElementById('notifSound').checked);localStorage.setItem('notif_vibro',document.getElementById('notifVibro').checked)}
 function setLanguage(l){localStorage.setItem('language',l);location.reload()}
 
+// Группы: полностью переводим создание на WebSocket-событие
 function showCreateGroup(){var c=document.getElementById('groupModalContent');c.innerHTML='<h3>👥 Создать группу</h3><div class="profile-field"><label>Название</label><input type="text" id="groupName"></div><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span>Публичная</span><label class="switch"><input type="checkbox" id="groupPublic"><span class="slider"></span></label></div><button class="btn btn-primary" onclick="createGroup()">Создать</button>';document.getElementById('groupModal').classList.add('show')}
 async function createGroup(){
     var n=document.getElementById('groupName').value.trim();
@@ -599,11 +600,7 @@ async function createGroup(){
     var d=await r.json();
     if(d.group_id){
         closeGroupModal();
-        addChatToList(d.group_id,d.name,true);
-        currentChatId = d.group_id;
-        currentPeer = d.name;
-        currentIsGroup = true;
-        switchToChat(d.group_id, d.name, true);
+        // Не вызываем addChatToList и switchToChat — это сделает событие chat_created
         showInviteModal(d.group_id, d.name, d.invite_code);
     }else{alert('Ошибка: '+JSON.stringify(d));}
 }
@@ -722,7 +719,13 @@ async function loadChatList(){document.getElementById('chatList').innerHTML='';a
 function connectWebSocket(token){var p=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(p+'//'+location.host+'/ws?token='+token);var reconnectDelay=1000,maxReconnectDelay=30000;ws.onopen=function(){console.log('🔌 WebSocket подключён');reconnectDelay=1000};ws.onmessage=function(e){var msg=JSON.parse(e.data);
     if(msg.type==='chat_created'){
         if(msg.is_group) {
-            if(msg.chat_id) addChatToList(msg.chat_id, msg.peer, true);
+            // Добавляем группу в список (если ещё нет)
+            addChatToList(msg.chat_id, msg.peer, true);
+            // Переключаемся на группу
+            currentChatId = msg.chat_id;
+            currentPeer = msg.peer;
+            currentIsGroup = true;
+            switchToChat(msg.chat_id, msg.peer, true);
         } else {
             addChatToList(msg.chat_id, msg.peer, false);
         }
