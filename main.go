@@ -55,7 +55,6 @@ var (
 	broadcast    = make(chan Message, 100)
 	mu           sync.Mutex
 
-	// Карта допустимых чатов для каждого клиента
 	userChats = make(map[*websocket.Conn]map[int]bool)
 
 	visitors   = make(map[string]*rate.Limiter)
@@ -110,11 +109,11 @@ type Reaction struct {
 }
 
 type Gift struct {
-	ID       int    `json:"id"`
-	Name     string `json:"name"`
-	Emoji    string `json:"emoji"`
-	Price    int    `json:"price"`
-	IconURL  string `json:"icon_url"`
+	ID      int    `json:"id"`
+	Name    string `json:"name"`
+	Emoji   string `json:"emoji"`
+	Price   int    `json:"price"`
+	IconURL string `json:"icon_url"`
 }
 
 type UserGift struct {
@@ -383,12 +382,10 @@ func main() {
 	log.Println("✅ Сервер остановлен")
 }
 
-// Получение списка ID чатов, доступных пользователю
 func getUserChats(username string) map[int]bool {
 	chats := make(map[int]bool)
 	chats[1] = true // общий чат
 
-	// Личные чаты
 	rows, err := db.Query("SELECT id FROM chats WHERE user1 = $1 OR user2 = $2", username, username)
 	if err != nil {
 		return chats
@@ -400,7 +397,6 @@ func getUserChats(username string) map[int]bool {
 		chats[id] = true
 	}
 
-	// Групповые чаты
 	grows, err := db.Query("SELECT group_id FROM group_members WHERE username = $1", username)
 	if err != nil {
 		return chats
@@ -464,7 +460,6 @@ func createTables() {
 	log.Println("✅ Таблицы проверены")
 }
 
-// Обработчик реакций
 func handleReactions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentUser := getUserFromRequest(r)
@@ -515,7 +510,6 @@ func handleReactions(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Загрузка голосовых сообщений
 func handleUploadVoice(w http.ResponseWriter, r *http.Request) {
 	currentUser := getUserFromRequest(r)
 	if currentUser == "" {
@@ -547,7 +541,6 @@ func handleUploadVoice(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"file_url": fileURL, "file_type": "audio"})
 }
 
-// Обработчик баланса
 func handleBalance(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentUser := getUserFromRequest(r)
@@ -560,13 +553,11 @@ func handleBalance(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]int{"balance": balance})
 }
 
-// Админ-эндпоинт для начисления корон
 func handleAdminAddBalance(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	// Проверка админ-ключа
 	key := r.Header.Get("X-Admin-Key")
 	if key == "" {
 		key = r.URL.Query().Get("key")
@@ -660,7 +651,6 @@ func handleSendGift(w http.ResponseWriter, r *http.Request) {
 
 	// Списываем короны
 	db.Exec("UPDATE users SET balance = balance - $1 WHERE username = $2", price, currentUser)
-	// Зачисляем короны получателю (или нет, подарок — это предмет)
 	// Записываем подарок
 	db.Exec("INSERT INTO user_gifts (gift_id, username, from_user, comment, created_at) VALUES ($1, $2, $3, $4, $5)", req.GiftID, req.Username, currentUser, req.Comment, time.Now().Format("2006-01-02 15:04"))
 
@@ -909,10 +899,7 @@ func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 		if owner != currentUser { http.Error(w, "Forbidden", http.StatusForbidden); return }
 		req.Text = escapeHTML(strings.TrimSpace(req.Text))
 		db.Exec("UPDATE messages SET text = $1, edited = true WHERE id = $2", req.Text, req.ID)
-		// Отправляем обновление всем
-		go func() {
-			broadcast <- Message{ID: req.ID, Type: "message_updated", Text: req.Text, Edited: true}
-		}()
+		go func() { broadcast <- Message{ID: req.ID, Type: "message_updated", Text: req.Text, Edited: true} }()
 		json.NewEncoder(w).Encode(map[string]bool{"success": true}); return
 	}
 
@@ -922,10 +909,7 @@ func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 		var owner string; db.QueryRow("SELECT username FROM messages WHERE id = $1", req.ID).Scan(&owner)
 		if owner != currentUser { http.Error(w, "Forbidden", http.StatusForbidden); return }
 		db.Exec("DELETE FROM messages WHERE id = $1", req.ID)
-		// Уведомляем об удалении
-		go func() {
-			broadcast <- Message{ID: req.ID, Type: "message_deleted"}
-		}()
+		go func() { broadcast <- Message{ID: req.ID, Type: "message_deleted"} }()
 		json.NewEncoder(w).Encode(map[string]bool{"success": true}); return
 	}
 }
@@ -935,9 +919,25 @@ func handleProfile(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		userParam := r.URL.Query().Get("username")
 		if userParam == "" { json.NewEncoder(w).Encode(map[string]string{"error": "username required"}); return }
-		var user User; var email, about, avatar, phone sql.NullString; var balance sql.NullInt64
-		if db.QueryRow("SELECT id, username, nickname, email, about, avatar, phone, COALESCE(balance, 0) FROM users WHERE username = $1", userParam).Scan(&user.ID, &user.Username, &user.Nickname, &email, &about, &avatar, &phone, &balance) != nil { w.WriteHeader(http.StatusNotFound); return }
-		user.Email = email.String; user.About = about.String; user.Avatar = getAvatarURL(avatar.String); user.Phone = phone.String; user.Balance = int(balance.Int64)
+
+		// Проверяем, существует ли колонка balance
+		var hasBalance bool
+		db.QueryRow("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='balance')").Scan(&hasBalance)
+
+		var user User
+		var email, about, avatar, phone sql.NullString
+		var balance sql.NullInt64
+		var err error
+
+		if hasBalance {
+			err = db.QueryRow("SELECT id, username, nickname, email, about, avatar, phone, COALESCE(balance, 0) FROM users WHERE username = $1", userParam).Scan(&user.ID, &user.Username, &user.Nickname, &email, &about, &avatar, &phone, &balance)
+		} else {
+			err = db.QueryRow("SELECT id, username, nickname, email, about, avatar, phone FROM users WHERE username = $1", userParam).Scan(&user.ID, &user.Username, &user.Nickname, &email, &about, &avatar, &phone)
+		}
+		if err != nil { w.WriteHeader(http.StatusNotFound); return }
+
+		user.Email = email.String; user.About = about.String; user.Avatar = getAvatarURL(avatar.String); user.Phone = phone.String
+		if hasBalance { user.Balance = int(balance.Int64) } else { user.Balance = 0 }
 		json.NewEncoder(w).Encode(user); return
 	}
 	if r.Method == "PUT" {
@@ -987,9 +987,7 @@ func handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	os.MkdirAll("uploads/"+folder, 0755)
 	os.WriteFile("uploads/"+folder+"/"+filename, fileBytes, 0644)
 	fileURL := "/uploads/" + folder + "/" + filename
-	if cloudinaryCloudName != "" && (fileType == "photo" || fileType == "video") {
-		if cloudURL, err := uploadToCloudinary(fileBytes, folder); err == nil { fileURL = cloudURL }
-	}
+	if cloudinaryCloudName != "" && (fileType == "photo" || fileType == "video") { if cloudURL, err := uploadToCloudinary(fileBytes, folder); err == nil { fileURL = cloudURL } }
 	json.NewEncoder(w).Encode(map[string]string{"file_url": fileURL, "file_type": fileType, "file_name": fileName, "file_size": strconv.FormatInt(fileSize, 10)})
 }
 
@@ -1278,7 +1276,6 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	rows, _ := db.Query("SELECT blocked_username FROM blocked WHERE username = $1", username)
 	defer rows.Close()
 	for rows.Next() { var bu string; rows.Scan(&bu); blockedUsers[username][bu] = true }
-	// Загружаем список чатов пользователя
 	userChats[ws] = getUserChats(username)
 	mu.Unlock()
 	log.Printf("🔌 %s подключился. Всего: %d", username, len(clients))
@@ -1298,7 +1295,6 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			mu.Lock()
 			if _, ok := typingUsers[msg.ChatID]; !ok { typingUsers[msg.ChatID] = make(map[string]time.Time) }
 			typingUsers[msg.ChatID][username] = time.Now()
-			// Отправляем действия только тем, кто в этом чате
 			for c := range clients {
 				if chats, ok := userChats[c]; ok && chats[msg.ChatID] {
 					c.WriteJSON(map[string]interface{}{"username": msg.Username, "nickname": msg.Nickname, "action": msg.Action, "chat_id": msg.ChatID, "type": "action"})
@@ -1333,7 +1329,6 @@ func handleMessages() {
 		for c := range clients {
 			clientUser := clients[c]
 			if blockedUsers[clientUser] != nil && blockedUsers[clientUser][msg.Username] { continue }
-			// Проверяем, имеет ли клиент доступ к этому чату
 			if chats, ok := userChats[c]; ok && !chats[msg.ChatID] { continue }
 			c.WriteJSON(map[string]interface{}{"id": msg.ID, "username": msg.Username, "nickname": msg.Nickname, "text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID, "avatar": msg.Avatar, "read": msg.Read, "edited": msg.Edited, "file_url": msg.FileURL, "file_type": msg.FileType, "reply_to": msg.ReplyTo, "reply_text": msg.ReplyText, "reply_nick": msg.ReplyNick, "file_name": msg.FileName, "file_size": msg.FileSize, "type": msg.Type})
 		}
