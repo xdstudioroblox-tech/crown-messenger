@@ -55,6 +55,9 @@ var (
 	broadcast    = make(chan Message, 100)
 	mu           sync.Mutex
 
+	// Карта допустимых чатов для каждого клиента
+	userChats = make(map[*websocket.Conn]map[int]bool)
+
 	visitors   = make(map[string]*rate.Limiter)
 	visitorsMu sync.Mutex
 
@@ -355,6 +358,38 @@ func main() {
 	server.Close()
 	db.Close()
 	log.Println("✅ Сервер остановлен")
+}
+
+// Получение списка ID чатов, доступных пользователю
+func getUserChats(username string) map[int]bool {
+	chats := make(map[int]bool)
+	chats[1] = true // общий чат
+
+	// Личные чаты
+	rows, err := db.Query("SELECT id FROM chats WHERE user1 = $1 OR user2 = $2", username, username)
+	if err != nil {
+		return chats
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int
+		rows.Scan(&id)
+		chats[id] = true
+	}
+
+	// Групповые чаты
+	grows, err := db.Query("SELECT group_id FROM group_members WHERE username = $1", username)
+	if err != nil {
+		return chats
+	}
+	defer grows.Close()
+	for grows.Next() {
+		var id int
+		grows.Scan(&id)
+		chats[id] = true
+	}
+
+	return chats
 }
 
 func createTables() {
@@ -791,7 +826,6 @@ func handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	if cloudinaryCloudName != "" && (fileType == "photo" || fileType == "video") {
 		if cloudURL, err := uploadToCloudinary(fileBytes, folder); err == nil { fileURL = cloudURL }
 	}
-	// Сохраняем метаданные в сообщении (добавим при отправке)
 	json.NewEncoder(w).Encode(map[string]string{"file_url": fileURL, "file_type": fileType, "file_name": fileName, "file_size": strconv.FormatInt(fileSize, 10)})
 }
 
@@ -1080,13 +1114,15 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	rows, _ := db.Query("SELECT blocked_username FROM blocked WHERE username = $1", username)
 	defer rows.Close()
 	for rows.Next() { var bu string; rows.Scan(&bu); blockedUsers[username][bu] = true }
+	// Загружаем список чатов пользователя
+	userChats[ws] = getUserChats(username)
 	mu.Unlock()
 	log.Printf("🔌 %s подключился. Всего: %d", username, len(clients))
 	broadcastOnlineCount()
 	for {
 		var msg Message
 		if err := ws.ReadJSON(&msg); err != nil {
-			mu.Lock(); delete(clients, ws); delete(onlineUsers, username)
+			mu.Lock(); delete(clients, ws); delete(onlineUsers, username); delete(userChats, ws)
 			db.Exec("UPDATE users SET last_seen = NOW() WHERE username = $1", username); mu.Unlock()
 			broadcastOnlineCount(); break
 		}
@@ -1098,12 +1134,16 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			mu.Lock()
 			if _, ok := typingUsers[msg.ChatID]; !ok { typingUsers[msg.ChatID] = make(map[string]time.Time) }
 			typingUsers[msg.ChatID][username] = time.Now()
-			for c := range clients { c.WriteJSON(map[string]interface{}{"username": msg.Username, "nickname": msg.Nickname, "action": msg.Action, "chat_id": msg.ChatID, "type": "action"}) }
+			// Отправляем действия только тем, кто в этом чате
+			for c := range clients {
+				if chats, ok := userChats[c]; ok && chats[msg.ChatID] {
+					c.WriteJSON(map[string]interface{}{"username": msg.Username, "nickname": msg.Nickname, "action": msg.Action, "chat_id": msg.ChatID, "type": "action"})
+				}
+			}
 			mu.Unlock(); continue
 		}
 		if msg.Action == "reaction" { msg.Type = "reaction" }
 		sendChatNotificationIfNew(username, msg.ChatID, nickname)
-		// Сохраняем сообщение с метаданными файла
 		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar, read, edited, file_url, file_type, reply_to, reply_text, reply_nick, file_name, file_size) VALUES ($1, $2, $3, $4, $5, $6, false, false, $7, $8, $9, $10, $11, $12, $13)", msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar, msg.FileURL, msg.FileType, msg.ReplyTo, msg.ReplyText, msg.ReplyNick, msg.FileName, msg.FileSize)
 		select { case broadcast <- msg: default: log.Println("⚠️ broadcast канал переполнен") }
 	}
@@ -1129,6 +1169,8 @@ func handleMessages() {
 		for c := range clients {
 			clientUser := clients[c]
 			if blockedUsers[clientUser] != nil && blockedUsers[clientUser][msg.Username] { continue }
+			// Проверяем, имеет ли клиент доступ к этому чату
+			if chats, ok := userChats[c]; ok && !chats[msg.ChatID] { continue }
 			c.WriteJSON(map[string]interface{}{"id": msg.ID, "username": msg.Username, "nickname": msg.Nickname, "text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID, "avatar": msg.Avatar, "read": msg.Read, "edited": msg.Edited, "file_url": msg.FileURL, "file_type": msg.FileType, "reply_to": msg.ReplyTo, "reply_text": msg.ReplyText, "reply_nick": msg.ReplyNick, "file_name": msg.FileName, "file_size": msg.FileSize, "type": msg.Type})
 		}
 		mu.Unlock()
