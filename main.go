@@ -109,6 +109,25 @@ type Reaction struct {
 	Emoji     string `json:"emoji"`
 }
 
+type Gift struct {
+	ID       int    `json:"id"`
+	Name     string `json:"name"`
+	Emoji    string `json:"emoji"`
+	Price    int    `json:"price"`
+	IconURL  string `json:"icon_url"`
+}
+
+type UserGift struct {
+	ID        int    `json:"id"`
+	GiftID    int    `json:"gift_id"`
+	GiftName  string `json:"gift_name"`
+	GiftEmoji string `json:"gift_emoji"`
+	GiftIcon  string `json:"gift_icon"`
+	FromUser  string `json:"from_user"`
+	Comment   string `json:"comment"`
+	CreatedAt string `json:"created_at"`
+}
+
 type AuthRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -317,6 +336,10 @@ func main() {
 	http.HandleFunc("/api/lastseen", withMiddleware(handleLastSeen))
 	http.HandleFunc("/api/balance", withMiddleware(handleBalance))
 	http.HandleFunc("/api/admin/add-balance", withMiddleware(handleAdminAddBalance))
+	http.HandleFunc("/api/gifts", withMiddleware(handleGifts))
+	http.HandleFunc("/api/gifts/send", withMiddleware(handleSendGift))
+	http.HandleFunc("/api/gifts/my", withMiddleware(handleMyGifts))
+	http.HandleFunc("/api/gifts/sell", withMiddleware(handleSellGift))
 	http.HandleFunc("/api/health", handleHealth)
 	http.HandleFunc("/api/dbtest", withMiddleware(handleDBTest))
 	http.HandleFunc("/ws", handleConnections)
@@ -405,6 +428,8 @@ func createTables() {
 		`CREATE TABLE IF NOT EXISTS reactions (id SERIAL PRIMARY KEY, message_id INTEGER NOT NULL, username TEXT NOT NULL, emoji TEXT NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS blocked (id SERIAL PRIMARY KEY, username TEXT NOT NULL, blocked_username TEXT NOT NULL, UNIQUE(username, blocked_username))`,
 		`CREATE TABLE IF NOT EXISTS push_subscriptions (id SERIAL PRIMARY KEY, username TEXT NOT NULL, endpoint TEXT NOT NULL, p256dh TEXT NOT NULL, auth TEXT NOT NULL, UNIQUE(username, endpoint))`,
+		`CREATE TABLE IF NOT EXISTS gifts (id SERIAL PRIMARY KEY, name TEXT NOT NULL, emoji TEXT DEFAULT '', price INTEGER NOT NULL, icon_url TEXT DEFAULT '')`,
+		`CREATE TABLE IF NOT EXISTS user_gifts (id SERIAL PRIMARY KEY, gift_id INTEGER NOT NULL, username TEXT NOT NULL, from_user TEXT NOT NULL, comment TEXT DEFAULT '', created_at TEXT NOT NULL)`,
 	}
 	for _, q := range queries {
 		db.Exec(q)
@@ -427,6 +452,15 @@ func createTables() {
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_size INTEGER DEFAULT 0")
 	db.Exec("ALTER TABLE groups_chat ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''")
 	db.Exec("ALTER TABLE groups_chat ADD COLUMN IF NOT EXISTS public BOOLEAN DEFAULT false")
+	// Заполнение стандартных подарков, если их нет
+	var giftCount int
+	db.QueryRow("SELECT COUNT(*) FROM gifts").Scan(&giftCount)
+	if giftCount == 0 {
+		db.Exec("INSERT INTO gifts (name, emoji, price, icon_url) VALUES ('Подарок', '🎁', 15, '')")
+		db.Exec("INSERT INTO gifts (name, emoji, price, icon_url) VALUES ('Тортик', '🎂', 25, '')")
+		db.Exec("INSERT INTO gifts (name, emoji, price, icon_url) VALUES ('Медалька', '🏅', 35, '')")
+		db.Exec("INSERT INTO gifts (name, emoji, price, icon_url) VALUES ('Пряничный человечек', '🍪', 50, '')")
+	}
 	log.Println("✅ Таблицы проверены")
 }
 
@@ -558,6 +592,136 @@ func handleAdminAddBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+// Список подарков
+func handleGifts(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	rows, _ := db.Query("SELECT id, name, emoji, price, icon_url FROM gifts ORDER BY price ASC")
+	defer rows.Close()
+	var gifts []Gift
+	for rows.Next() {
+		var g Gift
+		rows.Scan(&g.ID, &g.Name, &g.Emoji, &g.Price, &g.IconURL)
+		gifts = append(gifts, g)
+	}
+	if gifts == nil {
+		gifts = []Gift{}
+	}
+	json.NewEncoder(w).Encode(gifts)
+}
+
+// Отправка подарка
+func handleSendGift(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	currentUser := getUserFromRequest(r)
+	if currentUser == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	var req struct {
+		Username string `json:"username"`
+		GiftID   int    `json:"gift_id"`
+		Comment  string `json:"comment"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if req.Username == "" || req.GiftID <= 0 {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Неверные параметры"})
+		return
+	}
+
+	// Получаем цену подарка
+	var price int
+	err := db.QueryRow("SELECT price FROM gifts WHERE id = $1", req.GiftID).Scan(&price)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Подарок не найден"})
+		return
+	}
+
+	// Проверяем баланс отправителя
+	var balance int
+	db.QueryRow("SELECT COALESCE(balance, 0) FROM users WHERE username = $1", currentUser).Scan(&balance)
+	if balance < price {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Недостаточно корон"})
+		return
+	}
+
+	// Проверяем существование получателя
+	var toUser string
+	err = db.QueryRow("SELECT username FROM users WHERE username = $1", req.Username).Scan(&toUser)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Получатель не найден"})
+		return
+	}
+
+	// Списываем короны
+	db.Exec("UPDATE users SET balance = balance - $1 WHERE username = $2", price, currentUser)
+	// Зачисляем короны получателю (или нет, подарок — это предмет)
+	// Записываем подарок
+	db.Exec("INSERT INTO user_gifts (gift_id, username, from_user, comment, created_at) VALUES ($1, $2, $3, $4, $5)", req.GiftID, req.Username, currentUser, req.Comment, time.Now().Format("2006-01-02 15:04"))
+
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+// Мои подарки
+func handleMyGifts(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	currentUser := getUserFromRequest(r)
+	if currentUser == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	rows, _ := db.Query("SELECT ug.id, ug.gift_id, g.name, g.emoji, g.icon_url, ug.from_user, ug.comment, ug.created_at FROM user_gifts ug JOIN gifts g ON ug.gift_id = g.id WHERE ug.username = $1 ORDER BY ug.id DESC", currentUser)
+	defer rows.Close()
+	var gifts []UserGift
+	for rows.Next() {
+		var ug UserGift
+		rows.Scan(&ug.ID, &ug.GiftID, &ug.GiftName, &ug.GiftEmoji, &ug.GiftIcon, &ug.FromUser, &ug.Comment, &ug.CreatedAt)
+		gifts = append(gifts, ug)
+	}
+	if gifts == nil {
+		gifts = []UserGift{}
+	}
+	json.NewEncoder(w).Encode(gifts)
+}
+
+// Продажа подарка
+func handleSellGift(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	currentUser := getUserFromRequest(r)
+	if currentUser == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	var req struct {
+		GiftID int `json:"gift_id"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	// Проверяем, что подарок принадлежит пользователю
+	var owner string
+	var giftPrice int
+	err := db.QueryRow("SELECT ug.username, g.price FROM user_gifts ug JOIN gifts g ON ug.gift_id = g.id WHERE ug.id = $1", req.GiftID).Scan(&owner, &giftPrice)
+	if err != nil || owner != currentUser {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Подарок не найден или не принадлежит вам"})
+		return
+	}
+
+	// Удаляем подарок
+	db.Exec("DELETE FROM user_gifts WHERE id = $1", req.GiftID)
+	// Начисляем 90% стоимости
+	sellPrice := int(float64(giftPrice) * 0.9)
+	db.Exec("UPDATE users SET balance = COALESCE(balance, 0) + $1 WHERE username = $2", sellPrice, currentUser)
+
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "amount": sellPrice})
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {

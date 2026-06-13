@@ -106,10 +106,17 @@
         .chat-badge { background: var(--blue); color: white; font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 600; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); }
         
         .main-area { flex: 1; display: flex; flex-direction: column; height: 100vh; background: var(--main-bg); min-width: 0; }
-        .chat-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; cursor: pointer; background: var(--main-bg); }
+        .chat-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; cursor: pointer; background: var(--main-bg); position: relative; }
         .back-btn { display: none; background: none; border: none; color: var(--text); font-size: 22px; cursor: pointer; padding: 8px; border-radius: 8px; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; }
         .chat-header-avatar-placeholder { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; flex-shrink: 0; }
         .chat-header-info h3 { font-size: 15px; font-weight: 600; color: var(--text); } .chat-header-info span { font-size: 11px; color: var(--text-light); }
+        .chat-menu-btn { display: none; background: none; border: none; color: var(--text); font-size: 20px; cursor: pointer; padding: 8px; border-radius: 8px; margin-left: auto; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; }
+        .chat-menu-btn:hover { background: var(--hover); }
+        .chat-menu-dropdown { display: none; position: absolute; top: 100%; right: 10px; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); z-index: 100; min-width: 200px; padding: 4px 0; }
+        .chat-menu-dropdown.show { display: block; }
+        .chat-menu-item { padding: 10px 16px; cursor: pointer; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 10px; border: none; background: none; width: 100%; text-align: left; transition: background 0.15s; }
+        .chat-menu-item:hover { background: var(--hover); }
+        .chat-menu-item.danger { color: #dc2626; }
         
         .msg-search-bar { display: none; padding: 8px 14px; background: var(--main-bg); border-bottom: 1px solid var(--border); align-items: center; gap: 8px; } .msg-search-bar.show { display: flex; }
         .msg-search-bar input { flex: 1; padding: 8px 12px; border: 2px solid var(--border); border-radius: 18px; font-size: 13px; outline: none; background: var(--input-bg); color: var(--text); }
@@ -148,6 +155,26 @@
         .file-card-info { flex: 1; min-width: 0; }
         .file-card-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .file-card-size { font-size: 10px; color: var(--text-light); }
+        
+        .gift-picker { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 600; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(2px); }
+        .gift-picker.show { display: flex; }
+        .gift-picker-content { background: var(--main-bg); border-radius: var(--radius-lg); padding: 24px; max-width: 400px; width: 100%; max-height: 80vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+        .gift-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
+        .gift-item { background: var(--hover); border-radius: var(--radius); padding: 16px; text-align: center; cursor: pointer; transition: all 0.15s; border: 2px solid transparent; }
+        .gift-item:hover { border-color: var(--blue); background: var(--active); }
+        .gift-item .gift-emoji { font-size: 32px; }
+        .gift-item .gift-name { font-size: 13px; font-weight: 600; color: var(--text); margin-top: 6px; }
+        .gift-item .gift-price { font-size: 11px; color: var(--text-light); margin-top: 2px; }
+        
+        .gifts-section { margin-top: 16px; }
+        .gifts-section h3 { font-size: 14px; margin-bottom: 10px; color: var(--text); }
+        .my-gift-card { display: flex; align-items: center; gap: 12px; background: var(--hover); border-radius: var(--radius); padding: 12px; margin-bottom: 8px; }
+        .my-gift-card .gift-emoji { font-size: 28px; }
+        .my-gift-card .gift-info { flex: 1; }
+        .my-gift-card .gift-name { font-size: 13px; font-weight: 600; color: var(--text); }
+        .my-gift-card .gift-from { font-size: 11px; color: var(--text-light); }
+        .my-gift-card .gift-comment { font-size: 12px; color: var(--text); margin-top: 4px; }
+        .my-gift-card .btn-sell { background: var(--blue); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; }
         
         .context-menu { display: none; position: fixed; background: var(--main-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); z-index: 400; padding: 6px 0; min-width: 180px; } .context-menu.show { display: block; }
         .context-item { padding: 10px 16px; cursor: pointer; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 10px; border: none; background: none; width: 100%; text-align: left; transition: background 0.15s; } .context-item:hover { background: var(--hover); } .context-item.danger { color: #dc2626; }
@@ -222,7 +249,19 @@ if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').t
         <div class="chat-list" id="chatList"></div>
     </div>
     <div class="main-area">
-        <div class="chat-header" id="chatHeader"><button class="back-btn" onclick="openSidebar()">☰</button><div class="chat-header-avatar-placeholder" id="chatHeaderIcon">💬</div><div class="chat-header-info"><h3 id="chatTitle">Общий чат</h3><span id="onlineStatus">Загрузка...</span></div></div>
+        <div class="chat-header" id="chatHeader">
+            <button class="back-btn" onclick="openSidebar()">☰</button>
+            <div class="chat-header-avatar-placeholder" id="chatHeaderIcon">💬</div>
+            <div class="chat-header-info"><h3 id="chatTitle">Общий чат</h3><span id="onlineStatus">Загрузка...</span></div>
+            <button class="chat-menu-btn" id="chatMenuBtn" onclick="toggleChatMenu()">⋮</button>
+            <div class="chat-menu-dropdown" id="chatMenuDropdown">
+                <button class="chat-menu-item" onclick="showProfileFromMenu()">👤 Показать профиль</button>
+                <button class="chat-menu-item" onclick="toggleNotifications()">🔔 Уведомления</button>
+                <button class="chat-menu-item" onclick="showGiftPicker()">🎁 Сделать подарок</button>
+                <button class="chat-menu-item danger" onclick="deleteChatFromMenu()">🗑️ Удалить чат</button>
+                <button class="chat-menu-item danger" onclick="blockUserFromMenu()">🚫 Заблокировать</button>
+            </div>
+        </div>
         <div class="msg-search-bar" id="msgSearchBar"><input type="text" id="msgSearchInput" placeholder="Поиск в чате..." oninput="searchInMessages()"><div class="search-nav"><button onclick="prevSearchResult()">▲</button><button onclick="nextSearchResult()">▼</button></div><span class="msg-search-count" id="msgSearchCount"></span><button class="input-btn" onclick="closeMsgSearch()" style="width:36px;height:36px;font-size:13px;">✕</button></div>
         <div class="pinned-bar" id="pinnedBar" onclick="scrollToMessage(currentPinnedId)"><span>📌</span><span id="pinnedText"></span><span class="pinned-close" onclick="event.stopPropagation();unpinMessage()">✕</span></div>
         <div class="reply-bar" id="replyBar"><span id="replyText">↩ Ответ</span><span class="reply-close" onclick="cancelReply()">✕</span></div>
@@ -240,17 +279,19 @@ if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').t
 <div class="lightbox" id="lightbox" onclick="closeLightbox()"><span class="lightbox-close">✕</span><div id="lightboxContent" onclick="event.stopPropagation()"></div></div>
 <div class="reaction-picker" id="reactionPicker"><span class="reaction-emoji" onclick="addReaction('👍')">👍</span><span class="reaction-emoji" onclick="addReaction('❤️')">❤️</span><span class="reaction-emoji" onclick="addReaction('😂')">😂</span><span class="reaction-emoji" onclick="addReaction('🔥')">🔥</span><span class="reaction-emoji" onclick="addReaction('👎')">👎</span><span class="reaction-emoji" onclick="addReaction('😢')">😢</span></div>
 <div class="context-menu" id="contextMenu"><button class="context-item" id="ctxReply">↩️ Ответить</button><button class="context-item" id="ctxReact">😊 Реакция</button><button class="context-item" id="ctxCopy">📋 Копировать</button><button class="context-item" id="ctxPin">📌 Закрепить</button><button class="context-item" id="ctxEdit">✏️ Редактировать</button><button class="context-item danger" id="ctxDelete">🗑️ Удалить</button></div>
-<div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"><div class="menu-panel" onclick="event.stopPropagation()"><div class="menu-profile"><img class="menu-avatar" id="menuAvatarImg" style="display:none;"><div class="menu-avatar-placeholder" id="menuAvatarPlaceholder">👤</div><div class="menu-nickname" id="menuNickname">Пользователь</div><div class="menu-username" id="menuUsername">@user</div></div><div class="menu-items"><button class="menu-item" onclick="closeMenu();openProfile(username);">👤 Мой профиль</button><button class="menu-item" onclick="closeMenu();showCreateGroup();">👥 Создать группу</button><button class="menu-item" onclick="closeMenu();showJoinGroup();">🔗 Присоединиться</button><button class="menu-item" onclick="closeMenu();showSettings();">⚙️ Настройки</button><button class="menu-item" onclick="closeMenu();window.open('/about','_blank');">ℹ️ О проекте</button></div><hr class="menu-divider"><div class="menu-footer"><span>🌙 Ночной режим</span><label class="switch"><input type="checkbox" id="menuThemeToggle" onchange="toggleTheme()"><span class="slider"></span></label></div><div class="menu-footer" style="justify-content:center;padding:8px 0;"><a href="/donate" target="_blank" style="color:var(--blue);text-decoration:none;font-size:13px;font-weight:600;">💳 Поддержать проект</a></div><div class="menu-footer" style="justify-content:center;padding-top:0;"><span>Crown Messenger v1.3</span></div></div></div>
-<div class="modal" id="profileModal"><div class="modal-content"><button class="modal-close" onclick="closeProfile()">✕</button><div style="text-align:center;"><img class="profile-avatar" id="profileAvatarImg" style="display:none;"><div class="profile-avatar-placeholder" id="profileAvatarPlaceholder">👤</div><label class="custom-file-btn" for="avatarInput" style="margin:0 auto 10px;">📷 Сменить фото</label><input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="uploadAvatar()"></div><div class="profile-field"><label>Никнейм</label><input type="text" id="profileNickname" disabled></div><div class="profile-field"><label>Юзернейм</label><input type="text" id="profileUsername" disabled></div><div class="profile-field"><label>О себе</label><textarea id="profileAbout" rows="3" disabled></textarea></div><div class="profile-field" id="profileBalanceField" style="display:none;"><label>👑 Короны</label><input type="text" id="profileBalance" disabled></div><button class="btn btn-primary" id="profileSaveBtn" style="display:none;">Сохранить</button><button class="btn btn-primary" id="profileChatBtn" style="display:none;">💬 Написать</button><button class="btn btn-danger" id="profileBlockBtn" style="display:none;">🚫 Заблокировать</button><button class="btn btn-danger" id="profileDeleteChatBtn" style="display:none;">🗑️ Удалить чат</button></div></div>
+<div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"><div class="menu-panel" onclick="event.stopPropagation()"><div class="menu-profile"><img class="menu-avatar" id="menuAvatarImg" style="display:none;"><div class="menu-avatar-placeholder" id="menuAvatarPlaceholder">👤</div><div class="menu-nickname" id="menuNickname">Пользователь</div><div class="menu-username" id="menuUsername">@user</div></div><div class="menu-items"><button class="menu-item" onclick="closeMenu();openProfile(username);">👤 Мой профиль</button><button class="menu-item" onclick="closeMenu();showCreateGroup();">👥 Создать группу</button><button class="menu-item" onclick="closeMenu();showJoinGroup();">🔗 Присоединиться</button><button class="menu-item" onclick="closeMenu();showSettings();">⚙️ Настройки</button><button class="menu-item" onclick="closeMenu();window.open('/about','_blank');">ℹ️ О проекте</button></div><hr class="menu-divider"><div class="menu-footer"><span>🌙 Ночной режим</span><label class="switch"><input type="checkbox" id="menuThemeToggle" onchange="toggleTheme()"><span class="slider"></span></label></div><div class="menu-footer" style="justify-content:center;padding:8px 0;"><a href="/donate" target="_blank" style="color:var(--blue);text-decoration:none;font-size:13px;font-weight:600;">💳 Поддержать проект</a></div><div class="menu-footer" style="justify-content:center;padding-top:0;"><span>Crown Messenger v1.4</span></div></div></div>
+<div class="modal" id="profileModal"><div class="modal-content"><button class="modal-close" onclick="closeProfile()">✕</button><div style="text-align:center;"><img class="profile-avatar" id="profileAvatarImg" style="display:none;"><div class="profile-avatar-placeholder" id="profileAvatarPlaceholder">👤</div><label class="custom-file-btn" for="avatarInput" style="margin:0 auto 10px;">📷 Сменить фото</label><input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="uploadAvatar()"></div><div class="profile-field"><label>Никнейм</label><input type="text" id="profileNickname" disabled></div><div class="profile-field"><label>Юзернейм</label><input type="text" id="profileUsername" disabled></div><div class="profile-field"><label>О себе</label><textarea id="profileAbout" rows="3" disabled></textarea></div><div class="profile-field" id="profileBalanceField" style="display:none;"><label>👑 Короны</label><input type="text" id="profileBalance" disabled></div><div class="gifts-section" id="profileGiftsSection" style="display:none;"><h3>🎁 Мои подарки</h3><div id="profileGiftsList"></div></div><button class="btn btn-primary" id="profileSaveBtn" style="display:none;">Сохранить</button><button class="btn btn-primary" id="profileChatBtn" style="display:none;">💬 Написать</button><button class="btn btn-danger" id="profileBlockBtn" style="display:none;">🚫 Заблокировать</button><button class="btn btn-danger" id="profileDeleteChatBtn" style="display:none;">🗑️ Удалить чат</button></div></div>
 <div class="modal" id="groupModal"><div class="modal-content"><button class="modal-close" onclick="closeGroupModal()">✕</button><div id="groupModalContent"></div></div></div>
 <div class="modal" id="inviteModal"><div class="modal-content"><button class="modal-close" onclick="closeInviteModal()">✕</button><div id="inviteModalContent"></div></div></div>
 <div class="modal" id="settingsModal"><div class="modal-content" style="max-width:440px;"><button class="modal-close" onclick="closeSettings()">✕</button><div id="settingsContent"></div></div></div>
 <div class="modal" id="stickerPackModal"><div class="modal-content"><button class="modal-close" onclick="closeStickerPackModal()">✕</button><div id="stickerPackContent"></div></div></div>
 <div class="modal" id="groupManageModal"><div class="modal-content"><button class="modal-close" onclick="closeGroupManageModal()">✕</button><div id="groupManageContent"></div></div></div>
+<div class="gift-picker" id="giftPicker" onclick="closeGiftPicker()"><div class="gift-picker-content" onclick="event.stopPropagation()"><button class="modal-close" onclick="closeGiftPicker()">✕</button><h3>🎁 Выберите подарок</h3><div class="gift-list" id="giftList"></div><div class="profile-field"><label>Комментарий</label><input type="text" id="giftComment" placeholder="Пожелание..."></div><button class="btn btn-primary" onclick="sendGift()" style="display:none;" id="giftSendBtn">Отправить</button></div></div>
 
 <script>
 var username="",nickname="",myAvatar="",ws,currentChatId=1,currentPeer="",currentIsGroup=false,viewingProfile="",searchTimeout,onlineCount=0,contextMsgId=null,typingTimeout=null,typingSent=false,replyToId=null,replyToText=null,replyToNick=null,typingUsers={},lastMsgs={},lastTimes={},unreadCounts={},searchResults=[],currentSearchIdx=-1,currentPinnedId=null;
 var originalTitle=document.title,newMsgCount=0,isLoadingMessages=false,allMessagesLoaded=false,oldestMessageId=null,lastDateShown="",reactionMsgId=null;
+var selectedGiftId=null;
 
 function getToken(){return localStorage.getItem('token')}
 function escapeHtml(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML}
@@ -290,7 +331,7 @@ function applyThemeFromSaved(t){
 function openMenu(){document.getElementById('menuNickname').textContent=nickname||'Пользователь';document.getElementById('menuUsername').textContent='@'+(username||'user');if(myAvatar){document.getElementById('menuAvatarImg').src=myAvatar;document.getElementById('menuAvatarImg').style.display='block';document.getElementById('menuAvatarPlaceholder').style.display='none'}else{document.getElementById('menuAvatarImg').style.display='none';document.getElementById('menuAvatarPlaceholder').style.display='flex';document.getElementById('menuAvatarPlaceholder').textContent=getInitials(nickname)}document.getElementById('menuOverlay').classList.add('show')}
 function closeMenu(){document.getElementById('menuOverlay').classList.remove('show')}
 document.getElementById('hamburgerBtn').onclick=function(e){e.stopPropagation();openMenu()};document.getElementById('menuThemeToggle').onchange=toggleTheme;
-document.onclick=function(e){var sr=document.getElementById('searchResults'),si=document.getElementById('searchInput');if(!sr.contains(e.target)&&e.target!==si)sr.classList.remove('show');document.getElementById('contextMenu').classList.remove('show');document.getElementById('reactionPicker').classList.remove('show')};
+document.onclick=function(e){var sr=document.getElementById('searchResults'),si=document.getElementById('searchInput');if(!sr.contains(e.target)&&e.target!==si)sr.classList.remove('show');document.getElementById('contextMenu').classList.remove('show');document.getElementById('reactionPicker').classList.remove('show');document.getElementById('chatMenuDropdown').classList.remove('show')};
 function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('overlay').classList.add('show')}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('show')}
 if(window.innerWidth<=768)setTimeout(function(){openSidebar()},300);
@@ -304,7 +345,7 @@ function highlightText(el,q){var bubble=el.querySelector('.message-bubble');if(!
 function clearHighlights(){document.querySelectorAll('.msg-highlight').forEach(function(s){var p=s.parentNode;p.replaceChild(document.createTextNode(s.textContent),s);p.normalize()});searchResults=[];currentSearchIdx=-1}
 function nextSearchResult(){if(searchResults.length===0)return;currentSearchIdx=(currentSearchIdx+1)%searchResults.length;searchResults[currentSearchIdx].scrollIntoView({behavior:'smooth',block:'center'})}
 function prevSearchResult(){if(searchResults.length===0)return;currentSearchIdx=(currentSearchIdx-1+searchResults.length)%searchResults.length;searchResults[currentSearchIdx].scrollIntoView({behavior:'smooth',block:'center'})}
-document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='f'){e.preventDefault();openMsgSearch()}if(e.key==='Escape'){cancelReply();closeMsgSearch();closeLightbox();document.getElementById('reactionPicker').classList.remove('show')}});
+document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='f'){e.preventDefault();openMsgSearch()}if(e.key==='Escape'){cancelReply();closeMsgSearch();closeLightbox();document.getElementById('reactionPicker').classList.remove('show');document.getElementById('chatMenuDropdown').classList.remove('show')}});
 
 function pinMessage(id){currentPinnedId=id;var el=document.querySelector('[data-msg-id="'+id+'"]');if(!el)return;var text=el.querySelector('.message-bubble')?.textContent?.replace('(ред.)','').trim()||'';document.getElementById('pinnedText').textContent=text.substring(0,80);document.getElementById('pinnedBar').classList.add('show');localStorage.setItem('pinned_'+currentChatId,JSON.stringify({id:id,text:text}))}
 function unpinMessage(){currentPinnedId=null;document.getElementById('pinnedBar').classList.remove('show');localStorage.removeItem('pinned_'+currentChatId)}
@@ -343,6 +384,8 @@ async function openProfile(u){
         document.getElementById('profileNickname').disabled=!isMe;
         document.getElementById('profileAbout').disabled=!isMe;
         document.getElementById('profileModal').classList.add('show');
+        // Загружаем подарки
+        if(isMe) loadMyGifts();
     }catch(e){}
 }
 function closeProfile(){document.getElementById('profileModal').classList.remove('show')}
@@ -351,6 +394,42 @@ async function uploadAvatar(){var f=document.getElementById('avatarInput').files
 document.getElementById('profileChatBtn').onclick=async function(){if(!viewingProfile||viewingProfile===username)return;try{var r=await fetch('/api/chat/create',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({user2:viewingProfile})});var d=await r.json();if(d.chat_id){closeProfile();addChatToList(d.chat_id,viewingProfile,false);switchToChat(d.chat_id,viewingProfile,false)}}catch(e){}};
 document.getElementById('profileBlockBtn').onclick=function(){if(confirm('Заблокировать '+viewingProfile+'?')){fetch('/api/block',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({username:viewingProfile,block:true})}).then(function(){closeProfile()})}};
 document.getElementById('profileDeleteChatBtn').onclick=function(){if(confirm('Удалить чат?')){fetch('/api/chat/delete',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({chat_id:currentChatId})}).then(function(){closeProfile();switchToChat(1,'',false)})}};
+
+async function loadMyGifts(){
+    try{
+        var r=await fetch('/api/gifts/my',{headers:{'Authorization':'Bearer '+getToken()}});
+        var gifts=await r.json();
+        var section=document.getElementById('profileGiftsSection');
+        var list=document.getElementById('profileGiftsList');
+        if(gifts.length>0){
+            section.style.display='block';
+            list.innerHTML='';
+            gifts.forEach(function(g){
+                var card=document.createElement('div');
+                card.className='my-gift-card';
+                card.innerHTML='<div class="gift-emoji">'+g.gift_emoji+'</div><div class="gift-info"><div class="gift-name">'+g.gift_name+'</div><div class="gift-from">от @'+g.from_user+'</div>'+(g.comment?'<div class="gift-comment">'+escapeHtml(g.comment)+'</div>':'')+'</div><button class="btn-sell" onclick="sellGift('+g.id+')">Продать за '+(Math.floor(g.gift_price*0.9))+'👑</button>';
+                list.appendChild(card);
+            });
+        } else {
+            section.style.display='none';
+        }
+    }catch(e){}
+}
+
+async function sellGift(giftId){
+    if(!confirm('Продать этот подарок за 90% стоимости?')) return;
+    try{
+        var r=await fetch('/api/gifts/sell',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({gift_id:giftId})});
+        var d=await r.json();
+        if(d.success){
+            alert('Подарок продан! Получено '+d.amount+' корон.');
+            loadMyGifts();
+            // Обновить баланс
+            var balField=document.getElementById('profileBalance');
+            if(balField) balField.value=parseInt(balField.value)+d.amount;
+        }
+    }catch(e){}
+}
 
 function handleTyping(){if(!ws||ws.readyState!==WebSocket.OPEN)return;if(!typingSent){ws.send(JSON.stringify({action:'typing',chat_id:currentChatId}));typingSent=true}clearTimeout(typingTimeout);typingTimeout=setTimeout(function(){typingSent=false},2000)}
 function handleInput(){handleTyping();checkMention()}
@@ -464,28 +543,66 @@ async function saveGroup(gid){var name=document.getElementById('groupEditName').
 function closeGroupManageModal(){document.getElementById('groupManageModal').classList.remove('show')}
 async function leaveGroup(gid){if(confirm('Выйти из группы?')){await fetch('/api/group/leave',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({group_id:gid})});closeGroupManageModal();switchToChat(1,'',false)}}
 
+function toggleChatMenu(){document.getElementById('chatMenuDropdown').classList.toggle('show')}
+function showProfileFromMenu(){document.getElementById('chatMenuDropdown').classList.remove('show');if(currentPeer) openProfile(currentPeer)}
+function deleteChatFromMenu(){document.getElementById('chatMenuDropdown').classList.remove('show');if(confirm('Удалить чат?')){fetch('/api/chat/delete',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({chat_id:currentChatId})}).then(function(){switchToChat(1,'',false)})}}
+function blockUserFromMenu(){document.getElementById('chatMenuDropdown').classList.remove('show');if(currentPeer&&confirm('Заблокировать '+currentPeer+'?')){fetch('/api/block',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({username:currentPeer,block:true})}).then(function(){})}}
+function toggleNotifications(){document.getElementById('chatMenuDropdown').classList.remove('show');alert('Уведомления для этого чата '+(localStorage.getItem('mute_'+currentChatId)==='true'?'включены':'отключены'));localStorage.setItem('mute_'+currentChatId,localStorage.getItem('mute_'+currentChatId)==='true'?'false':'true')}
+
+async function showGiftPicker(){
+    if(!currentPeer||currentIsGroup) return;
+    document.getElementById('chatMenuDropdown').classList.remove('show');
+    try{
+        var r=await fetch('/api/gifts',{headers:{'Authorization':'Bearer '+getToken()}});
+        var gifts=await r.json();
+        var list=document.getElementById('giftList');
+        list.innerHTML='';
+        gifts.forEach(function(g){
+            var item=document.createElement('div');
+            item.className='gift-item';
+            item.innerHTML='<div class="gift-emoji">'+g.emoji+'</div><div class="gift-name">'+g.name+'</div><div class="gift-price">'+g.price+'👑</div>';
+            item.onclick=function(){selectedGiftId=g.id;document.getElementById('giftSendBtn').style.display='block'};
+            list.appendChild(item);
+        });
+        document.getElementById('giftPicker').classList.add('show');
+    }catch(e){}
+}
+function closeGiftPicker(){document.getElementById('giftPicker').classList.remove('show');selectedGiftId=null;document.getElementById('giftSendBtn').style.display='none'}
+async function sendGift(){
+    if(!selectedGiftId||!currentPeer) return;
+    var comment=document.getElementById('giftComment').value.trim();
+    try{
+        var r=await fetch('/api/gifts/send',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({username:currentPeer,gift_id:selectedGiftId,comment:comment})});
+        var d=await r.json();
+        if(d.success){alert('Подарок отправлен!');closeGiftPicker()}else{alert('Ошибка: '+d.error)}
+    }catch(e){}
+}
+
 function addChatToList(id,peer,isGroup){var existing=document.querySelector('.chat-item[data-chat-id="'+id+'"]');if(existing){var last=lastMsgs[id]||'',lastTime=lastTimes[id]||'',unread=unreadCounts[id]||0,badge=existing.querySelector('.chat-badge'),lastMsg=existing.querySelector('.chat-last-msg'),timeEl=existing.querySelector('.chat-time');if(badge){if(unread>0){badge.textContent=unread>99?'99+':unread;badge.style.display=''}else{badge.style.display='none'}}if(lastMsg)lastMsg.textContent=last;if(timeEl)timeEl.textContent=lastTime||'';return}var list=document.getElementById('chatList'),div=document.createElement('div');div.className='chat-item';div.setAttribute('data-chat-id',id);div.setAttribute('data-peer',peer||'');div.setAttribute('data-is-group',isGroup?'true':'false');var av=isGroup?getInitials(peer):(peer?getInitials(peer):'💬'),last=lastMsgs[id]||'',lastTime=lastTimes[id]||'',unread=unreadCounts[id]||0;div.innerHTML='<div class="chat-avatar-placeholder">'+av+'</div><div class="chat-info"><div class="chat-info-top"><div class="chat-name'+(unread>0?' unread':'')+'">'+(peer||'Общий чат')+'</div><div class="chat-time">'+lastTime+'</div></div>'+(last?'<div class="chat-last-msg">'+last+'</div>':'')+'</div>'+(unread>0?'<div class="chat-badge">'+(unread>99?'99+':unread)+'</div>':'');div.onclick=function(){unreadCounts[id]=0;switchToChat(id,peer,isGroup)};list.appendChild(div)}
-function switchToChat(id,peer,isGroup){currentChatId=parseInt(id);currentPeer=peer||'';currentIsGroup=isGroup||false;unreadCounts[currentChatId]=0;document.getElementById('chatTitle').textContent=peer||'Общий чат';document.getElementById('chatHeaderIcon').textContent=peer?getInitials(peer):'💬';document.querySelectorAll('.chat-item').forEach(function(el){el.classList.remove('active')});var item=document.querySelector('.chat-item[data-chat-id="'+id+'"]');if(item)item.classList.add('active');var badge=item?item.querySelector('.chat-badge'):null;if(badge)badge.style.display='none';updateOnlineStatus();cancelReply();typingUsers={};updateTypingIndicator();closeMsgSearch();unpinMessage();loadPinned();if(!currentIsGroup&&currentChatId!==1)markAsRead(currentChatId);allMessagesLoaded=false;oldestMessageId=null;lastDateShown="";loadMessages(currentChatId,null)}
+function switchToChat(id,peer,isGroup){
+    currentChatId=parseInt(id);currentPeer=peer||'';currentIsGroup=isGroup||false;
+    unreadCounts[currentChatId]=0;
+    document.getElementById('chatTitle').textContent=peer||'Общий чат';
+    document.getElementById('chatHeaderIcon').textContent=peer?getInitials(peer):'💬';
+    document.querySelectorAll('.chat-item').forEach(function(el){el.classList.remove('active')});
+    var item=document.querySelector('.chat-item[data-chat-id="'+id+'"]');
+    if(item)item.classList.add('active');
+    var badge=item?item.querySelector('.chat-badge'):null;
+    if(badge)badge.style.display='none';
+    updateOnlineStatus();cancelReply();typingUsers={};updateTypingIndicator();closeMsgSearch();unpinMessage();loadPinned();
+    if(!currentIsGroup&&currentChatId!==1)markAsRead(currentChatId);
+    allMessagesLoaded=false;oldestMessageId=null;lastDateShown="";
+    // Показываем кнопку меню только для личных чатов
+    var menuBtn=document.getElementById('chatMenuBtn');
+    if(!currentIsGroup&&currentChatId!==1) menuBtn.style.display='flex';
+    else menuBtn.style.display='none';
+    loadMessages(currentChatId,null);
+}
 async function loadMessages(chatId,beforeId){if(isLoadingMessages)return;isLoadingMessages=true;var url='/api/messages?chat_id='+chatId+'&limit=50';if(beforeId)url+='&before='+beforeId;try{var r=await fetch(url,{headers:{'Authorization':'Bearer '+getToken()}}),msgs=await r.json(),area=document.getElementById('messagesArea');if(!msgs||msgs.length===0){if(!beforeId)area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">👑<br>Нет сообщений</div>';allMessagesLoaded=true;isLoadingMessages=false;return}if(msgs.length<50)allMessagesLoaded=true;if(beforeId){var oldScrollHeight=area.scrollHeight;msgs.sort(function(a,b){return a.id-b.id});var tempDiv=document.createElement('div');msgs.forEach(function(m){appendMessageToDiv(tempDiv,m)});while(tempDiv.firstChild)area.insertBefore(tempDiv.firstChild,area.firstChild);area.scrollTop=area.scrollHeight-oldScrollHeight}else{area.innerHTML='';lastDateShown="";msgs.sort(function(a,b){return a.id-b.id});msgs.forEach(function(m){appendMessageToDiv(area,m)});area.scrollTop=area.scrollHeight}if(msgs.length>0)oldestMessageId=msgs[0].id}catch(e){if(!beforeId)area.innerHTML='<div style="text-align:center;color:var(--text-light);padding:40px;">Ошибка загрузки</div>'}isLoadingMessages=false}
 
 function appendMessageToDiv(parent,m){
-    // Обработка обновления/удаления сообщения
-    if(m.type==='message_updated'){
-        var el=document.querySelector('[data-msg-id="'+m.id+'"]');
-        if(el){
-            var bubble=el.querySelector('.message-bubble');
-            if(bubble){
-                bubble.innerHTML=bubble.innerHTML.replace(/<div class="message-time.*$/,'')+'<div class="message-time">'+formatTime(m.time||'')+'</div>';
-                if(m.text) bubble.innerHTML=bubble.innerHTML.replace(/(.*)<div class="message-time/,escapeHtml(m.text)+' <span class="message-edited">(ред.)</span><div class="message-time');
-            }
-        }
-        return;
-    }
-    if(m.type==='message_deleted'){
-        var el=document.querySelector('[data-msg-id="'+m.id+'"]');
-        if(el) el.remove();
-        return;
-    }
+    if(m.type==='message_updated'){var el=document.querySelector('[data-msg-id="'+m.id+'"]');if(el){var bubble=el.querySelector('.message-bubble');if(bubble){bubble.innerHTML=bubble.innerHTML.replace(/<div class="message-time.*$/,'')+'<div class="message-time">'+formatTime(m.time||'')+'</div>';if(m.text) bubble.innerHTML=bubble.innerHTML.replace(/(.*)<div class="message-time/,escapeHtml(m.text)+' <span class="message-edited">(ред.)</span><div class="message-time');}}return}
+    if(m.type==='message_deleted'){var el=document.querySelector('[data-msg-id="'+m.id+'"]');if(el) el.remove();return}
 
     var dateLabel=getDateLabel(m.time);
     if(dateLabel&&dateLabel!==lastDateShown){var dateDiv=document.createElement('div');dateDiv.className='date-divider';dateDiv.textContent=dateLabel;document.getElementById('messagesArea').appendChild(dateDiv);lastDateShown=dateLabel}
@@ -499,11 +616,7 @@ function appendMessageToDiv(parent,m){
     if(m.file_url){
         var fileType=m.file_type||'';
         if(fileType==='photo'){
-            if(m.file_url.match(/\.(gif)$/i)){
-                contentHtml='<img src="'+m.file_url+'" onclick="openLightbox(\''+m.file_url+'\',\'photo\')" style="max-width:100%;max-height:300px;border-radius:8px;cursor:pointer;display:block;" loading="lazy">';
-            } else {
-                contentHtml='<img src="'+m.file_url+'" onclick="openLightbox(\''+m.file_url+'\',\'photo\')" style="max-width:100%;max-height:300px;border-radius:8px;cursor:pointer;display:block;" loading="lazy">';
-            }
+            contentHtml='<img src="'+m.file_url+'" onclick="openLightbox(\''+m.file_url+'\',\'photo\')" style="max-width:100%;max-height:300px;border-radius:8px;cursor:pointer;display:block;" loading="lazy">';
         } else if(fileType==='video'){
             contentHtml='<video controls preload="none" src="'+m.file_url+'" style="max-width:100%;max-height:300px;border-radius:8px;display:block;cursor:pointer;"></video>';
         } else if(fileType==='audio'){
