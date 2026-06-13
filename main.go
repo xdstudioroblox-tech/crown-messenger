@@ -1427,21 +1427,7 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	db.Exec("DELETE FROM group_members WHERE group_id = $1", groupID)
 	db.Exec("INSERT INTO group_members (group_id, username, role) VALUES ($1, $2, 'admin')", groupID, currentUser)
 
-	// Отправляем chat_created ТОЛЬКО создателю
-	mu.Lock()
-	for ws, user := range clients {
-		if user == currentUser {
-			ws.WriteJSON(map[string]interface{}{
-				"type":     "chat_created",
-				"chat_id":  groupID,
-				"peer":     req.Name,
-				"is_group": true,
-			})
-			break
-		}
-	}
-	mu.Unlock()
-
+	// НЕ отправляем chat_created никому — создатель сам добавит группу на фронтенде
 	json.NewEncoder(w).Encode(map[string]interface{}{"group_id": groupID, "invite_code": inviteCode, "name": req.Name})
 }
 
