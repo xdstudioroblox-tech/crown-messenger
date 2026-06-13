@@ -10,7 +10,9 @@ const ASSETS = [
 self.addEventListener('install', function(event) {
     event.waitUntil(
         caches.open(CACHE_NAME).then(function(cache) {
-            return cache.addAll(ASSETS);
+            return cache.addAll(ASSETS).catch(function(err) {
+                console.warn('⚠️ Не удалось закешировать один из ресурсов:', err);
+            });
         })
     );
 });
