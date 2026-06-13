@@ -77,7 +77,7 @@ type User struct {
 	About    string `json:"about,omitempty"`
 	Avatar   string `json:"avatar,omitempty"`
 	Phone    string `json:"phone,omitempty"`
-	Balance  int    `json:"balance,omitempty"`
+	Balance  int    `json:"balance"`
 }
 
 type Message struct {
