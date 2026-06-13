@@ -720,7 +720,14 @@ function loadUser(){var code=new URLSearchParams(window.location.search).get('co
 async function loadChatList(){document.getElementById('chatList').innerHTML='';addChatToList(1,'',false);try{var r=await fetch('/api/chat/list',{headers:{'Authorization':'Bearer '+getToken()}}),chats=await r.json();chats.forEach(function(c){if(c.chat_id!==1)addChatToList(c.chat_id,c.peer,c.is_group||false)})}catch(e){}}
 
 function connectWebSocket(token){var p=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(p+'//'+location.host+'/ws?token='+token);var reconnectDelay=1000,maxReconnectDelay=30000;ws.onopen=function(){console.log('🔌 WebSocket подключён');reconnectDelay=1000};ws.onmessage=function(e){var msg=JSON.parse(e.data);
-    if(msg.type==='chat_created'){addChatToList(msg.chat_id,msg.peer,false);return}
+    if(msg.type==='chat_created'){
+        if(msg.is_group) {
+            if(msg.chat_id) addChatToList(msg.chat_id, msg.peer, true);
+        } else {
+            addChatToList(msg.chat_id, msg.peer, false);
+        }
+        return;
+    }
     if(msg.type==='online_count'){onlineCount=parseInt(msg.text)||0;updateOnlineStatus();return}
     if(msg.type==='action'){showActionStatus(msg);return}
     if(msg.type==='typing_clear'){if(typingUsers[msg.chat_id])delete typingUsers[msg.chat_id][msg.username];updateTypingIndicator();return}
