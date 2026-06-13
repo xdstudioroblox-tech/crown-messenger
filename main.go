@@ -106,6 +106,7 @@ type Reaction struct {
 	MessageID int    `json:"message_id"`
 	Username  string `json:"username"`
 	Emoji     string `json:"emoji"`
+	Mine      bool   `json:"mine,omitempty"`
 }
 
 type Gift struct {
@@ -339,6 +340,7 @@ func main() {
 	http.HandleFunc("/api/gifts/send", withMiddleware(handleSendGift))
 	http.HandleFunc("/api/gifts/my", withMiddleware(handleMyGifts))
 	http.HandleFunc("/api/gifts/sell", withMiddleware(handleSellGift))
+	http.HandleFunc("/api/user-gifts", withMiddleware(handleUserGifts))
 	http.HandleFunc("/api/health", handleHealth)
 	http.HandleFunc("/api/dbtest", withMiddleware(handleDBTest))
 	http.HandleFunc("/ws", handleConnections)
@@ -448,7 +450,6 @@ func createTables() {
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_size INTEGER DEFAULT 0")
 	db.Exec("ALTER TABLE groups_chat ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''")
 	db.Exec("ALTER TABLE groups_chat ADD COLUMN IF NOT EXISTS public BOOLEAN DEFAULT false")
-	// Заполнение стандартных подарков, если их нет
 	var giftCount int
 	db.QueryRow("SELECT COUNT(*) FROM gifts").Scan(&giftCount)
 	if giftCount == 0 {
@@ -494,12 +495,12 @@ func handleReactions(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode([]Reaction{})
 			return
 		}
-		rows, _ := db.Query("SELECT id, message_id, username, emoji FROM reactions WHERE message_id = $1", messageID)
+		rows, _ := db.Query("SELECT id, message_id, username, emoji, (username = $2) as mine FROM reactions WHERE message_id = $1", messageID, currentUser)
 		defer rows.Close()
 		var reactions []Reaction
 		for rows.Next() {
 			var r Reaction
-			rows.Scan(&r.ID, &r.MessageID, &r.Username, &r.Emoji)
+			rows.Scan(&r.ID, &r.MessageID, &r.Username, &r.Emoji, &r.Mine)
 			reactions = append(reactions, r)
 		}
 		if reactions == nil {
@@ -585,7 +586,6 @@ func handleAdminAddBalance(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
-// Список подарков
 func handleGifts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	rows, _ := db.Query("SELECT id, name, emoji, price, icon_url FROM gifts ORDER BY price ASC")
@@ -602,7 +602,6 @@ func handleGifts(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(gifts)
 }
 
-// Отправка подарка
 func handleSendGift(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method != "POST" {
@@ -625,7 +624,6 @@ func handleSendGift(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Получаем цену подарка
 	var price int
 	err := db.QueryRow("SELECT price FROM gifts WHERE id = $1", req.GiftID).Scan(&price)
 	if err != nil {
@@ -633,7 +631,6 @@ func handleSendGift(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Проверяем баланс отправителя
 	var balance int
 	db.QueryRow("SELECT COALESCE(balance, 0) FROM users WHERE username = $1", currentUser).Scan(&balance)
 	if balance < price {
@@ -641,7 +638,6 @@ func handleSendGift(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Проверяем существование получателя
 	var toUser string
 	err = db.QueryRow("SELECT username FROM users WHERE username = $1", req.Username).Scan(&toUser)
 	if err != nil {
@@ -649,15 +645,12 @@ func handleSendGift(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Списываем короны
 	db.Exec("UPDATE users SET balance = balance - $1 WHERE username = $2", price, currentUser)
-	// Записываем подарок
 	db.Exec("INSERT INTO user_gifts (gift_id, username, from_user, comment, created_at) VALUES ($1, $2, $3, $4, $5)", req.GiftID, req.Username, currentUser, req.Comment, time.Now().Format("2006-01-02 15:04"))
 
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
-// Мои подарки
 func handleMyGifts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentUser := getUserFromRequest(r)
@@ -679,7 +672,6 @@ func handleMyGifts(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(gifts)
 }
 
-// Продажа подарка
 func handleSellGift(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method != "POST" {
@@ -696,7 +688,6 @@ func handleSellGift(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 
-	// Проверяем, что подарок принадлежит пользователю
 	var owner string
 	var giftPrice int
 	err := db.QueryRow("SELECT ug.username, g.price FROM user_gifts ug JOIN gifts g ON ug.gift_id = g.id WHERE ug.id = $1", req.GiftID).Scan(&owner, &giftPrice)
@@ -705,13 +696,32 @@ func handleSellGift(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Удаляем подарок
 	db.Exec("DELETE FROM user_gifts WHERE id = $1", req.GiftID)
-	// Начисляем 90% стоимости
 	sellPrice := int(float64(giftPrice) * 0.9)
 	db.Exec("UPDATE users SET balance = COALESCE(balance, 0) + $1 WHERE username = $2", sellPrice, currentUser)
 
 	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "amount": sellPrice})
+}
+
+func handleUserGifts(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	un := r.URL.Query().Get("username")
+	if un == "" {
+		json.NewEncoder(w).Encode([]UserGift{})
+		return
+	}
+	rows, _ := db.Query("SELECT ug.id, ug.gift_id, g.name, g.emoji, g.icon_url, ug.from_user, ug.comment, ug.created_at FROM user_gifts ug JOIN gifts g ON ug.gift_id = g.id WHERE ug.username = $1 ORDER BY ug.id DESC", un)
+	defer rows.Close()
+	var gifts []UserGift
+	for rows.Next() {
+		var ug UserGift
+		rows.Scan(&ug.ID, &ug.GiftID, &ug.GiftName, &ug.GiftEmoji, &ug.GiftIcon, &ug.FromUser, &ug.Comment, &ug.CreatedAt)
+		gifts = append(gifts, ug)
+	}
+	if gifts == nil {
+		gifts = []UserGift{}
+	}
+	json.NewEncoder(w).Encode(gifts)
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -849,7 +859,8 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 		users = append(users, u)
 	}
 	if users == nil { users = []User{} }
-	grows, _ := db.Query("SELECT id, name, COALESCE(avatar,''), created_by FROM groups_chat WHERE public = true AND name ILIKE $1 LIMIT 10", "%"+q+"%")
+	// Исправлено: ищем все группы, не только public
+	grows, _ := db.Query("SELECT id, name, COALESCE(avatar,''), created_by FROM groups_chat WHERE name ILIKE $1 LIMIT 10", "%"+q+"%")
 	defer grows.Close()
 	var groups []GroupInfo
 	for grows.Next() {

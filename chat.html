@@ -37,7 +37,7 @@
             --mention-color: #1a73e8;
             --mention-bg: #e8f0fe;
             --reaction-bg: #f3f4f6;
-            --reaction-active-bg: #e8f0fe;
+            --reaction-active-bg: #dbeafe;
             --reaction-active-text: #1a73e8;
         }
         
@@ -143,8 +143,9 @@
         .message-time { font-size: 10px; opacity: 0.6; margin-top: 3px; } .message.mine .message-time { opacity: 0.8; }
         .message-read { font-size: 10px; margin-top: 2px; text-align: right; } .message.mine .message-read { color: rgba(255,255,255,0.7); }
         .message-edited { font-size: 10px; opacity: 0.6; } .message.mine .message-edited { opacity: 0.8; }
-        .reply-preview { background: var(--hover); border-left: 3px solid var(--blue); padding: 6px 10px; border-radius: 4px; margin-bottom: 5px; font-size: 12px; cursor: pointer; color: var(--text); } .reply-preview b { color: var(--blue); }
+        .reply-preview { background: var(--hover); border-left: 2px solid var(--blue); padding: 4px 8px; border-radius: 4px; margin-bottom: 4px; font-size: 11px; cursor: pointer; color: var(--text); } .reply-preview b { color: var(--blue); }
         .reactions-bar { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; } .reaction-badge { background: var(--reaction-bg); padding: 3px 8px; border-radius: 10px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); transition: all 0.15s; } .reaction-badge:hover { background: var(--reaction-active-bg); }
+        .reaction-badge.active { background: var(--reaction-active-bg); border-color: var(--blue); color: var(--reaction-active-text); }
         .reaction-picker { display: none; position: fixed; background: var(--main-bg); border: 1px solid var(--border); border-radius: 24px; padding: 6px 10px; box-shadow: var(--shadow-lg); z-index: 450; gap: 4px; } .reaction-picker.show { display: flex; } .reaction-emoji { font-size: 22px; cursor: pointer; padding: 6px; border-radius: 10px; transition: transform 0.15s; } .reaction-emoji:hover { transform: scale(1.3); background: var(--hover); }
         
         .typing-indicator { font-size: 12px; color: var(--text-light); padding: 4px 14px; display: flex; align-items: center; gap: 6px; } .typing-dots { display: flex; gap: 3px; } .typing-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--text-light); animation: typingBounce 1.4s infinite; } .typing-dot:nth-child(2){animation-delay:0.2s} .typing-dot:nth-child(3){animation-delay:0.4s}
@@ -279,19 +280,20 @@ if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').t
 <div class="lightbox" id="lightbox" onclick="closeLightbox()"><span class="lightbox-close">✕</span><div id="lightboxContent" onclick="event.stopPropagation()"></div></div>
 <div class="reaction-picker" id="reactionPicker"><span class="reaction-emoji" onclick="addReaction('👍')">👍</span><span class="reaction-emoji" onclick="addReaction('❤️')">❤️</span><span class="reaction-emoji" onclick="addReaction('😂')">😂</span><span class="reaction-emoji" onclick="addReaction('🔥')">🔥</span><span class="reaction-emoji" onclick="addReaction('👎')">👎</span><span class="reaction-emoji" onclick="addReaction('😢')">😢</span></div>
 <div class="context-menu" id="contextMenu"><button class="context-item" id="ctxReply">↩️ Ответить</button><button class="context-item" id="ctxReact">😊 Реакция</button><button class="context-item" id="ctxCopy">📋 Копировать</button><button class="context-item" id="ctxPin">📌 Закрепить</button><button class="context-item" id="ctxEdit">✏️ Редактировать</button><button class="context-item danger" id="ctxDelete">🗑️ Удалить</button></div>
-<div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"><div class="menu-panel" onclick="event.stopPropagation()"><div class="menu-profile"><img class="menu-avatar" id="menuAvatarImg" style="display:none;"><div class="menu-avatar-placeholder" id="menuAvatarPlaceholder">👤</div><div class="menu-nickname" id="menuNickname">Пользователь</div><div class="menu-username" id="menuUsername">@user</div></div><div class="menu-items"><button class="menu-item" onclick="closeMenu();openProfile(username);">👤 Мой профиль</button><button class="menu-item" onclick="closeMenu();showCreateGroup();">👥 Создать группу</button><button class="menu-item" onclick="closeMenu();showJoinGroup();">🔗 Присоединиться</button><button class="menu-item" onclick="closeMenu();showSettings();">⚙️ Настройки</button><button class="menu-item" onclick="closeMenu();window.open('/about','_blank');">ℹ️ О проекте</button></div><hr class="menu-divider"><div class="menu-footer"><span>🌙 Ночной режим</span><label class="switch"><input type="checkbox" id="menuThemeToggle" onchange="toggleTheme()"><span class="slider"></span></label></div><div class="menu-footer" style="justify-content:center;padding:8px 0;"><a href="/donate" target="_blank" style="color:var(--blue);text-decoration:none;font-size:13px;font-weight:600;">💳 Поддержать проект</a></div><div class="menu-footer" style="justify-content:center;padding-top:0;"><span>Crown Messenger v1.5</span></div></div></div>
-<div class="modal" id="profileModal"><div class="modal-content"><button class="modal-close" onclick="closeProfile()">✕</button><div style="text-align:center;"><img class="profile-avatar" id="profileAvatarImg" style="display:none;"><div class="profile-avatar-placeholder" id="profileAvatarPlaceholder">👤</div><label class="custom-file-btn" for="avatarInput" style="margin:0 auto 10px;">📷 Сменить фото</label><input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="uploadAvatar()"></div><div class="profile-field"><label>Никнейм</label><input type="text" id="profileNickname" disabled></div><div class="profile-field"><label>Юзернейм</label><input type="text" id="profileUsername" disabled></div><div class="profile-field"><label>О себе</label><textarea id="profileAbout" rows="3" disabled></textarea></div><div class="profile-field" id="profileBalanceField" style="display:none;"><label>👑 Короны</label><input type="text" id="profileBalance" disabled></div><div class="gifts-section" id="profileGiftsSection" style="display:none;"><h3>🎁 Мои подарки</h3><div id="profileGiftsList"></div></div><button class="btn btn-primary" id="profileSaveBtn" style="display:none;">Сохранить</button><button class="btn btn-primary" id="profileChatBtn" style="display:none;">💬 Написать</button><button class="btn btn-danger" id="profileBlockBtn" style="display:none;">🚫 Заблокировать</button><button class="btn btn-danger" id="profileDeleteChatBtn" style="display:none;">🗑️ Удалить чат</button></div></div>
+<div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"><div class="menu-panel" onclick="event.stopPropagation()"><div class="menu-profile"><img class="menu-avatar" id="menuAvatarImg" style="display:none;"><div class="menu-avatar-placeholder" id="menuAvatarPlaceholder">👤</div><div class="menu-nickname" id="menuNickname">Пользователь</div><div class="menu-username" id="menuUsername">@user</div></div><div class="menu-items"><button class="menu-item" onclick="closeMenu();openProfile(username);">👤 Мой профиль</button><button class="menu-item" onclick="closeMenu();showCreateGroup();">👥 Создать группу</button><button class="menu-item" onclick="closeMenu();showJoinGroup();">🔗 Присоединиться</button><button class="menu-item" onclick="closeMenu();showSettings();">⚙️ Настройки</button><button class="menu-item" onclick="closeMenu();window.open('/about','_blank');">ℹ️ О проекте</button></div><hr class="menu-divider"><div class="menu-footer"><span>🌙 Ночной режим</span><label class="switch"><input type="checkbox" id="menuThemeToggle" onchange="toggleTheme()"><span class="slider"></span></label></div><div class="menu-footer" style="justify-content:center;padding:8px 0;"><a href="/donate" target="_blank" style="color:var(--blue);text-decoration:none;font-size:13px;font-weight:600;">💳 Поддержать проект</a></div><div class="menu-footer" style="justify-content:center;padding-top:0;"><span>Crown Messenger v1.6</span></div></div></div>
+<div class="modal" id="profileModal"><div class="modal-content"><button class="modal-close" onclick="closeProfile()">✕</button><div style="text-align:center;"><img class="profile-avatar" id="profileAvatarImg" style="display:none;"><div class="profile-avatar-placeholder" id="profileAvatarPlaceholder">👤</div><label class="custom-file-btn" for="avatarInput" style="margin:0 auto 10px;">📷 Сменить фото</label><input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="uploadAvatar()"></div><div class="profile-field"><label>Никнейм</label><input type="text" id="profileNickname" disabled></div><div class="profile-field"><label>Юзернейм</label><input type="text" id="profileUsername" disabled></div><div class="profile-field"><label>О себе</label><textarea id="profileAbout" rows="3" disabled></textarea></div><div class="profile-field" id="profileBalanceField" style="display:none;"><label>👑 Короны</label><input type="text" id="profileBalance" disabled></div><div class="gifts-section" id="profileGiftsSection" style="display:none;"><h3>🎁 Подарки</h3><div id="profileGiftsList"></div></div><button class="btn btn-primary" id="profileSaveBtn" style="display:none;">Сохранить</button><button class="btn btn-primary" id="profileChatBtn" style="display:none;">💬 Написать</button><button class="btn btn-danger" id="profileBlockBtn" style="display:none;">🚫 Заблокировать</button><button class="btn btn-danger" id="profileDeleteChatBtn" style="display:none;">🗑️ Удалить чат</button></div></div>
 <div class="modal" id="groupModal"><div class="modal-content"><button class="modal-close" onclick="closeGroupModal()">✕</button><div id="groupModalContent"></div></div></div>
 <div class="modal" id="inviteModal"><div class="modal-content"><button class="modal-close" onclick="closeInviteModal()">✕</button><div id="inviteModalContent"></div></div></div>
 <div class="modal" id="settingsModal"><div class="modal-content" style="max-width:440px;"><button class="modal-close" onclick="closeSettings()">✕</button><div id="settingsContent"></div></div></div>
 <div class="modal" id="stickerPackModal"><div class="modal-content"><button class="modal-close" onclick="closeStickerPackModal()">✕</button><div id="stickerPackContent"></div></div></div>
 <div class="modal" id="groupManageModal"><div class="modal-content"><button class="modal-close" onclick="closeGroupManageModal()">✕</button><div id="groupManageContent"></div></div></div>
+<div class="modal" id="sellConfirmModal"><div class="modal-content" style="max-width:320px; text-align:center;"><p id="sellConfirmText"></p><button class="btn btn-primary" id="sellConfirmYes">Да, продать</button><button class="btn btn-sm" onclick="closeSellConfirm()">Отмена</button></div></div>
 <div class="gift-picker" id="giftPicker" onclick="closeGiftPicker()"><div class="gift-picker-content" onclick="event.stopPropagation()"><button class="modal-close" onclick="closeGiftPicker()">✕</button><h3>🎁 Выберите подарок</h3><div class="gift-list" id="giftList"></div><div class="profile-field"><label>Комментарий</label><input type="text" id="giftComment" placeholder="Пожелание..."></div><button class="btn btn-primary" onclick="sendGift()" style="display:none;" id="giftSendBtn">Отправить</button></div></div>
 
 <script>
 var username="",nickname="",myAvatar="",ws,currentChatId=1,currentPeer="",currentIsGroup=false,viewingProfile="",searchTimeout,onlineCount=0,contextMsgId=null,typingTimeout=null,typingSent=false,replyToId=null,replyToText=null,replyToNick=null,typingUsers={},lastMsgs={},lastTimes={},unreadCounts={},searchResults=[],currentSearchIdx=-1,currentPinnedId=null;
 var originalTitle=document.title,newMsgCount=0,isLoadingMessages=false,allMessagesLoaded=false,oldestMessageId=null,lastDateShown="",reactionMsgId=null;
-var selectedGiftId=null;
+var selectedGiftId=null,sellGiftId=null;
 
 function getToken(){return localStorage.getItem('token')}
 function escapeHtml(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML}
@@ -384,8 +386,8 @@ async function openProfile(u){
         document.getElementById('profileNickname').disabled=!isMe;
         document.getElementById('profileAbout').disabled=!isMe;
         document.getElementById('profileModal').classList.add('show');
-        // Загружаем подарки
-        if(isMe) loadMyGifts();
+        // Загружаем подарки пользователя
+        loadUserGifts(u);
     }catch(e){}
 }
 function closeProfile(){document.getElementById('profileModal').classList.remove('show')}
@@ -395,41 +397,51 @@ document.getElementById('profileChatBtn').onclick=async function(){if(!viewingPr
 document.getElementById('profileBlockBtn').onclick=function(){if(confirm('Заблокировать '+viewingProfile+'?')){fetch('/api/block',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({username:viewingProfile,block:true})}).then(function(){closeProfile()})}};
 document.getElementById('profileDeleteChatBtn').onclick=function(){if(confirm('Удалить чат?')){fetch('/api/chat/delete',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({chat_id:currentChatId})}).then(function(){closeProfile();switchToChat(1,'',false)})}};
 
-async function loadMyGifts(){
-    try{
-        var r=await fetch('/api/gifts/my',{headers:{'Authorization':'Bearer '+getToken()}});
-        var gifts=await r.json();
-        var section=document.getElementById('profileGiftsSection');
-        var list=document.getElementById('profileGiftsList');
-        if(gifts.length>0){
-            section.style.display='block';
-            list.innerHTML='';
-            gifts.forEach(function(g){
-                var card=document.createElement('div');
-                card.className='my-gift-card';
-                card.innerHTML='<div class="gift-emoji">'+g.gift_emoji+'</div><div class="gift-info"><div class="gift-name">'+g.gift_name+'</div><div class="gift-from">от @'+g.from_user+'</div>'+(g.comment?'<div class="gift-comment">'+escapeHtml(g.comment)+'</div>':'')+'</div><button class="btn-sell" onclick="sellGift('+g.id+')">Продать за '+(Math.floor(g.gift_price*0.9))+'👑</button>';
+async function loadUserGifts(u) {
+    var section = document.getElementById('profileGiftsSection');
+    var list = document.getElementById('profileGiftsList');
+    try {
+        var r = await fetch('/api/user-gifts?username=' + u, {headers:{'Authorization':'Bearer '+getToken()}});
+        var gifts = await r.json();
+        if (gifts.length > 0) {
+            section.style.display = 'block';
+            list.innerHTML = '';
+            gifts.forEach(function(g) {
+                var card = document.createElement('div');
+                card.className = 'my-gift-card';
+                var isOwner = (u === username);
+                card.innerHTML = '<div class="gift-emoji">'+g.gift_emoji+'</div><div class="gift-info"><div class="gift-name">'+g.gift_name+'</div><div class="gift-from">от @'+g.from_user+'</div>'+(g.comment?'<div class="gift-comment">'+escapeHtml(g.comment)+'</div>':'')+'</div>'+(isOwner?'<button class="btn-sell" onclick="sellGift('+g.id+','+Math.floor(g.gift_price*0.9)+')">Продать за '+Math.floor(g.gift_price*0.9)+'👑</button>':'');
                 list.appendChild(card);
             });
         } else {
-            section.style.display='none';
+            section.style.display = 'none';
         }
-    }catch(e){}
+    } catch(e) {}
 }
 
-async function sellGift(giftId){
-    if(!confirm('Продать этот подарок за 90% стоимости?')) return;
-    try{
-        var r=await fetch('/api/gifts/sell',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({gift_id:giftId})});
-        var d=await r.json();
-        if(d.success){
-            alert('Подарок продан! Получено '+d.amount+' корон.');
-            loadMyGifts();
-            // Обновить баланс
-            var balField=document.getElementById('profileBalance');
-            if(balField) balField.value=parseInt(balField.value)+d.amount;
-        }
-    }catch(e){}
+function sellGift(giftId, price) {
+    sellGiftId = giftId;
+    document.getElementById('sellConfirmText').textContent = 'Вы получите ' + price + ' корон. Продать?';
+    document.getElementById('sellConfirmModal').classList.add('show');
 }
+document.getElementById('sellConfirmYes').onclick = async function() {
+    if (!sellGiftId) return;
+    var r = await fetch('/api/gifts/sell', {method:'POST', headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'}, body:JSON.stringify({gift_id: sellGiftId})});
+    var d = await r.json();
+    if (d.success) {
+        alert('Продано!');
+        // Обновить список подарков
+        loadUserGifts(username);
+        // Обновить баланс
+        var balField = document.getElementById('profileBalance');
+        if(balField) {
+            var currentBal = parseInt(balField.value) || 0;
+            balField.value = currentBal + d.amount;
+        }
+    }
+    closeSellConfirm();
+};
+function closeSellConfirm() { document.getElementById('sellConfirmModal').classList.remove('show'); sellGiftId = null; }
 
 function handleTyping(){if(!ws||ws.readyState!==WebSocket.OPEN)return;if(!typingSent){ws.send(JSON.stringify({action:'typing',chat_id:currentChatId}));typingSent=true}clearTimeout(typingTimeout);typingTimeout=setTimeout(function(){typingSent=false},2000)}
 function handleInput(){handleTyping();checkMention()}
@@ -501,11 +513,16 @@ async function loadReactions(msgId){
         if(!r.ok) return;
         var reactions=await r.json();
         var counts={};
-        reactions.forEach(function(r){counts[r.emoji]=(counts[r.emoji]||0)+1;});
+        var userReactions = {};
+        reactions.forEach(function(r){
+            counts[r.emoji]=(counts[r.emoji]||0)+1;
+            if(r.mine) userReactions[r.emoji] = true;
+        });
         bar.innerHTML='';
         for(var emoji in counts){
             var badge=document.createElement('span');
             badge.className='reaction-badge';
+            if(userReactions[emoji]) badge.classList.add('active');
             badge.textContent=emoji+' '+counts[emoji];
             badge.onclick=function(e){e.stopPropagation();addReaction(emoji);};
             bar.appendChild(badge);
@@ -555,7 +572,23 @@ function saveNotifications(){localStorage.setItem('notif_sound',document.getElem
 function setLanguage(l){localStorage.setItem('language',l);location.reload()}
 
 function showCreateGroup(){var c=document.getElementById('groupModalContent');c.innerHTML='<h3>👥 Создать группу</h3><div class="profile-field"><label>Название</label><input type="text" id="groupName"></div><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span>Публичная</span><label class="switch"><input type="checkbox" id="groupPublic"><span class="slider"></span></label></div><button class="btn btn-primary" onclick="createGroup()">Создать</button>';document.getElementById('groupModal').classList.add('show')}
-async function createGroup(){var n=document.getElementById('groupName').value.trim();if(!n)return;var pub=document.getElementById('groupPublic').checked;var r=await fetch('/api/group/create',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({name:n,public:pub})});var d=await r.json();if(d.group_id){closeGroupModal();addChatToList(d.group_id,d.name,true);switchToChat(d.group_id,d.name,true);showInviteModal(d.group_id,d.name,d.invite_code)}else{alert('Ошибка: '+JSON.stringify(d))}}
+async function createGroup(){
+    var n=document.getElementById('groupName').value.trim();
+    if(!n)return;
+    var pub=document.getElementById('groupPublic').checked;
+    var r=await fetch('/api/group/create',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({name:n,public:pub})});
+    var d=await r.json();
+    if(d.group_id){
+        closeGroupModal();
+        addChatToList(d.group_id,d.name,true);
+        // Явно переключаемся на группу
+        currentChatId = d.group_id;
+        currentPeer = d.name;
+        currentIsGroup = true;
+        switchToChat(d.group_id, d.name, true);
+        showInviteModal(d.group_id, d.name, d.invite_code);
+    }else{alert('Ошибка: '+JSON.stringify(d));}
+}
 function showJoinGroup(){var c=document.getElementById('groupModalContent');c.innerHTML='<h3>🔗 Присоединиться</h3><div class="profile-field"><label>Код</label><input type="text" id="inviteCode"></div><button class="btn btn-primary" onclick="joinGroup()">Присоединиться</button>';document.getElementById('groupModal').classList.add('show')}
 async function joinGroup(){var code=document.getElementById('inviteCode').value.trim();if(!code)return;var r=await fetch('/api/group/join',{method:'POST',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({code:code})});var d=await r.json();if(d.group_id){closeGroupModal();addChatToList(d.group_id,d.name,true);switchToChat(d.group_id,d.name,true)}}
 function closeGroupModal(){document.getElementById('groupModal').classList.remove('show')}
@@ -618,7 +651,6 @@ function switchToChat(id,peer,isGroup){
     updateOnlineStatus();cancelReply();typingUsers={};updateTypingIndicator();closeMsgSearch();unpinMessage();loadPinned();
     if(!currentIsGroup&&currentChatId!==1)markAsRead(currentChatId);
     allMessagesLoaded=false;oldestMessageId=null;lastDateShown="";
-    // Показываем кнопку меню только для личных чатов
     var menuBtn=document.getElementById('chatMenuBtn');
     if(!currentIsGroup&&currentChatId!==1) menuBtn.style.display='flex';
     else menuBtn.style.display='none';
@@ -691,7 +723,6 @@ function connectWebSocket(token){var p=location.protocol==='https:'?'wss:':'ws:'
 function sendMessage(){var input=document.getElementById('messageInput'),text=input.value.trim();if(!text&&!replyToId)return;if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({text:text,chat_id:currentChatId,reply_to:replyToId||0,reply_text:replyToText||'',reply_nick:replyToNick||''}));input.value='';cancelReply();typingSent=false;playSendSound()}}
 function logout(){localStorage.removeItem('token');localStorage.removeItem('user');window.location.href='/'}
 document.getElementById('chatHeader').onclick=function(e){
-    // Не срабатываем, если клик был на кнопке меню или её выпадающем списке
     if(e.target.closest('#chatMenuBtn') || e.target.closest('#chatMenuDropdown')) return;
     if(currentIsGroup) showGroupManage(currentChatId);
     else if(currentPeer) openProfile(currentPeer);
