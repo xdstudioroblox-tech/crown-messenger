@@ -61,6 +61,8 @@ var (
 	cloudinaryCloudName = os.Getenv("CLOUDINARY_CLOUD_NAME")
 	cloudinaryAPIKey    = os.Getenv("CLOUDINARY_API_KEY")
 	cloudinaryAPISecret = os.Getenv("CLOUDINARY_API_SECRET")
+
+	adminKey = os.Getenv("ADMIN_KEY")
 )
 
 type User struct {
@@ -72,6 +74,7 @@ type User struct {
 	About    string `json:"about,omitempty"`
 	Avatar   string `json:"avatar,omitempty"`
 	Phone    string `json:"phone,omitempty"`
+	Balance  int    `json:"balance,omitempty"`
 }
 
 type Message struct {
@@ -92,6 +95,8 @@ type Message struct {
 	ReplyTo   int    `json:"reply_to,omitempty"`
 	ReplyText string `json:"reply_text,omitempty"`
 	ReplyNick string `json:"reply_nick,omitempty"`
+	FileName  string `json:"file_name,omitempty"`
+	FileSize  int64  `json:"file_size,omitempty"`
 }
 
 type Reaction struct {
@@ -307,6 +312,8 @@ func main() {
 	http.HandleFunc("/api/read", withMiddleware(handleMarkRead))
 	http.HandleFunc("/api/online", withMiddleware(handleOnlineStatus))
 	http.HandleFunc("/api/lastseen", withMiddleware(handleLastSeen))
+	http.HandleFunc("/api/balance", withMiddleware(handleBalance))
+	http.HandleFunc("/api/admin/add-balance", withMiddleware(handleAdminAddBalance))
 	http.HandleFunc("/api/health", handleHealth)
 	http.HandleFunc("/api/dbtest", withMiddleware(handleDBTest))
 	http.HandleFunc("/ws", handleConnections)
@@ -352,8 +359,8 @@ func main() {
 
 func createTables() {
 	queries := []string{
-		`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, nickname TEXT NOT NULL, password TEXT NOT NULL, email TEXT DEFAULT '', about TEXT DEFAULT '', avatar TEXT DEFAULT '', phone TEXT DEFAULT '', last_seen TIMESTAMP DEFAULT NULL)`,
-		`CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, username TEXT NOT NULL, nickname TEXT NOT NULL, text TEXT DEFAULT '', time TEXT NOT NULL, chat_id INTEGER DEFAULT 1, avatar TEXT DEFAULT '', read BOOLEAN DEFAULT false, edited BOOLEAN DEFAULT false, file_url TEXT DEFAULT '', file_type TEXT DEFAULT '', reply_to INTEGER DEFAULT 0, reply_text TEXT DEFAULT '', reply_nick TEXT DEFAULT '')`,
+		`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, nickname TEXT NOT NULL, password TEXT NOT NULL, email TEXT DEFAULT '', about TEXT DEFAULT '', avatar TEXT DEFAULT '', phone TEXT DEFAULT '', last_seen TIMESTAMP DEFAULT NULL, balance INTEGER DEFAULT 0)`,
+		`CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, username TEXT NOT NULL, nickname TEXT NOT NULL, text TEXT DEFAULT '', time TEXT NOT NULL, chat_id INTEGER DEFAULT 1, avatar TEXT DEFAULT '', read BOOLEAN DEFAULT false, edited BOOLEAN DEFAULT false, file_url TEXT DEFAULT '', file_type TEXT DEFAULT '', reply_to INTEGER DEFAULT 0, reply_text TEXT DEFAULT '', reply_nick TEXT DEFAULT '', file_name TEXT DEFAULT '', file_size INTEGER DEFAULT 0)`,
 		`CREATE TABLE IF NOT EXISTS chats (id SERIAL PRIMARY KEY, user1 TEXT NOT NULL, user2 TEXT NOT NULL, UNIQUE(user1, user2))`,
 		`CREATE TABLE IF NOT EXISTS groups_chat (id SERIAL PRIMARY KEY, name TEXT NOT NULL, avatar TEXT DEFAULT '', description TEXT DEFAULT '', created_by TEXT NOT NULL, created_at TEXT DEFAULT '', invite_code TEXT UNIQUE NOT NULL, public BOOLEAN DEFAULT false)`,
 		`CREATE TABLE IF NOT EXISTS group_members (group_id INTEGER NOT NULL, username TEXT NOT NULL, role TEXT DEFAULT 'member', UNIQUE(group_id, username))`,
@@ -373,6 +380,7 @@ func createTables() {
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_reactions_message_id ON reactions(message_id)")
 	db.Exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT ''")
 	db.Exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP DEFAULT NULL")
+	db.Exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance INTEGER DEFAULT 0")
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS read BOOLEAN DEFAULT false")
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited BOOLEAN DEFAULT false")
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_url TEXT DEFAULT ''")
@@ -380,6 +388,8 @@ func createTables() {
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to INTEGER DEFAULT 0")
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_text TEXT DEFAULT ''")
 	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_nick TEXT DEFAULT ''")
+	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_name TEXT DEFAULT ''")
+	db.Exec("ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_size INTEGER DEFAULT 0")
 	db.Exec("ALTER TABLE groups_chat ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''")
 	db.Exec("ALTER TABLE groups_chat ADD COLUMN IF NOT EXISTS public BOOLEAN DEFAULT false")
 	log.Println("✅ Таблицы проверены")
@@ -401,17 +411,14 @@ func handleReactions(w http.ResponseWriter, r *http.Request) {
 		}
 		json.NewDecoder(r.Body).Decode(&req)
 
-		// Проверяем, есть ли уже такая реакция от этого пользователя
 		var existingID int
 		err := db.QueryRow("SELECT id FROM reactions WHERE message_id = $1 AND username = $2 AND emoji = $3", req.MessageID, currentUser, req.Emoji).Scan(&existingID)
 		if err == nil {
-			// Удаляем реакцию (toggle)
 			db.Exec("DELETE FROM reactions WHERE id = $1", existingID)
 			json.NewEncoder(w).Encode(map[string]interface{}{"action": "removed", "emoji": req.Emoji})
 			return
 		}
 
-		// Добавляем реакцию
 		db.Exec("INSERT INTO reactions (message_id, username, emoji) VALUES ($1, $2, $3)", req.MessageID, currentUser, req.Emoji)
 		json.NewEncoder(w).Encode(map[string]interface{}{"action": "added", "emoji": req.Emoji})
 		return
@@ -469,6 +476,53 @@ func handleUploadVoice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(map[string]string{"file_url": fileURL, "file_type": "audio"})
+}
+
+// Обработчик баланса
+func handleBalance(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	currentUser := getUserFromRequest(r)
+	if currentUser == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	var balance int
+	db.QueryRow("SELECT COALESCE(balance, 0) FROM users WHERE username = $1", currentUser).Scan(&balance)
+	json.NewEncoder(w).Encode(map[string]int{"balance": balance})
+}
+
+// Админ-эндпоинт для начисления корон
+func handleAdminAddBalance(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	// Проверка админ-ключа
+	key := r.Header.Get("X-Admin-Key")
+	if key == "" {
+		key = r.URL.Query().Get("key")
+	}
+	if adminKey == "" || key != adminKey {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	var req struct {
+		Username string `json:"username"`
+		Amount   int    `json:"amount"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if req.Username == "" || req.Amount <= 0 {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Неверные параметры"})
+		return
+	}
+
+	_, err := db.Exec("UPDATE users SET balance = COALESCE(balance, 0) + $1 WHERE username = $2", req.Amount, req.Username)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Пользователь не найден"})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -573,17 +627,18 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	req.Username = strings.TrimSpace(escapeHTML(req.Username))
 	var user User
 	var email, about, avatar, phone, hashedPassword sql.NullString
-	err := db.QueryRow("SELECT id, username, nickname, password, email, about, avatar, phone FROM users WHERE username = $1", req.Username).Scan(&user.ID, &user.Username, &user.Nickname, &hashedPassword, &email, &about, &avatar, &phone)
+	var balance sql.NullInt64
+	err := db.QueryRow("SELECT id, username, nickname, password, email, about, avatar, phone, COALESCE(balance, 0) FROM users WHERE username = $1", req.Username).Scan(&user.ID, &user.Username, &user.Nickname, &hashedPassword, &email, &about, &avatar, &phone, &balance)
 	if err != nil { json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Неверный логин или пароль"}); return }
 	if bcrypt.CompareHashAndPassword([]byte(hashedPassword.String), []byte(req.Password)) == nil {
-		user.Email = email.String; user.About = about.String; user.Avatar = getAvatarURL(avatar.String); user.Phone = phone.String
+		user.Email = email.String; user.About = about.String; user.Avatar = getAvatarURL(avatar.String); user.Phone = phone.String; user.Balance = int(balance.Int64)
 		token, _ := generateToken(user.Username, user.ID)
 		json.NewEncoder(w).Encode(AuthResponse{Success: true, Token: token, User: &user}); return
 	}
 	if hashedPassword.String == req.Password {
 		newHash, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		db.Exec("UPDATE users SET password = $1 WHERE id = $2", string(newHash), user.ID)
-		user.Email = email.String; user.About = about.String; user.Avatar = getAvatarURL(avatar.String); user.Phone = phone.String
+		user.Email = email.String; user.About = about.String; user.Avatar = getAvatarURL(avatar.String); user.Phone = phone.String; user.Balance = int(balance.Int64)
 		token, _ := generateToken(user.Username, user.ID)
 		json.NewEncoder(w).Encode(AuthResponse{Success: true, Token: token, User: &user}); return
 	}
@@ -620,6 +675,7 @@ func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentUser := getUserFromRequest(r)
 	if currentUser == "" { http.Error(w, "Unauthorized", http.StatusUnauthorized); return }
+
 	if r.Method == "GET" {
 		chatID := r.URL.Query().Get("chat_id")
 		if chatID == "" { chatID = "1" }
@@ -631,21 +687,22 @@ func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 		if beforeStr != "" {
 			beforeID, parseErr := strconv.Atoi(beforeStr)
 			if parseErr == nil && beforeID > 0 {
-				rows, err = db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false), COALESCE(file_url,''), COALESCE(file_type,''), COALESCE(reply_to,0), COALESCE(reply_text,''), COALESCE(reply_nick,'') FROM messages WHERE chat_id = $1 AND id < $2 ORDER BY id DESC LIMIT $3", chatID, beforeID, limit)
-			} else { rows, err = db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false), COALESCE(file_url,''), COALESCE(file_type,''), COALESCE(reply_to,0), COALESCE(reply_text,''), COALESCE(reply_nick,'') FROM messages WHERE chat_id = $1 ORDER BY id DESC LIMIT $2", chatID, limit) }
-		} else { rows, err = db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false), COALESCE(file_url,''), COALESCE(file_type,''), COALESCE(reply_to,0), COALESCE(reply_text,''), COALESCE(reply_nick,'') FROM messages WHERE chat_id = $1 ORDER BY id DESC LIMIT $2", chatID, limit) }
+				rows, err = db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false), COALESCE(file_url,''), COALESCE(file_type,''), COALESCE(reply_to,0), COALESCE(reply_text,''), COALESCE(reply_nick,''), COALESCE(file_name,''), COALESCE(file_size,0) FROM messages WHERE chat_id = $1 AND id < $2 ORDER BY id DESC LIMIT $3", chatID, beforeID, limit)
+			} else { rows, err = db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false), COALESCE(file_url,''), COALESCE(file_type,''), COALESCE(reply_to,0), COALESCE(reply_text,''), COALESCE(reply_nick,''), COALESCE(file_name,''), COALESCE(file_size,0) FROM messages WHERE chat_id = $1 ORDER BY id DESC LIMIT $2", chatID, limit) }
+		} else { rows, err = db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false), COALESCE(file_url,''), COALESCE(file_type,''), COALESCE(reply_to,0), COALESCE(reply_text,''), COALESCE(reply_nick,''), COALESCE(file_name,''), COALESCE(file_size,0) FROM messages WHERE chat_id = $1 ORDER BY id DESC LIMIT $2", chatID, limit) }
 		if err != nil { json.NewEncoder(w).Encode([]Message{}); return }
 		defer rows.Close()
 		var messages []Message
 		for rows.Next() {
 			var m Message; var avatar sql.NullString
-			rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &avatar, &m.Read, &m.Edited, &m.FileURL, &m.FileType, &m.ReplyTo, &m.ReplyText, &m.ReplyNick)
+			rows.Scan(&m.ID, &m.Username, &m.Nickname, &m.Text, &m.Time, &avatar, &m.Read, &m.Edited, &m.FileURL, &m.FileType, &m.ReplyTo, &m.ReplyText, &m.ReplyNick, &m.FileName, &m.FileSize)
 			m.Avatar = getAvatarURL(avatar.String); messages = append(messages, m)
 		}
 		for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 { messages[i], messages[j] = messages[j], messages[i] }
 		if messages == nil { messages = []Message{} }
 		json.NewEncoder(w).Encode(messages); return
 	}
+
 	if r.Method == "PUT" {
 		var req struct { ID int `json:"id"`; Text string `json:"text"` }
 		json.NewDecoder(r.Body).Decode(&req)
@@ -653,14 +710,23 @@ func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 		if owner != currentUser { http.Error(w, "Forbidden", http.StatusForbidden); return }
 		req.Text = escapeHTML(strings.TrimSpace(req.Text))
 		db.Exec("UPDATE messages SET text = $1, edited = true WHERE id = $2", req.Text, req.ID)
+		// Отправляем обновление всем
+		go func() {
+			broadcast <- Message{ID: req.ID, Type: "message_updated", Text: req.Text, Edited: true}
+		}()
 		json.NewEncoder(w).Encode(map[string]bool{"success": true}); return
 	}
+
 	if r.Method == "DELETE" {
 		var req struct { ID int `json:"id"` }
 		json.NewDecoder(r.Body).Decode(&req)
 		var owner string; db.QueryRow("SELECT username FROM messages WHERE id = $1", req.ID).Scan(&owner)
 		if owner != currentUser { http.Error(w, "Forbidden", http.StatusForbidden); return }
 		db.Exec("DELETE FROM messages WHERE id = $1", req.ID)
+		// Уведомляем об удалении
+		go func() {
+			broadcast <- Message{ID: req.ID, Type: "message_deleted"}
+		}()
 		json.NewEncoder(w).Encode(map[string]bool{"success": true}); return
 	}
 }
@@ -670,9 +736,9 @@ func handleProfile(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		userParam := r.URL.Query().Get("username")
 		if userParam == "" { json.NewEncoder(w).Encode(map[string]string{"error": "username required"}); return }
-		var user User; var email, about, avatar, phone sql.NullString
-		if db.QueryRow("SELECT id, username, nickname, email, about, avatar, phone FROM users WHERE username = $1", userParam).Scan(&user.ID, &user.Username, &user.Nickname, &email, &about, &avatar, &phone) != nil { w.WriteHeader(http.StatusNotFound); return }
-		user.Email = email.String; user.About = about.String; user.Avatar = getAvatarURL(avatar.String); user.Phone = phone.String
+		var user User; var email, about, avatar, phone sql.NullString; var balance sql.NullInt64
+		if db.QueryRow("SELECT id, username, nickname, email, about, avatar, phone, COALESCE(balance, 0) FROM users WHERE username = $1", userParam).Scan(&user.ID, &user.Username, &user.Nickname, &email, &about, &avatar, &phone, &balance) != nil { w.WriteHeader(http.StatusNotFound); return }
+		user.Email = email.String; user.About = about.String; user.Avatar = getAvatarURL(avatar.String); user.Phone = phone.String; user.Balance = int(balance.Int64)
 		json.NewEncoder(w).Encode(user); return
 	}
 	if r.Method == "PUT" {
@@ -709,18 +775,24 @@ func handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 	fileBytes, _ := io.ReadAll(file)
 	ext := strings.ToLower(filepath.Ext(header.Filename))
+	fileName := header.Filename
+	fileSize := int64(len(fileBytes))
 	var folder, fileType string
 	switch ext {
 	case ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp": folder = "photos"; fileType = "photo"
 	case ".mp4", ".webm", ".mov", ".avi": folder = "videos"; fileType = "video"
 	case ".mp3", ".ogg", ".wav", ".m4a": folder = "audio"; fileType = "audio"
-	default: folder = "photos"; fileType = "file"
+	default: folder = "documents"; fileType = "document"
 	}
 	filename := currentUser + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + ext
+	os.MkdirAll("uploads/"+folder, 0755)
 	os.WriteFile("uploads/"+folder+"/"+filename, fileBytes, 0644)
 	fileURL := "/uploads/" + folder + "/" + filename
-	if cloudinaryCloudName != "" && fileType == "photo" { if cloudURL, err := uploadToCloudinary(fileBytes, folder); err == nil { fileURL = cloudURL } }
-	json.NewEncoder(w).Encode(map[string]string{"file_url": fileURL, "file_type": fileType})
+	if cloudinaryCloudName != "" && (fileType == "photo" || fileType == "video") {
+		if cloudURL, err := uploadToCloudinary(fileBytes, folder); err == nil { fileURL = cloudURL }
+	}
+	// Сохраняем метаданные в сообщении (добавим при отправке)
+	json.NewEncoder(w).Encode(map[string]string{"file_url": fileURL, "file_type": fileType, "file_name": fileName, "file_size": strconv.FormatInt(fileSize, 10)})
 }
 
 func handleCreateChat(w http.ResponseWriter, r *http.Request) {
@@ -1031,7 +1103,8 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		}
 		if msg.Action == "reaction" { msg.Type = "reaction" }
 		sendChatNotificationIfNew(username, msg.ChatID, nickname)
-		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar, read, edited, file_url, file_type, reply_to, reply_text, reply_nick) VALUES ($1, $2, $3, $4, $5, $6, false, false, $7, $8, $9, $10, $11)", msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar, msg.FileURL, msg.FileType, msg.ReplyTo, msg.ReplyText, msg.ReplyNick)
+		// Сохраняем сообщение с метаданными файла
+		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar, read, edited, file_url, file_type, reply_to, reply_text, reply_nick, file_name, file_size) VALUES ($1, $2, $3, $4, $5, $6, false, false, $7, $8, $9, $10, $11, $12, $13)", msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar, msg.FileURL, msg.FileType, msg.ReplyTo, msg.ReplyText, msg.ReplyNick, msg.FileName, msg.FileSize)
 		select { case broadcast <- msg: default: log.Println("⚠️ broadcast канал переполнен") }
 	}
 }
@@ -1056,7 +1129,7 @@ func handleMessages() {
 		for c := range clients {
 			clientUser := clients[c]
 			if blockedUsers[clientUser] != nil && blockedUsers[clientUser][msg.Username] { continue }
-			c.WriteJSON(map[string]interface{}{"id": msg.ID, "username": msg.Username, "nickname": msg.Nickname, "text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID, "avatar": msg.Avatar, "read": msg.Read, "edited": msg.Edited, "file_url": msg.FileURL, "file_type": msg.FileType, "reply_to": msg.ReplyTo, "reply_text": msg.ReplyText, "reply_nick": msg.ReplyNick, "type": msg.Type})
+			c.WriteJSON(map[string]interface{}{"id": msg.ID, "username": msg.Username, "nickname": msg.Nickname, "text": msg.Text, "time": msg.Time, "chat_id": msg.ChatID, "avatar": msg.Avatar, "read": msg.Read, "edited": msg.Edited, "file_url": msg.FileURL, "file_type": msg.FileType, "reply_to": msg.ReplyTo, "reply_text": msg.ReplyText, "reply_nick": msg.ReplyNick, "file_name": msg.FileName, "file_size": msg.FileSize, "type": msg.Type})
 		}
 		mu.Unlock()
 	}
