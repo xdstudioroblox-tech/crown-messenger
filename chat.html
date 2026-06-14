@@ -347,7 +347,48 @@ function closeSidebar(){document.getElementById('sidebar').classList.remove('ope
 if(window.innerWidth<=768)setTimeout(function(){openSidebar()},300);
 var touchStartX=0;document.addEventListener('touchstart',function(e){touchStartX=e.touches[0].clientX});document.addEventListener('touchend',function(e){var d=e.changedTouches[0].clientX-touchStartX;if(d>80&&touchStartX<30)openSidebar();if(d<-80&&document.getElementById('sidebar').classList.contains('open'))closeSidebar()});
 
-document.getElementById('searchInput').oninput=function(){clearTimeout(searchTimeout);var q=this.value.trim(),rd=document.getElementById('searchResults');if(q.length<1){rd.classList.remove('show');return}searchTimeout=setTimeout(async function(){try{var r=await fetch('/api/search?q='+encodeURIComponent(q));var data=await r.json();rd.innerHTML='';if(data.success){if(data.users)data.users.forEach(function(u){var d=document.createElement('div');d.className='search-result-item';d.innerHTML=(u.avatar?'<img class="chat-avatar" src="'+u.avatar+'">':'<div class="chat-avatar-placeholder">'+getInitials(u.nickname)+'</div>')+'<span><b>'+u.nickname+'</b> <span style="color:var(--text-light);">@'+u.username+'</span></span>';d.onclick=function(){rd.classList.remove('show');document.getElementById('searchInput').value='';openProfile(u.username)};rd.appendChild(d)});if(data.groups)data.groups.forEach(function(g){var d=document.createElement('div');d.className='search-result-item';d.innerHTML='<div class="chat-avatar-placeholder">'+getInitials(g.name)+'</div><span><b>'+g.name+'</b> <span style="color:var(--text-light);">👥</span></span>';d.onclick=function(){rd.classList.remove('show');document.getElementById('searchInput').value='';switchToChat(g.id,g.name,true)};rd.appendChild(d)})}rd.classList.add('show')}catch(e){}},300)};
+document.getElementById('searchInput').oninput=function(){
+    clearTimeout(searchTimeout);
+    var q=this.value.trim(),rd=document.getElementById('searchResults');
+    if(q.length<1){rd.classList.remove('show');return}
+    searchTimeout=setTimeout(async function(){
+        try{
+            var r=await fetch('/api/search?q='+encodeURIComponent(q));
+            var data=await r.json();
+            rd.innerHTML='';
+            if(data.success){
+                if(data.users && data.users.length > 0){
+                    data.users.forEach(function(u){
+                        var d=document.createElement('div');
+                        d.className='search-result-item';
+                        d.innerHTML=(u.avatar?'<img class="chat-avatar" src="'+escapeHtml(u.avatar)+'">':'<div class="chat-avatar-placeholder">'+getInitials(u.nickname)+'</div>')+
+                            '<span><b>'+escapeHtml(u.nickname)+'</b> <span style="color:var(--text-light);">@'+escapeHtml(u.username)+'</span></span>';
+                        d.onclick=function(){rd.classList.remove('show');document.getElementById('searchInput').value='';openProfile(u.username)};
+                        rd.appendChild(d);
+                    });
+                }
+                if(data.groups && data.groups.length > 0){
+                    data.groups.forEach(function(g){
+                        var d=document.createElement('div');
+                        d.className='search-result-item';
+                        d.innerHTML='<div class="chat-avatar-placeholder">'+getInitials(g.name)+'</div><span><b>'+escapeHtml(g.name)+'</b> <span style="color:var(--text-light);">👥</span></span>';
+                        d.onclick=function(){rd.classList.remove('show');document.getElementById('searchInput').value='';switchToChat(g.id,g.name,true)};
+                        rd.appendChild(d);
+                    });
+                }
+                if((!data.users || data.users.length === 0) && (!data.groups || data.groups.length === 0)){
+                    rd.innerHTML='<div class="search-result-item" style="color:var(--text-light);">Ничего не найдено</div>';
+                }
+            } else {
+                rd.innerHTML='<div class="search-result-item" style="color:var(--text-light);">Ошибка поиска</div>';
+            }
+            rd.classList.add('show');
+        }catch(e){
+            console.error('Ошибка поиска:', e);
+        }
+    },300);
+};
+
 function openMsgSearch(){document.getElementById('msgSearchBar').classList.add('show');document.getElementById('msgSearchInput').focus()}
 function closeMsgSearch(){document.getElementById('msgSearchBar').classList.remove('show');document.getElementById('msgSearchInput').value='';clearHighlights()}
 function searchInMessages(){var q=document.getElementById('msgSearchInput').value.trim();clearHighlights();searchResults=[];currentSearchIdx=-1;if(!q){document.getElementById('msgSearchCount').textContent='';return}var msgs=document.querySelectorAll('.message');msgs.forEach(function(m){var text=m.querySelector('.message-bubble')?.textContent||'';if(text.toLowerCase().includes(q.toLowerCase())){searchResults.push(m);highlightText(m,q)}});document.getElementById('msgSearchCount').textContent=searchResults.length+' совпадений';if(searchResults.length>0)nextSearchResult()}
@@ -395,7 +436,11 @@ async function openProfile(u){
     viewingProfile=u;var isMe=(u===username);
     try{
         var r=await fetch('/api/profile?username='+u);
-        if(!r.ok)return;
+        if(!r.ok){
+            var errData = await r.json().catch(function(){ return {error: 'Пользователь не найден'}; });
+            alert(errData.error || 'Пользователь не найден');
+            return;
+        }
         var user=await r.json();
         document.getElementById('profileNickname').value=user.nickname||'';
         document.getElementById('profileUsername').value=user.username||'';
@@ -415,7 +460,10 @@ async function openProfile(u){
         document.getElementById('profileAbout').disabled=!isMe;
         document.getElementById('profileModal').classList.add('show');
         loadUserGifts(u);
-    }catch(e){}
+    }catch(e){
+        console.error('Ошибка загрузки профиля:', e);
+        alert('Не удалось загрузить профиль');
+    }
 }
 function closeProfile(){document.getElementById('profileModal').classList.remove('show')}
 document.getElementById('profileSaveBtn').onclick=async function(){var nick=document.getElementById('profileNickname').value.trim(),about=document.getElementById('profileAbout').value.trim();await fetch('/api/profile',{method:'PUT',headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify({nickname:nick,about:about})});nickname=nick||nickname;closeProfile()};
@@ -477,7 +525,7 @@ function removeTypingIndicator(){var el=document.getElementById('typingIndicator
 setInterval(function(){updateTypingIndicator()},2000);
 
 function checkMention(){var input=document.getElementById('messageInput'),text=input.value,cursorPos=input.selectionStart,lastAt=text.lastIndexOf('@',cursorPos-1);if(lastAt!==-1){var afterAt=text.substring(lastAt+1,cursorPos);if(!afterAt.includes(' ')){loadMentionSuggestions(afterAt);return}}document.getElementById('mentionSuggestions').classList.remove('show')}
-async function loadMentionSuggestions(query){var ms=document.getElementById('mentionSuggestions');if(query.length<1){ms.classList.remove('show');return}try{var r=await fetch('/api/search?q='+query),data=await r.json();ms.innerHTML='';if(data.users&&data.users.length>0){data.users.forEach(function(u){var d=document.createElement('div');d.className='mention-item';d.innerHTML='<div class="chat-avatar-placeholder" style="width:26px;height:26px;font-size:10px;">'+getInitials(u.nickname)+'</div><span>'+u.nickname+'</span>';d.onclick=function(){insertMention(u.username);ms.classList.remove('show')};ms.appendChild(d)});ms.classList.add('show')}else{ms.classList.remove('show')}}catch(e){}}
+async function loadMentionSuggestions(query){var ms=document.getElementById('mentionSuggestions');if(query.length<1){ms.classList.remove('show');return}try{var r=await fetch('/api/search?q='+query),data=await r.json();ms.innerHTML='';if(data.users&&data.users.length>0){data.users.forEach(function(u){var d=document.createElement('div');d.className='mention-item';d.innerHTML='<div class="chat-avatar-placeholder" style="width:26px;height:26px;font-size:10px;">'+getInitials(u.nickname)+'</div><span>'+escapeHtml(u.nickname)+'</span>';d.onclick=function(){insertMention(u.username);ms.classList.remove('show')};ms.appendChild(d)});ms.classList.add('show')}else{ms.classList.remove('show')}}catch(e){}}
 function insertMention(un){var input=document.getElementById('messageInput'),text=input.value,cursorPos=input.selectionStart,lastAt=text.lastIndexOf('@',cursorPos-1);if(lastAt!==-1){var before=text.substring(0,lastAt),after=text.substring(cursorPos);input.value=before+'@'+un+' '+after;input.focus()}}
 
 function setReply(id,text,nick){replyToId=id;replyToText=text;replyToNick=nick;document.getElementById('replyText').innerHTML='↩ <b>'+escapeHtml(nick)+'</b>: '+escapeHtml((text||'').substring(0,60));document.getElementById('replyBar').classList.add('show');document.getElementById('messageInput').focus()}

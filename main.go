@@ -478,7 +478,10 @@ func handleReactions(w http.ResponseWriter, r *http.Request) {
 			MessageID int    `json:"message_id"`
 			Emoji     string `json:"emoji"`
 		}
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			json.NewEncoder(w).Encode(map[string]string{"error": "Неверный запрос"})
+			return
+		}
 
 		var existingID int
 		err := db.QueryRow("SELECT id FROM reactions WHERE message_id = $1 AND username = $2 AND emoji = $3", req.MessageID, currentUser, req.Emoji).Scan(&existingID)
@@ -504,7 +507,11 @@ func handleReactions(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode([]Reaction{})
 			return
 		}
-		rows, _ := db.Query("SELECT id, message_id, username, emoji, (username = $2) as mine FROM reactions WHERE message_id = $1", messageID, currentUser)
+		rows, err := db.Query("SELECT id, message_id, username, emoji, (username = $2) as mine FROM reactions WHERE message_id = $1", messageID, currentUser)
+		if err != nil {
+			json.NewEncoder(w).Encode([]Reaction{})
+			return
+		}
 		defer rows.Close()
 		var reactions []Reaction
 		for rows.Next() {
@@ -581,14 +588,22 @@ func handleAdminAddBalance(w http.ResponseWriter, r *http.Request) {
 		Username string `json:"username"`
 		Amount   int    `json:"amount"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Неверный запрос"})
+		return
+	}
 	if req.Username == "" || req.Amount <= 0 {
 		json.NewEncoder(w).Encode(map[string]string{"error": "Неверные параметры"})
 		return
 	}
 
-	_, err := db.Exec("UPDATE users SET balance = COALESCE(balance, 0) + $1 WHERE username = $2", req.Amount, req.Username)
+	result, err := db.Exec("UPDATE users SET balance = COALESCE(balance, 0) + $1 WHERE username = $2", req.Amount, req.Username)
 	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Ошибка базы данных"})
+		return
+	}
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
 		json.NewEncoder(w).Encode(map[string]string{"error": "Пользователь не найден"})
 		return
 	}
@@ -597,7 +612,11 @@ func handleAdminAddBalance(w http.ResponseWriter, r *http.Request) {
 
 func handleGifts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	rows, _ := db.Query("SELECT id, name, emoji, price, icon_url FROM gifts ORDER BY price ASC")
+	rows, err := db.Query("SELECT id, name, emoji, price, icon_url FROM gifts ORDER BY price ASC")
+	if err != nil {
+		json.NewEncoder(w).Encode([]Gift{})
+		return
+	}
 	defer rows.Close()
 	var gifts []Gift
 	for rows.Next() {
@@ -627,7 +646,10 @@ func handleSendGift(w http.ResponseWriter, r *http.Request) {
 		GiftID   int    `json:"gift_id"`
 		Comment  string `json:"comment"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Неверный запрос"})
+		return
+	}
 	if req.Username == "" || req.GiftID <= 0 {
 		json.NewEncoder(w).Encode(map[string]string{"error": "Неверные параметры"})
 		return
@@ -667,7 +689,11 @@ func handleMyGifts(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	rows, _ := db.Query("SELECT ug.id, ug.gift_id, g.name, g.emoji, g.icon_url, ug.from_user, ug.comment, ug.created_at FROM user_gifts ug JOIN gifts g ON ug.gift_id = g.id WHERE ug.username = $1 ORDER BY ug.id DESC", currentUser)
+	rows, err := db.Query("SELECT ug.id, ug.gift_id, g.name, g.emoji, g.icon_url, ug.from_user, ug.comment, ug.created_at FROM user_gifts ug JOIN gifts g ON ug.gift_id = g.id WHERE ug.username = $1 ORDER BY ug.id DESC", currentUser)
+	if err != nil {
+		json.NewEncoder(w).Encode([]UserGift{})
+		return
+	}
 	defer rows.Close()
 	var gifts []UserGift
 	for rows.Next() {
@@ -695,7 +721,10 @@ func handleSellGift(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		GiftID int `json:"gift_id"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Неверный запрос"})
+		return
+	}
 
 	var owner string
 	var giftPrice int
@@ -719,7 +748,11 @@ func handleUserGifts(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]UserGift{})
 		return
 	}
-	rows, _ := db.Query("SELECT ug.id, ug.gift_id, g.name, g.emoji, g.icon_url, ug.from_user, ug.comment, ug.created_at FROM user_gifts ug JOIN gifts g ON ug.gift_id = g.id WHERE ug.username = $1 ORDER BY ug.id DESC", un)
+	rows, err := db.Query("SELECT ug.id, ug.gift_id, g.name, g.emoji, g.icon_url, ug.from_user, ug.comment, ug.created_at FROM user_gifts ug JOIN gifts g ON ug.gift_id = g.id WHERE ug.username = $1 ORDER BY ug.id DESC", un)
+	if err != nil {
+		json.NewEncoder(w).Encode([]UserGift{})
+		return
+	}
 	defer rows.Close()
 	var gifts []UserGift
 	for rows.Next() {
@@ -748,7 +781,10 @@ func handlePinMessage(w http.ResponseWriter, r *http.Request) {
 		MessageID int    `json:"message_id"`
 		Text      string `json:"text"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
 	if req.ChatID == 1 {
 		http.Error(w, "Нельзя закреплять в общем чате", http.StatusBadRequest)
 		return
@@ -770,7 +806,10 @@ func handleUnpinMessage(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ChatID int `json:"chat_id"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
 	db.Exec("DELETE FROM pinned_messages WHERE chat_id = $1", req.ChatID)
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
@@ -782,7 +821,11 @@ func handleGetPinned(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]map[string]interface{}{})
 		return
 	}
-	rows, _ := db.Query("SELECT message_id, text FROM pinned_messages WHERE chat_id = $1", chatID)
+	rows, err := db.Query("SELECT message_id, text FROM pinned_messages WHERE chat_id = $1", chatID)
+	if err != nil {
+		json.NewEncoder(w).Encode([]map[string]interface{}{})
+		return
+	}
 	defer rows.Close()
 	var pinned []map[string]interface{}
 	for rows.Next() {
@@ -889,7 +932,10 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req AuthRequest
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Неверный запрос"})
+		return
+	}
 	req.Username = strings.TrimSpace(escapeHTML(req.Username))
 	req.Nickname = strings.TrimSpace(escapeHTML(req.Nickname))
 	if req.Username == "" || req.Password == "" || req.Nickname == "" {
@@ -922,7 +968,10 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req AuthRequest
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json.NewEncoder(w).Encode(AuthResponse{Success: false, Error: "Неверный запрос"})
+		return
+	}
 	req.Username = strings.TrimSpace(escapeHTML(req.Username))
 	var user User
 	var email, about, avatar, phone, hashedPassword sql.NullString
@@ -965,8 +1014,14 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q = strings.TrimSpace(escapeHTML(q))
-	rows, _ := db.Query("SELECT id, username, nickname, email, about, avatar, COALESCE(phone,'') FROM users WHERE username ILIKE $1 OR nickname ILIKE $2 LIMIT 20", "%"+q+"%", "%"+q+"%")
-	defer rows.Close()
+
+	// Поиск пользователей
+	rows, err := db.Query("SELECT id, username, nickname, email, about, avatar, COALESCE(phone,'') FROM users WHERE username ILIKE $1 OR nickname ILIKE $2 LIMIT 20", "%"+q+"%", "%"+q+"%")
+	if err != nil {
+		log.Printf("❌ Ошибка поиска пользователей: %v", err)
+		json.NewEncoder(w).Encode(SearchResponse{Success: false, Error: "Ошибка поиска"})
+		return
+	}
 	var users []User
 	for rows.Next() {
 		var u User
@@ -978,22 +1033,29 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 		u.Phone = phone.String
 		users = append(users, u)
 	}
+	rows.Close() // Явно закрываем
+
 	if users == nil {
 		users = []User{}
 	}
-	grows, _ := db.Query("SELECT id, name, COALESCE(avatar,''), created_by FROM groups_chat WHERE name ILIKE $1 LIMIT 10", "%"+q+"%")
-	defer grows.Close()
+
+	// Поиск групп
+	grows, err := db.Query("SELECT id, name, COALESCE(avatar,''), created_by FROM groups_chat WHERE name ILIKE $1 LIMIT 10", "%"+q+"%")
 	var groups []GroupInfo
-	for grows.Next() {
-		var g GroupInfo
-		grows.Scan(&g.ID, &g.Name, &g.Avatar, &g.CreatedBy)
-		g.Avatar = getAvatarURL(g.Avatar)
-		g.IsGroup = true
-		groups = append(groups, g)
+	if err == nil {
+		for grows.Next() {
+			var g GroupInfo
+			grows.Scan(&g.ID, &g.Name, &g.Avatar, &g.CreatedBy)
+			g.Avatar = getAvatarURL(g.Avatar)
+			g.IsGroup = true
+			groups = append(groups, g)
+		}
+		grows.Close() // Явно закрываем
 	}
 	if groups == nil {
 		groups = []GroupInfo{}
 	}
+
 	json.NewEncoder(w).Encode(SearchResponse{Success: true, Users: users, Groups: groups})
 }
 
@@ -1031,6 +1093,7 @@ func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 			rows, err = db.Query("SELECT id, username, nickname, text, time, avatar, COALESCE(read,false), COALESCE(edited,false), COALESCE(file_url,''), COALESCE(file_type,''), COALESCE(reply_to,0), COALESCE(reply_text,''), COALESCE(reply_nick,''), COALESCE(file_name,''), COALESCE(file_size,0) FROM messages WHERE chat_id = $1 ORDER BY id DESC LIMIT $2", chatID, limit)
 		}
 		if err != nil {
+			log.Printf("❌ Ошибка загрузки сообщений: %v", err)
 			json.NewEncoder(w).Encode([]Message{})
 			return
 		}
@@ -1043,6 +1106,7 @@ func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 			m.Avatar = getAvatarURL(avatar.String)
 			messages = append(messages, m)
 		}
+		// Переворачиваем для правильного порядка
 		for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
 			messages[i], messages[j] = messages[j], messages[i]
 		}
@@ -1058,7 +1122,10 @@ func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 			ID   int    `json:"id"`
 			Text string `json:"text"`
 		}
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
 		var owner string
 		db.QueryRow("SELECT username FROM messages WHERE id = $1", req.ID).Scan(&owner)
 		if owner != currentUser {
@@ -1078,7 +1145,10 @@ func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			ID int `json:"id"`
 		}
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
 		var owner string
 		db.QueryRow("SELECT username FROM messages WHERE id = $1", req.ID).Scan(&owner)
 		if owner != currentUser {
@@ -1096,28 +1166,36 @@ func handleMessagesAPI(w http.ResponseWriter, r *http.Request) {
 
 func handleProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
 	if r.Method == "GET" {
 		userParam := r.URL.Query().Get("username")
 		if userParam == "" {
+			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(map[string]string{"error": "username required"})
 			return
 		}
 
-		var hasBalance bool
-		db.QueryRow("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='balance')").Scan(&hasBalance)
-
 		var user User
 		var email, about, avatar, phone sql.NullString
 		var balance sql.NullInt64
-		var err error
 
-		if hasBalance {
-			err = db.QueryRow("SELECT id, username, nickname, email, about, avatar, phone, COALESCE(balance, 0) FROM users WHERE username = $1", userParam).Scan(&user.ID, &user.Username, &user.Nickname, &email, &about, &avatar, &phone, &balance)
-		} else {
-			err = db.QueryRow("SELECT id, username, nickname, email, about, avatar, phone FROM users WHERE username = $1", userParam).Scan(&user.ID, &user.Username, &user.Nickname, &email, &about, &avatar, &phone)
-		}
+		// Используем COALESCE для всех nullable полей
+		err := db.QueryRow(`
+			SELECT id, username, nickname, 
+			       COALESCE(email, ''), 
+			       COALESCE(about, ''), 
+			       COALESCE(avatar, ''), 
+			       COALESCE(phone, ''), 
+			       COALESCE(balance, 0) 
+			FROM users WHERE username = $1`, userParam).Scan(
+			&user.ID, &user.Username, &user.Nickname,
+			&email, &about, &avatar, &phone, &balance,
+		)
+
 		if err != nil {
+			log.Printf("❌ Профиль не найден: %s, ошибка: %v", userParam, err)
 			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Пользователь не найден"})
 			return
 		}
 
@@ -1125,14 +1203,13 @@ func handleProfile(w http.ResponseWriter, r *http.Request) {
 		user.About = about.String
 		user.Avatar = getAvatarURL(avatar.String)
 		user.Phone = phone.String
-		if hasBalance {
-			user.Balance = int(balance.Int64)
-		} else {
-			user.Balance = 0
-		}
+		user.Balance = int(balance.Int64)
+		user.Password = "" // Безопасность
+
 		json.NewEncoder(w).Encode(user)
 		return
 	}
+
 	if r.Method == "PUT" {
 		currentUser := getUserFromRequest(r)
 		if currentUser == "" {
@@ -1144,7 +1221,10 @@ func handleProfile(w http.ResponseWriter, r *http.Request) {
 			About    string `json:"about,omitempty"`
 			Phone    string `json:"phone,omitempty"`
 		}
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
 		if req.Nickname != "" {
 			db.Exec("UPDATE users SET nickname = $1 WHERE username = $2", escapeHTML(req.Nickname), currentUser)
 		}
@@ -1165,7 +1245,11 @@ func handleUploadAvatar(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	file, header, _ := r.FormFile("avatar")
+	file, header, err := r.FormFile("avatar")
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Файл не найден"})
+		return
+	}
 	defer file.Close()
 	fileBytes, _ := io.ReadAll(file)
 	ext := filepath.Ext(header.Filename)
@@ -1187,7 +1271,11 @@ func handleUploadFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	file, header, _ := r.FormFile("file")
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Файл не найден"})
+		return
+	}
 	defer file.Close()
 	fileBytes, _ := io.ReadAll(file)
 	ext := strings.ToLower(filepath.Ext(header.Filename))
@@ -1229,7 +1317,10 @@ func handleCreateChat(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		User2 string `json:"user2"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
 	req.User2 = escapeHTML(req.User2)
 	if currentUser == req.User2 {
 		http.Error(w, "Нельзя", http.StatusBadRequest)
@@ -1258,7 +1349,10 @@ func handleDeleteChat(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ChatID int `json:"chat_id"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
 	db.Exec("DELETE FROM messages WHERE chat_id = $1", req.ChatID)
 	db.Exec("DELETE FROM chats WHERE id = $1", req.ChatID)
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
@@ -1274,7 +1368,10 @@ func handleBlockUser(w http.ResponseWriter, r *http.Request) {
 		Username string `json:"username"`
 		Block    bool   `json:"block"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
 	req.Username = escapeHTML(req.Username)
 	if req.Block {
 		db.Exec("INSERT INTO blocked (username, blocked_username) VALUES ($1, $2) ON CONFLICT DO NOTHING", currentUser, req.Username)
@@ -1316,25 +1413,29 @@ func handleChatList(w http.ResponseWriter, r *http.Request) {
 	}
 	var chats []map[string]interface{}
 	chats = append(chats, map[string]interface{}{"chat_id": 1, "peer": "", "is_group": false})
-	rows, _ := db.Query("SELECT c.id, c.user1, c.user2 FROM chats c WHERE (c.user1 = $1 OR c.user2 = $2) AND EXISTS (SELECT 1 FROM messages m WHERE m.chat_id = c.id)", currentUser, currentUser)
-	defer rows.Close()
-	for rows.Next() {
-		var id int
-		var u1, u2 string
-		rows.Scan(&id, &u1, &u2)
-		peer := u1
-		if peer == currentUser {
-			peer = u2
+	rows, err := db.Query("SELECT c.id, c.user1, c.user2 FROM chats c WHERE (c.user1 = $1 OR c.user2 = $2) AND EXISTS (SELECT 1 FROM messages m WHERE m.chat_id = c.id)", currentUser, currentUser)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var id int
+			var u1, u2 string
+			rows.Scan(&id, &u1, &u2)
+			peer := u1
+			if peer == currentUser {
+				peer = u2
+			}
+			chats = append(chats, map[string]interface{}{"chat_id": id, "peer": peer, "is_group": false})
 		}
-		chats = append(chats, map[string]interface{}{"chat_id": id, "peer": peer, "is_group": false})
 	}
-	grows, _ := db.Query("SELECT g.id, g.name FROM groups_chat g JOIN group_members gm ON g.id = gm.group_id WHERE gm.username = $1", currentUser)
-	defer grows.Close()
-	for grows.Next() {
-		var gid int
-		var gn string
-		grows.Scan(&gid, &gn)
-		chats = append(chats, map[string]interface{}{"chat_id": gid, "peer": gn, "is_group": true})
+	grows, err := db.Query("SELECT g.id, g.name FROM groups_chat g JOIN group_members gm ON g.id = gm.group_id WHERE gm.username = $1", currentUser)
+	if err == nil {
+		defer grows.Close()
+		for grows.Next() {
+			var gid int
+			var gn string
+			grows.Scan(&gid, &gn)
+			chats = append(chats, map[string]interface{}{"chat_id": gid, "peer": gn, "is_group": true})
+		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(chats)
@@ -1377,7 +1478,10 @@ func handleMarkRead(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ChatID int `json:"chat_id"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
 	db.Exec("UPDATE messages SET read = true WHERE chat_id = $1 AND username != $2 AND read = false", req.ChatID, currentUser)
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
@@ -1408,7 +1512,10 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		Name   string `json:"name"`
 		Public bool   `json:"public"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
 	req.Name = escapeHTML(strings.TrimSpace(req.Name))
 	if req.Name == "" {
 		json.NewEncoder(w).Encode(map[string]string{"error": "Название обязательно"})
@@ -1418,11 +1525,12 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	var groupID int
 	err := db.QueryRow("INSERT INTO groups_chat (name, created_by, created_at, invite_code, public) VALUES ($1, $2, $3, $4, $5) RETURNING id", req.Name, currentUser, time.Now().Format("2006-01-02 15:04"), inviteCode, req.Public).Scan(&groupID)
 	if err != nil {
-		json.NewEncoder(w).Encode(map[string]string{"error": "Ошибка создания"})
+		log.Printf("❌ Ошибка создания группы: %v", err)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Ошибка создания группы"})
 		return
 	}
-	db.Exec("DELETE FROM group_members WHERE group_id = $1", groupID)
-	db.Exec("INSERT INTO group_members (group_id, username, role) VALUES ($1, $2, 'admin')", groupID, currentUser)
+	// Добавляем создателя как админа (один раз)
+	db.Exec("INSERT INTO group_members (group_id, username, role) VALUES ($1, $2, 'admin') ON CONFLICT (group_id, username) DO NOTHING", groupID, currentUser)
 
 	// Отправляем chat_created ТОЛЬКО создателю
 	mu.Lock()
@@ -1452,7 +1560,10 @@ func handleJoinGroup(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Code string `json:"code"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
 	req.Code = escapeHTML(req.Code)
 	var groupID int
 	var groupName string
@@ -1474,10 +1585,18 @@ func handleJoinGroup(w http.ResponseWriter, r *http.Request) {
 func handleGroupInfoAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	groupID := r.URL.Query().Get("id")
+	if groupID == "" {
+		json.NewEncoder(w).Encode(map[string]string{"error": "id required"})
+		return
+	}
 	var id int
 	var name, avatar, createdBy, createdAt, code, desc string
 	var public bool
-	db.QueryRow("SELECT id, name, COALESCE(avatar,''), created_by, created_at, invite_code, COALESCE(description,''), COALESCE(public,false) FROM groups_chat WHERE id = $1", groupID).Scan(&id, &name, &avatar, &createdBy, &createdAt, &code, &desc, &public)
+	err := db.QueryRow("SELECT id, name, COALESCE(avatar,''), created_by, created_at, invite_code, COALESCE(description,''), COALESCE(public,false) FROM groups_chat WHERE id = $1", groupID).Scan(&id, &name, &avatar, &createdBy, &createdAt, &code, &desc, &public)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Группа не найдена"})
+		return
+	}
 	json.NewEncoder(w).Encode(map[string]interface{}{"id": id, "name": name, "avatar": getAvatarURL(avatar), "created_by": createdBy, "created_at": createdAt, "invite_code": code, "description": desc, "public": public})
 }
 
@@ -1494,7 +1613,10 @@ func handleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 		Description string `json:"description,omitempty"`
 		Public      bool   `json:"public,omitempty"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
 	var role string
 	db.QueryRow("SELECT role FROM group_members WHERE group_id = $1 AND username = $2", req.ID, currentUser).Scan(&role)
 	if role != "admin" {
@@ -1514,7 +1636,15 @@ func handleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 func handleGroupMembers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	groupID := r.URL.Query().Get("id")
-	rows, _ := db.Query("SELECT gm.username, gm.role, u.nickname, COALESCE(u.avatar,'') FROM group_members gm JOIN users u ON gm.username = u.username WHERE gm.group_id = $1", groupID)
+	if groupID == "" {
+		json.NewEncoder(w).Encode([]map[string]interface{}{})
+		return
+	}
+	rows, err := db.Query("SELECT gm.username, gm.role, u.nickname, COALESCE(u.avatar,'') FROM group_members gm JOIN users u ON gm.username = u.username WHERE gm.group_id = $1", groupID)
+	if err != nil {
+		json.NewEncoder(w).Encode([]map[string]interface{}{})
+		return
+	}
 	defer rows.Close()
 	var members []map[string]interface{}
 	for rows.Next() {
@@ -1557,7 +1687,10 @@ func handleGroupLeave(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		GroupID int `json:"group_id"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
 	db.Exec("DELETE FROM group_members WHERE group_id = $1 AND username = $2", req.GroupID, currentUser)
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
@@ -1616,7 +1749,11 @@ func handleStickerList(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]Sticker{})
 		return
 	}
-	rows, _ := db.Query("SELECT id, pack_id, url FROM stickers WHERE pack_id = $1 ORDER BY id ASC", packID)
+	rows, err := db.Query("SELECT id, pack_id, url FROM stickers WHERE pack_id = $1 ORDER BY id ASC", packID)
+	if err != nil {
+		json.NewEncoder(w).Encode([]Sticker{})
+		return
+	}
 	defer rows.Close()
 	var stickers []Sticker
 	for rows.Next() {
@@ -1659,7 +1796,11 @@ func handleGifUpload(w http.ResponseWriter, r *http.Request) {
 
 func handleGifList(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	rows, _ := db.Query("SELECT id, url, owner FROM gifs ORDER BY id DESC LIMIT 50")
+	rows, err := db.Query("SELECT id, url, owner FROM gifs ORDER BY id DESC LIMIT 50")
+	if err != nil {
+		json.NewEncoder(w).Encode([]Gif{})
+		return
+	}
 	defer rows.Close()
 	var gifs []Gif
 	for rows.Next() {
@@ -1684,7 +1825,10 @@ func handleStickerPacks(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Name string `json:"name"`
 		}
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
 		req.Name = escapeHTML(strings.TrimSpace(req.Name))
 		if req.Name == "" {
 			json.NewEncoder(w).Encode(map[string]string{"error": "Название обязательно"})
@@ -1695,7 +1839,11 @@ func handleStickerPacks(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{"pack_id": packID, "name": req.Name})
 		return
 	}
-	rows, _ := db.Query("SELECT id, name, owner FROM sticker_packs WHERE owner = $1 OR public = true", currentUser)
+	rows, err := db.Query("SELECT id, name, owner FROM sticker_packs WHERE owner = $1 OR public = true", currentUser)
+	if err != nil {
+		json.NewEncoder(w).Encode([]StickerPack{})
+		return
+	}
 	defer rows.Close()
 	var packs []StickerPack
 	for rows.Next() {
@@ -1715,13 +1863,28 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	token, _ := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) { return jwtSecret, nil })
-	claims := token.Claims.(jwt.MapClaims)
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) { return jwtSecret, nil })
+	if err != nil || !token.Valid {
+		log.Printf("❌ Невалидный JWT токен")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	username := claims["username"].(string)
 	nickname := getNickname(username)
 	avatar := getAvatar(username)
-	ws, _ := upgrader.Upgrade(w, r, nil)
+
+	ws, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("❌ Ошибка апгрейда WebSocket: %v", err)
+		return
+	}
 	defer ws.Close()
+
 	mu.Lock()
 	clients[ws] = username
 	onlineUsers[username] = true
@@ -1730,16 +1893,20 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		blockedUsers[username] = make(map[string]bool)
 	}
 	rows, _ := db.Query("SELECT blocked_username FROM blocked WHERE username = $1", username)
-	defer rows.Close()
-	for rows.Next() {
-		var bu string
-		rows.Scan(&bu)
-		blockedUsers[username][bu] = true
+	if rows != nil {
+		defer rows.Close()
+		for rows.Next() {
+			var bu string
+			rows.Scan(&bu)
+			blockedUsers[username][bu] = true
+		}
 	}
 	userChats[ws] = getUserChats(username)
 	mu.Unlock()
+
 	log.Printf("🔌 %s подключился. Всего: %d", username, len(clients))
 	broadcastOnlineCount()
+
 	for {
 		var msg Message
 		if err := ws.ReadJSON(&msg); err != nil {
@@ -1778,7 +1945,10 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			msg.Type = "reaction"
 		}
 		sendChatNotificationIfNew(username, msg.ChatID, nickname)
-		db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar, read, edited, file_url, file_type, reply_to, reply_text, reply_nick, file_name, file_size) VALUES ($1, $2, $3, $4, $5, $6, false, false, $7, $8, $9, $10, $11, $12, $13)", msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar, msg.FileURL, msg.FileType, msg.ReplyTo, msg.ReplyText, msg.ReplyNick, msg.FileName, msg.FileSize)
+		_, err := db.Exec("INSERT INTO messages (username, nickname, text, time, chat_id, avatar, read, edited, file_url, file_type, reply_to, reply_text, reply_nick, file_name, file_size) VALUES ($1, $2, $3, $4, $5, $6, false, false, $7, $8, $9, $10, $11, $12, $13)", msg.Username, msg.Nickname, msg.Text, msg.Time, msg.ChatID, avatar, msg.FileURL, msg.FileType, msg.ReplyTo, msg.ReplyText, msg.ReplyNick, msg.FileName, msg.FileSize)
+		if err != nil {
+			log.Printf("❌ Ошибка сохранения сообщения: %v", err)
+		}
 		select {
 		case broadcast <- msg:
 		default:
@@ -1849,11 +2019,9 @@ func handleMessages() {
 
 func broadcastOnlineCount() {
 	mu.Lock()
-	c := len(clients)
-	mu.Unlock()
-	mu.Lock()
+	count := len(clients)
 	for cl := range clients {
-		cl.WriteJSON(map[string]interface{}{"username": "system", "type": "online_count", "text": fmt.Sprintf("%d", c), "time": "online"})
+		cl.WriteJSON(map[string]interface{}{"username": "system", "type": "online_count", "text": fmt.Sprintf("%d", count), "time": "online"})
 	}
 	mu.Unlock()
 }

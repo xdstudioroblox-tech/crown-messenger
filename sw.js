@@ -48,7 +48,6 @@ self.addEventListener('fetch', function(event) {
     );
 });
 
-// Push-уведомления
 self.addEventListener('push', function(event) {
     var data = {};
     if (event.data) {
@@ -86,7 +85,6 @@ self.addEventListener('notificationclick', function(event) {
     );
 });
 
-// Подписка на push
 self.addEventListener('message', function(event) {
     if (event.data && event.data.type === 'subscribe') {
         self.registration.pushManager.subscribe({
